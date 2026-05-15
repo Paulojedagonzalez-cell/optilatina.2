@@ -436,8 +436,34 @@ tr:hover td{background:#061215}
 `;
 
 // ══════════════════════════════════════════════════════════════════════════════
+const fmtUSD = (n=0) => "$"+Number(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtBs  = (n=0,r=36) => "Bs "+Number(n*r).toLocaleString("es-VE",{minimumFractionDigits:2,maximumFractionDigits:2});
+const getStock = p => p.isService ? 999 : (p.serials ? p.serials.length : (p.stock || 0));
+
+const CATS = ["Montura","Lente","Lente de contacto","Accesorio","Servicio","Otro"];
+const FRAME_TYPES = ["Clásica","Metálica","Sin aro","Deportiva","Aviador","Redonda","Cuadrada","Ojo de gato","Wraparound","Otro"];
+const CRYSTAL_TYPES = ["Monofocal","Progresivo","Bifocal","Antirreflejante","Fotocromático","Polarizado","UV400","Blue-Cut","Otro"];
+const LAB_LIST = ["Sin laboratorio","LUX","INDO","HOYA","Shamir","Essilor","Kodak","Zeiss","Rodenstock","Otro"];
+
 const DEFAULT_PAYMENTS = { usdt:{address:"",network:"TRC20"}, zelle:{email:"",phone:"",name:""}, bank:{bank:"",account:"",phone:"",name:""} };
-const DEFAULT_PROFILES_DATA = { owner:{name:"Mi perfil",email:"",phone:""}, rene:{name:"René",email:"",phone:""}, local:{name:"Tienda",email:"",phone:""} };
+const DEFAULT_PROFILES_DATA = { owner:{name:"P.G",email:"",phone:""}, rene:{name:"René",email:"",phone:""}, local:{name:"Tienda",email:"",phone:""} };
+const DEFAULT_DYN_PROFILES = [
+  {id:"owner",        name:"P.G",       role:"admin", color:"#0e7a8c", pin:"1290", storeName:null,          address:null,     phone:"", email:"", description:"Propietario", photo:null},
+  {id:"rene",         name:"René",      role:"admin", color:"#10b981", pin:"2607", storeName:null,          address:null,     phone:"", email:"", description:"Socio",       photo:null},
+  {id:"store_chinita",name:"Optilatina",role:"store", color:"#f59e0b", pin:"0000", storeName:"Optilatina",  address:"Chinita",phone:"", email:"", description:"",            photo:null},
+];
+const PROFILES = DEFAULT_DYN_PROFILES;
+const PROFIT_SPLIT = { owner:0.55, rene:0.45 };
+
+const DEMO_INV = [
+  {id:"di1",name:"Montura Ray-Ban RB5154",       cat:"Montura",          cost:14, price:30, isService:false, serials:["ARZ-RB001","ARZ-RB002","ARZ-RB003","ARZ-RB004"], photo:null, description:""},
+  {id:"di2",name:"Montura Oakley OX8046",         cat:"Montura",          cost:20, price:45, isService:false, serials:["ARZ-OK001","ARZ-OK002"], photo:null, description:""},
+  {id:"di3",name:"Lente Progresivo Hoya",         cat:"Lente",            cost:10, price:25, isService:false, serials:["LPH-001","LPH-002","LPH-003","LPH-004"], photo:null, description:""},
+  {id:"di4",name:"Lente Antirreflejante",         cat:"Lente",            cost:5,  price:12, isService:false, serials:["LAR-001","LAR-002","LAR-003","LAR-004","LAR-005","LAR-006"], photo:null, description:""},
+  {id:"di5",name:"Lente de Contacto Acuvue",      cat:"Lente de contacto",cost:7,  price:13, isService:false, serials:["LCA-001","LCA-002","LCA-003"], photo:null, description:""},
+  {id:"di6",name:"Estuche de lujo",               cat:"Accesorio",        cost:1.5,price:4,  isService:false, serials:["EST-001","EST-002","EST-003","EST-004","EST-005"], photo:null, description:""},
+  {id:"di7",name:"Ajuste y limpieza",             cat:"Servicio",         cost:0,  price:2,  isService:true,  serials:[], photo:null, description:""},
+];
 const PAY_METHODS = [
   {id:"efectivo",      label:"Efectivo",       icon:"💵"},
   {id:"usdt",          label:"USDT",           icon:"🔐"},
@@ -453,7 +479,6 @@ const EXPENSE_CATS = [
   {id:"wifi",       label:"WiFi",            icon:"📶", dueDay:-1, schedule:"Último día del mes",    defaultAmt:null},
   {id:"otro",       label:"Otro",            icon:"📋", dueDay:null, schedule:null,                  defaultAmt:null},
 ];
-const PROFIT_SPLIT = { owner:0.55, rene:0.45 };
 const IMoney = () => <Svg d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>;
 const ITag   = () => <Svg d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" s={16}/>;
 const IBarcode=() => <Svg d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" s={16}/>;
