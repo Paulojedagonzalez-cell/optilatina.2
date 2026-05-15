@@ -455,6 +455,26 @@ const DEFAULT_DYN_PROFILES = [
 const PROFILES = DEFAULT_DYN_PROFILES;
 const PROFIT_SPLIT = { owner:0.55, rene:0.45 };
 
+// Logo components — SVG inline (no depende de archivos externos)
+const Logo = ({s=34}) => (
+  <svg width={s} height={s} viewBox="0 0 100 100" style={{borderRadius:s*.22}}>
+    <rect width="100" height="100" fill="#040d10"/>
+    <circle cx="50" cy="50" r="38" fill="none" stroke="#0e7a8c" strokeWidth="8"/>
+    <ellipse cx="50" cy="50" rx="22" ry="10" fill="none" stroke="#2dcfe8" strokeWidth="5"/>
+    <circle cx="35" cy="50" r="5" fill="#2dcfe8"/>
+    <circle cx="65" cy="50" r="5" fill="#2dcfe8"/>
+  </svg>
+);
+const Logo2 = ({s=44}) => (
+  <svg width={s} height={s} viewBox="0 0 100 100" style={{borderRadius:s*.15}}>
+    <rect width="100" height="100" fill="#040d10"/>
+    <circle cx="50" cy="45" r="32" fill="none" stroke="#b8960c" strokeWidth="7"/>
+    <path d="M 30 45 Q 50 25 70 45" fill="none" stroke="#1a4a8c" strokeWidth="8" strokeLinecap="round"/>
+    <path d="M 38 45 L 38 62 L 55 62 L 55 55 L 62 55" fill="none" stroke="#1a4a8c" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round"/>
+    <text x="50" y="88" textAnchor="middle" fontSize="11" fill="#b8960c" fontFamily="Georgia,serif" fontStyle="italic">Optilatina</text>
+  </svg>
+);
+
 const DEMO_INV = [
   {id:"di1",name:"Montura Ray-Ban RB5154",       cat:"Montura",          cost:14, price:30, isService:false, serials:["ARZ-RB001","ARZ-RB002","ARZ-RB003","ARZ-RB004"], photo:null, description:""},
   {id:"di2",name:"Montura Oakley OX8046",         cat:"Montura",          cost:20, price:45, isService:false, serials:["ARZ-OK001","ARZ-OK002"], photo:null, description:""},
