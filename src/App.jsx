@@ -438,6 +438,7 @@ tr:hover td{background:#061215}
 // ══════════════════════════════════════════════════════════════════════════════
 const DEFAULT_PAYMENTS = { usdt:{address:"",network:"TRC20"}, zelle:{email:"",phone:"",name:""}, bank:{bank:"",account:"",phone:"",name:""} };
 const DEFAULT_PROFILES_DATA = { owner:{name:"Mi perfil",email:"",phone:""}, rene:{name:"René",email:"",phone:""}, local:{name:"Tienda",email:"",phone:""} };
+const DEFAULT_DYN_PROFILES = [];
 const PAY_METHODS = [
   {id:"efectivo",      label:"Efectivo",       icon:"💵"},
   {id:"usdt",          label:"USDT",           icon:"🔐"},
