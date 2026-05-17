@@ -26,7 +26,7 @@ import {
   initializeApp, getApps,
 } from "firebase/app";
 import {
-  getFirestore, enableIndexedDbPersistence,
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   collection, doc, getDocs, setDoc, deleteDoc,
   onSnapshot, query, orderBy, writeBatch, getDoc,
 } from "firebase/firestore";
@@ -36,14 +36,13 @@ const firebaseApp = getApps().length
   ? getApps()[0]
   : initializeApp(FIREBASE_CONFIG);
 
-const db = CONFIGURED ? getFirestore(firebaseApp) : null;
-
-// Habilitar persistencia offline (cache local automático)
-if (db) {
-  enableIndexedDbPersistence(db).catch(() => {
-    // Puede fallar si hay varias pestañas abiertas — no es crítico
-  });
-}
+const db = CONFIGURED
+  ? initializeFirestore(firebaseApp, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    })
+  : null;
 
 // ── CRUD helpers ──────────────────────────────────────────────────────────────
 const DB = {
