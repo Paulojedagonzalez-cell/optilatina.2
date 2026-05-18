@@ -209,7 +209,6 @@ const load = async () => null;
 const save = async () => {};
 const useIsMobile = () => {
   const [m, setM] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
-  useEffect(() => {
     const fn = () => setM(window.innerWidth < 768);
     window.addEventListener("resize", fn);
     return () => window.removeEventListener("resize", fn);
@@ -224,6 +223,18 @@ const g = {
   colAuto: (min = 175) => ({ display: "grid", gridTemplateColumns: `repeat(auto-fit,minmax(${min}px,1fr))`, gap: 13 }),
 };
 
+
+const CATS = ["Montura","Lente","Lente de contacto","Accesorio","Servicio"];
+const PROFILES = [{id:"owner",name:"P.G",color:"#0e7a8c",role:"admin"},{id:"rene",name:"René",color:"#10b981",role:"admin"},{id:"local",name:"Tienda",color:"#8b5cf6",role:"store"}];
+const fmt = v => `$${(+v||0).toFixed(2)}`;
+const fmtUSD = v => `$${(+v||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+const fmtBs = (v,r) => `Bs ${((+v||0)*(+r||1)).toLocaleString("es-VE",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+const getStock = p => p.isService ? Infinity : (p.serials?.length ?? 0);
+const Logo2 = ({s=40}) => <svg width={s} height={s} viewBox='0 0 40 40' fill='none'><rect width='40' height='40' rx='10' fill='#6d28d9'/><text x='20' y='27' textAnchor='middle' fontSize={16} fontWeight='bold' fill='white'>OL2</text></svg>;
+const DEMO_INV = [{id:"di1",name:"Montura Ray-Ban RB5154",cat:"Montura",cost:14,price:30,isService:false,serials:["RB-001","RB-002","RB-003"],photo:null,description:""},{id:"di2",name:"Montura Oakley OX8046",cat:"Montura",cost:20,price:45,isService:false,serials:["OAK-001","OAK-002"],photo:null,description:""},{id:"di3",name:"Lente Progresivo Hoya",cat:"Lente",cost:10,price:25,isService:false,serials:["HP-001","HP-002","HP-003"],photo:null,description:""},{id:"di4",name:"Lente Antirreflejante",cat:"Lente",cost:5,price:12,isService:false,serials:["LA-001","LA-002","LA-003","LA-004"],photo:null,description:""},{id:"di5",name:"Lente de Contacto Acuvue (caja)",cat:"Lente de contacto",cost:7,price:13,isService:false,serials:["LC-001","LC-002"],photo:null,description:""},{id:"di6",name:"Estuche de lujo",cat:"Accesorio",cost:1.5,price:4,isService:false,serials:["ES-001","ES-002","ES-003","ES-004"],photo:null,description:""},{id:"di7",name:"Ajuste y limpieza",cat:"Servicio",cost:0,price:2,isService:true,serials:[],photo:null,description:""}];
+const FRAME_TYPES = ["Completa","Semiaérea","Aérea","Al aire","Plegable","Deportiva","Infantil","Otro"];
+const CRYSTAL_TYPES = ["Monofocal","Bifocal","Progresivo","Degresivo","Ocupacional","Contacto","Fotocromático","Antirreflejante","Otro"];
+const LAB_LIST = ["— Sin laboratorio —","Optilab","Varilux","Hoya","Essilor","Zeiss","Shamir","Indo","Otro"];
 
 // ── Demo sales ────────────────────────────────────────────────────────────────
 const DS = (date,product,cat,cost,price,qty,pay,by) => ({
@@ -511,7 +522,7 @@ try {
       DB.listen("inventory",   d => setInventory(d.length ? d : DEMO_INV)),
       DB.listen("sales",       d => setSales(d)),
       DB.listen("expenses",    d => setExpenses(d)),
-      DB.listen("deposits",    d => setDeposits(hd)),
+      DB.listen("deposits",    d => setDeposits(d)),
       DB.listen("investments", d => setInvestments(d)),
       DB.listenSetting("rate",          v => setRateState(v)),
       DB.listenSetting("payments",      v => setPayments(v)),
