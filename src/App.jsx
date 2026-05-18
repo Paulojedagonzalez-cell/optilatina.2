@@ -6,7 +6,7 @@ const today = () => new Date().toISOString().slice(0,10);
 const weekStart = () => { const d=new Date(); d.setDate(d.getDate()-d.getDay()); return d.toISOString().slice(0,10); };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// FIREBASE DATABASE LAYER — Firestore (tiempo real + offline incluido)
+// FIREBASE DATABASE LAYER — Firestore (tiempo rheal + offline incluido)
 // ══════════════════════════════════════════════════════════════════════════════
 // 🔧  REEMPLAZA CON TU CONFIGURACIÓN DE FIREBASE
 //     Firebase Console → Tu proyecto → Configuración → Apps web → firebaseConfig
@@ -125,8 +125,9 @@ const DB = {
 async function dbLoadAll() {
   if (!CONFIGURED) return null;
   try {
+    const _timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Firebase timeout")), 8000));
     const [inventory, sales, expenses, deposits, investments,
-           rate, payments, profilesData, dynProfiles] = await Promise.all([
+           rate, payments, profilesData, dynProfiles] = await Promise.race([Promise.all([
       DB.getAll("inventory", "name"),
       DB.getAll("sales",     "date"),
       DB.getAll("expenses",  "createdAt"),
@@ -136,7 +137,7 @@ async function dbLoadAll() {
       DB.getSetting("payments"),
       DB.getSetting("profilesData"),
       DB.getSetting("dynProfiles"),
-    ]);
+    ], _timeout]);
     return { inventory, sales, expenses, deposits, investments,
              rate, payments, profilesData, dynProfiles };
   } catch (e) {
@@ -479,7 +480,8 @@ export default function App() {
       if (!CONFIGURED) {
         setInventory(DEMO_INV); setSales([]); setLoading(false); return;
       }
-      const data = await dbLoadAll();
+try {
+  const data = await dbLoadAll();
       if (data) {
         setInventory(data.inventory?.length ? data.inventory : DEMO_INV);
         setSales(data.sales ?? []);
@@ -493,7 +495,12 @@ export default function App() {
       } else {
         setInventory(DEMO_INV);
       }
+} catch (e) {
+  console.error("Error cargando Firebase:", e);
+  setInventory(DEMO_INV);
+} finally {
       setLoading(false);
+}
     })();
   }, []);
 
@@ -504,7 +511,7 @@ export default function App() {
       DB.listen("inventory",   d => setInventory(d.length ? d : DEMO_INV)),
       DB.listen("sales",       d => setSales(d)),
       DB.listen("expenses",    d => setExpenses(d)),
-      DB.listen("deposits",    d => setDeposits(d)),
+      DB.listen("deposits",    d => setDeposits(hd)),
       DB.listen("investments", d => setInvestments(d)),
       DB.listenSetting("rate",          v => setRateState(v)),
       DB.listenSetting("payments",      v => setPayments(v)),
