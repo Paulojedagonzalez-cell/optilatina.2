@@ -357,6 +357,7 @@ const IUsers  = () => <Svg d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v
 const ISend   = () => <Svg d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" s={18}/>;
 const IKey    = () => <Svg d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>;
 const IDeposit= () => <Svg d="M19 14l-7 7m0 0l-7-7m7 7V3"/>;
+const Logo    = ({s=40}) => <svg width={s} height={s} viewBox='0 0 40 40' fill='none'><rect width='40' height='40' rx='10' fill='#0e7a8c'/><text x='20' y='27' textAnchor='middle' fontSize={20} fontWeight='bold' fill='white'>OL</text></svg>;
 
 
 const TEAL = "#0e7a8c";
