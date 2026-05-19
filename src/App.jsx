@@ -7,7 +7,7 @@ const weekStart = () => { const d=new Date(); d.setDate(d.getDate()-d.getDay());
 
 // ══════════════════════════════════════════════════════════════════════════════
 // FIREBASE DATABASE LAYER — Firestore (tiempo rheal + offline incluido)
-// ══════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════h═══════
 // 🔧  REEMPLAZA CON TU CONFIGURACIÓN DE FIREBASE
 //     Firebase Console → Tu proyecto → Configuración → Apps web → firebaseConfig
 const FIREBASE_CONFIG = {
@@ -230,7 +230,7 @@ const fmt = v => `$${(+v||0).toFixed(2)}`;
 const fmtUSD = v => `$${(+v||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 const fmtBs = (v,r) => `Bs ${((+v||0)*(+r||1)).toLocaleString("es-VE",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 const getStock = p => p.isService ? Infinity : (p.serials?.length ?? 0);
-const Logo2 = ({s=40}) => <svg width={s} height={s} viewBox='0 0 40 40' fill='none'><rect width='40' height='40' rx='10' fill='#6d28d9'/><text x='20' y='27' textAnchor='middle' fontSize={16} fontWeight='bold' fill='white'>OL2</text></svg>;
+const Logo2 = ({s=40}) => <svg width={s} height={s} viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="#6d28d9"/><text x="20" y="27" textAnchor="middle" fontSize={16} fontWeight="bold" fill="white">OL2</text></svg>;
 const DEMO_INV = [{id:"di1",name:"Montura Ray-Ban RB5154",cat:"Montura",cost:14,price:30,isService:false,serials:["RB-001","RB-002","RB-003"],photo:null,description:""},{id:"di2",name:"Montura Oakley OX8046",cat:"Montura",cost:20,price:45,isService:false,serials:["OAK-001","OAK-002"],photo:null,description:""},{id:"di3",name:"Lente Progresivo Hoya",cat:"Lente",cost:10,price:25,isService:false,serials:["HP-001","HP-002","HP-003"],photo:null,description:""},{id:"di4",name:"Lente Antirreflejante",cat:"Lente",cost:5,price:12,isService:false,serials:["LA-001","LA-002","LA-003","LA-004"],photo:null,description:""},{id:"di5",name:"Lente de Contacto Acuvue (caja)",cat:"Lente de contacto",cost:7,price:13,isService:false,serials:["LC-001","LC-002"],photo:null,description:""},{id:"di6",name:"Estuche de lujo",cat:"Accesorio",cost:1.5,price:4,isService:false,serials:["ES-001","ES-002","ES-003","ES-004"],photo:null,description:""},{id:"di7",name:"Ajuste y limpieza",cat:"Servicio",cost:0,price:2,isService:true,serials:[],photo:null,description:""}];
 const FRAME_TYPES = ["Completa","Semiaérea","Aérea","Al aire","Plegable","Deportiva","Infantil","Otro"];
 const CRYSTAL_TYPES = ["Monofocal","Bifocal","Progresivo","Degresivo","Ocupacional","Contacto","Fotocromático","Antirreflejante","Otro"];
@@ -369,7 +369,7 @@ const IUsers  = () => <Svg d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v
 const ISend   = () => <Svg d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" s={18}/>;
 const IKey    = () => <Svg d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>;
 const IDeposit= () => <Svg d="M19 14l-7 7m0 0l-7-7m7 7V3"/>;
-const Logo    = ({s=40}) => <svg width={s} height={s} viewBox='0 0 40 40' fill='none'><rect width='40' height='40' rx='10' fill='#0e7a8c'/><text x='20' y='27' textAnchor='middle' fontSize={20} fontWeight='bold' fill='white'>OL</text></svg>;
+const Logo    = ({s=40}) => <svg width={s} height={s} viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="#0e7a8c"/><text x="20" y="27" textAnchor="middle" fontSize={20} fontWeight="bold" fill="white">OL</text></svg>;
 
 
 const TEAL = "#0e7a8c";
