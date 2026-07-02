@@ -618,6 +618,7 @@ export default function App() {
   const [profilesData, setProfilesData] = useState(DEFAULT_PROFILES_DATA);
   const [dynProfiles,  setDynProfiles]  = useState(DEFAULT_DYN_PROFILES);
   const [storeFilter,  setStoreFilter]  = useState("all"); // "all" | storeId
+  const [viewAs,       setViewAs]       = useState(null);  // owner viendo la app como otro perfil
   const [loading,      setLoading]      = useState(true);
 
   useEffect(() => {
@@ -784,7 +785,30 @@ export default function App() {
 
   if (!profile) return <LoginScreen onSelect={handleLogin} dynProfiles={dynProfiles} />;
   const p = dynProfiles.find(x => x.id === profile);
-  const shared = { inventory, sales, rate, deposits, expenses, investments, orders, payments, profilesData, dynProfiles, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, saveOrders, saveDynProfiles, onLogout:handleLogout };
+  const shared = { inventory, sales, rate, deposits, expenses, investments, orders, payments, profilesData, dynProfiles, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, saveOrders, saveDynProfiles, setViewAs, onLogout:handleLogout };
+
+  // "Ver como": el propietario puede ver la app tal cual la ve otro perfil
+  if (viewAs && p?.id === "owner") {
+    const vp = dynProfiles.find(x => x.id === viewAs);
+    if (vp) {
+      const sharedAs = { ...shared, onLogout: () => setViewAs(null) };
+      return (
+        <div>
+          <div style={{position:"fixed",top:0,left:0,right:0,zIndex:2000,background:"linear-gradient(90deg,#5a4408,#8a6a10)",color:"#f5e6b8",display:"flex",justifyContent:"center",alignItems:"center",gap:12,padding:"7px 12px",fontFamily:"'Outfit',sans-serif",fontSize:13,flexWrap:"wrap"}}>
+            <IEye/> Viendo como <strong>{vp.role==="store" ? `${vp.storeName||"Tienda"} — ${vp.address||""}` : vp.name}</strong>
+            <span style={{fontSize:11,opacity:.75}}>(lo que hagas aquí se registra a nombre de este perfil)</span>
+            <button onClick={()=>setViewAs(null)} style={{background:"#040d10",border:"none",borderRadius:8,color:"#e8c96a",padding:"5px 14px",cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:12,fontWeight:600}}>← Volver a mi panel</button>
+          </div>
+          <div style={{paddingTop:40}}>
+            {vp.role === "store"
+              ? <StoreView profile={vp} {...sharedAs} />
+              : <AdminView profile={vp} {...sharedAs} />}
+          </div>
+        </div>
+      );
+    }
+  }
+
   return p?.role === "store"
     ? <StoreView  profile={p} {...shared} />
     : <AdminView  profile={p} {...shared} />;
@@ -1597,7 +1621,7 @@ function CameraModal({ onClose, onDetect }) {
 }
 
 // ── Admin View ────────────────────────────────────────────────────────────────
-function AdminView({ profile, inventory, sales, rate, deposits, expenses, investments, orders, payments, profilesData, dynProfiles, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, saveOrders, saveDynProfiles, onLogout }) {
+function AdminView({ profile, inventory, sales, rate, deposits, expenses, investments, orders, payments, profilesData, dynProfiles, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, saveOrders, saveDynProfiles, setViewAs, onLogout }) {
   const [tab,       setTab]      = useState("dash");
   const [invModal,  setInvModal] = useState(null);
   const [detailDate,setDD]       = useState(null);
@@ -1790,7 +1814,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
         {tab==="inv"      && <InvTab     {...{inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,isMobile}} />}
         {tab==="history"  && <HistTab    {...{byDate,sortedDates,setDD,storeFilter}} />}
         {tab==="miperfil" && <ProfileSettingsTab profile={profile} dynProfiles={dynProfiles} saveDynProfiles={saveDynProfiles}/>}
-        {tab==="ajustes"  && profile.id==="owner" && <GestionTab {...{profilesData,savePD,payments,savePayments,dynProfiles,saveDynProfiles}} />}
+        {tab==="ajustes"  && profile.id==="owner" && <GestionTab {...{profilesData,savePD,payments,savePayments,dynProfiles,saveDynProfiles,setViewAs}} />}
       </main>
 
       {/* ── MOBILE BOTTOM NAV ── */}
@@ -3663,7 +3687,7 @@ function CierreTab({ sales, expenses, orders, rate, dynProfiles, profile }) {
   );
 }
 
-function GestionTab({ profilesData, savePD, payments, savePayments, dynProfiles, saveDynProfiles }) {
+function GestionTab({ profilesData, savePD, payments, savePayments, dynProfiles, saveDynProfiles, setViewAs }) {
   const [pay, setPay] = useState(payments || DEFAULT_PAYMENTS);
   const [savingPay, setSavingPay] = useState(false);
   const [editProf, setEditProf] = useState(null);
@@ -3847,6 +3871,7 @@ Puedes cambiar tu contraseña cuando quieras en "Mi perfil".`) : "";
                 </div>
               </div>
               <div style={{display:"flex",gap:7}}>
+                {p.id!=="owner"&&<button className="btn-g" style={{padding:"5px 11px",fontSize:12,color:"#e8c96a",borderColor:"#4a3a10",display:"flex",alignItems:"center",gap:5}} title="Ver la app como este perfil" onClick={()=>setViewAs?.(p.id)}><IEye/> Ver</button>}
                 {p.id!=="owner"&&<button className="btn-g" style={{padding:"5px 11px",fontSize:12,color:"#34d399",borderColor:"#14402a"}} title="Enviar invitación con contraseña nueva" onClick={()=>openInvite(p)}>✉️ Invitar</button>}
                 <button className="btn-g" style={{padding:"5px 9px",fontSize:12}} onClick={()=>openEditProf(p)}><IEdit/></button>
                 {p.id!=="owner"&&<button className="btn-d" style={{padding:"5px 9px",fontSize:12}} onClick={()=>deleteProf(p.id)}><ITrash/></button>}
