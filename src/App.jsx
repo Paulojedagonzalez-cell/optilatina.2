@@ -802,12 +802,13 @@ function LoginScreen({ onSelect, dynProfiles }) {
     const u = user.trim().toLowerCase();
     if (!u || !pw) { setError("Escribe tu usuario y contraseña."); return; }
     setBusy(true);
-    // Buscar por correo, nombre, o nombre de tienda — sin revelar qué perfiles existen
-    const p = dynProfiles.find(x =>
-      x.email?.trim().toLowerCase() === u ||
-      x.name?.trim().toLowerCase() === u ||
-      (x.role === "store" && (x.address?.trim().toLowerCase() === u || `${x.storeName||""} ${x.address||""}`.trim().toLowerCase() === u))
-    );
+    // Si el perfil tiene correo, el usuario es SOLO el correo.
+    // Si no tiene, se acepta el nombre (o la tienda) mientras tanto.
+    const p = dynProfiles.find(x => {
+      if (x.email?.trim()) return x.email.trim().toLowerCase() === u;
+      return x.name?.trim().toLowerCase() === u ||
+        (x.role === "store" && (x.address?.trim().toLowerCase() === u || `${x.storeName||""} ${x.address||""}`.trim().toLowerCase() === u));
+    });
     const ok = p && (p.password ? pw === p.password : pw === (p.pin || "0000"));
     setTimeout(() => { // pequeña pausa para no delatar si el usuario existe
       setBusy(false);
