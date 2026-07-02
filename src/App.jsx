@@ -434,6 +434,15 @@ tr:hover td{background:#061215}
   [style*="1fr 1fr 1fr"]{grid-template-columns:1fr 1fr!important}
   [style*="repeat(3,1fr)"]{grid-template-columns:1fr 1fr!important}
   [style*="repeat(4,1fr)"]{grid-template-columns:1fr 1fr!important}
+  [style*="1fr auto"]{grid-template-columns:1fr!important}
+  /* Tablas anchas: scroll horizontal en vez de aplastarse */
+  .card{overflow-x:auto!important}
+  .card table{min-width:560px}
+  /* Modales comodos en pantallas chicas */
+  .ov{padding:10px}
+  .modal{padding:18px!important;border-radius:16px;max-height:92vh}
+  h1{font-size:22px!important}
+  .profile-card{min-width:140px;padding:22px 18px}
 }
 `;
 
@@ -451,6 +460,33 @@ const fmtSerials = arr => {
   const auto = arr.length - real.length;
   return [...real, ...(auto ? [`${auto} sin código`] : [])].join(", ");
 };
+
+// ── Telefonos internacionales ─────────────────────────────────────────────────
+const CC_LIST = [
+  ["+58","🇻🇪 Venezuela"],["+57","🇨🇴 Colombia"],["+1","🇺🇸 USA/Canadá"],["+52","🇲🇽 México"],
+  ["+34","🇪🇸 España"],["+55","🇧🇷 Brasil"],["+51","🇵🇪 Perú"],["+56","🇨🇱 Chile"],
+  ["+54","🇦🇷 Argentina"],["+593","🇪🇨 Ecuador"],["+507","🇵🇦 Panamá"],["+506","🇨🇷 Costa Rica"],
+  ["+591","🇧🇴 Bolivia"],["+595","🇵🇾 Paraguay"],["+598","🇺🇾 Uruguay"],["+53","🇨🇺 Cuba"],
+];
+const splitPhone = value => {
+  const m = (value || "").match(/^(\+\d{1,3})\s*(.*)$/);
+  return m ? [m[1], m[2]] : ["+58", value || ""];
+};
+function PhoneInput({ value, onChange }) {
+  const [cc, num] = splitPhone(value);
+  const ccValid = CC_LIST.some(c => c[0] === cc) ? cc : "+58";
+  return (
+    <div style={{display:"flex",gap:6}}>
+      <select value={ccValid} onChange={e=>onChange(num ? `${e.target.value} ${num}` : e.target.value + " ")}
+        style={{width:120,flexShrink:0}}>
+        {CC_LIST.map(([c,l]) => <option key={c} value={c}>{l} {c}</option>)}
+      </select>
+      <input style={{flex:1,minWidth:0}} type="tel" placeholder="412 1234567" value={num}
+        onChange={e=>onChange(`${ccValid} ${e.target.value.replace(/[^\d\s-]/g,"")}`)}/>
+    </div>
+  );
+}
+const phoneDigits = p => (p || "").replace(/\D/g, "");
 
 // Comprimir imagen antes de guardar — Firestore limita cada documento a 1MB,
 // una foto de camara sin comprimir rompe la sincronizacion silenciosamente.
@@ -585,15 +621,35 @@ export default function App() {
 
   // Respaldo local automatico: cada cambio se guarda en el dispositivo,
   // asi los datos sobreviven recargas aunque Firebase no responda.
+  // Con debounce y SIN fotos: serializar las fotos base64 en cada cambio
+  // bloqueaba el hilo principal y congelaba la app con varias pestañas
+  // abiertas (las fotos siempre se recuperan desde Firestore).
+  useEffect(() => {
+    if (loading) return;
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem("ol_backup", JSON.stringify({
+          inventory: inventory.map(({photo, ...rest}) => rest),
+          sales, deposits, expenses, investments,
+          rate, payments, profilesData,
+          dynProfiles: dynProfiles.map(({photo, storeLogo, ...rest}) => rest),
+        }));
+      } catch {}
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [loading, inventory, sales, deposits, expenses, investments, rate, payments, profilesData, dynProfiles]);
+
+  // Sesion recordada: si el usuario marco "Recordar mi sesion", entrar directo
   useEffect(() => {
     if (loading) return;
     try {
-      localStorage.setItem("ol_backup", JSON.stringify({
-        inventory, sales, deposits, expenses, investments,
-        rate, payments, profilesData, dynProfiles,
-      }));
+      const raw = localStorage.getItem("ol_session");
+      if (raw) {
+        const { id } = JSON.parse(raw);
+        if (id && dynProfiles.find(p => p.id === id)) setProfile(prev => prev ?? id);
+      }
     } catch {}
-  }, [loading, inventory, sales, deposits, expenses, investments, rate, payments, profilesData, dynProfiles]);
+  }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Realtime listeners — Firebase onSnapshot sincroniza automáticamente entre dispositivos
   useEffect(() => {
@@ -657,9 +713,21 @@ export default function App() {
     </div>
   );
 
-  if (!profile) return <LoginScreen onSelect={setProfile} dynProfiles={dynProfiles} />;
+  const handleLogin = (id, remember) => {
+    setProfile(id);
+    try {
+      if (remember) localStorage.setItem("ol_session", JSON.stringify({ id }));
+      else localStorage.removeItem("ol_session");
+    } catch {}
+  };
+  const handleLogout = () => {
+    setProfile(null);
+    try { localStorage.removeItem("ol_session"); } catch {}
+  };
+
+  if (!profile) return <LoginScreen onSelect={handleLogin} dynProfiles={dynProfiles} />;
   const p = dynProfiles.find(x => x.id === profile);
-  const shared = { inventory, sales, rate, deposits, expenses, investments, payments, profilesData, dynProfiles, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, saveDynProfiles, onLogout:()=>setProfile(null) };
+  const shared = { inventory, sales, rate, deposits, expenses, investments, payments, profilesData, dynProfiles, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, saveDynProfiles, onLogout:handleLogout };
   return p?.role === "store"
     ? <StoreView  profile={p} {...shared} />
     : <AdminView  profile={p} {...shared} />;
@@ -667,11 +735,18 @@ export default function App() {
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 function LoginScreen({ onSelect, dynProfiles }) {
-  const [pending, setPending] = useState(null);
-  const [pin,     setPin]     = useState("");
-  const [shake,   setShake]   = useState(false);
+  const [pending,  setPending]  = useState(null);
+  const [pin,      setPin]      = useState("");
+  const [pw,       setPw]       = useState("");
+  const [showPw,   setShowPw]   = useState(false);
+  const [shake,    setShake]    = useState(false);
+  const [remember, setRemember] = useState(true);
+  const [forgot,   setForgot]   = useState(false);
 
-  const handleSelect = p => { setPending(p); setPin(""); };
+  const owner = dynProfiles.find(p => p.id === "owner");
+
+  const handleSelect = p => { setPending(p); setPin(""); setPw(""); setShowPw(false); };
+  const fail = () => { setShake(true); setTimeout(() => { setShake(false); setPin(""); setPw(""); }, 700); };
 
   const handleDigit = d => {
     if (shake) return;
@@ -679,14 +754,17 @@ function LoginScreen({ onSelect, dynProfiles }) {
     setPin(next);
     if (next.length === 4) {
       if (next === (pending.pin || "0000")) {
-        onSelect(pending.id); setPending(null); setPin("");
-      } else {
-        setShake(true);
-        setTimeout(() => { setShake(false); setPin(""); }, 700);
-      }
+        onSelect(pending.id, remember); setPending(null); setPin("");
+      } else fail();
     }
   };
   const handleBack = () => { if (!shake) setPin(p => p.slice(0,-1)); };
+
+  const tryPassword = () => {
+    if (shake || !pw) return;
+    if (pw === pending.password) { onSelect(pending.id, remember); setPending(null); setPw(""); }
+    else fail();
+  };
 
   const adminProfiles = dynProfiles.filter(p=>p.role==="admin");
   const storeProfiles = dynProfiles.filter(p=>p.role==="store");
@@ -749,7 +827,7 @@ function LoginScreen({ onSelect, dynProfiles }) {
           )}
         </>
       ) : (
-        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:28}}>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:24,width:"100%",maxWidth:340}}>
           <div style={{textAlign:"center"}}>
             {pending.role==="store"
               ? <div style={{width:68,height:68,borderRadius:14,background:`${pending.color}18`,border:`2px solid ${pending.color}35`,overflow:"hidden",margin:"0 auto 12px"}}><Logo2 s={68}/></div>
@@ -757,18 +835,71 @@ function LoginScreen({ onSelect, dynProfiles }) {
             <div style={{fontSize:20,fontWeight:700,color:"#fff"}}>
               {pending.role==="store" ? `${pending.storeName||"Optilatina"} — ${pending.address}` : pending.name}
             </div>
-            <div style={{fontSize:13,color:"#1a4a50",marginTop:4}}>PIN de acceso</div>
+            <div style={{fontSize:13,color:"#1a4a50",marginTop:4}}>{pending.password ? "Contraseña de acceso" : "PIN de acceso"}</div>
           </div>
-          <div className={shake?"shake":""} style={{display:"flex",gap:14}}>
-            {[0,1,2,3].map(i=>(<div key={i} style={{width:16,height:16,borderRadius:"50%",background:i<pin.length?pending.color:"#141e30",border:`2px solid ${i<pin.length?pending.color:"#1e2e45"}`,transition:"all .15s"}}/>))}
+
+          {pending.password ? (
+            <div className={shake?"shake":""} style={{width:"100%",display:"flex",flexDirection:"column",gap:12}}>
+              <div style={{display:"flex",gap:6}}>
+                <input type={showPw?"text":"password"} autoFocus placeholder="Tu contraseña" value={pw}
+                  onChange={e=>setPw(e.target.value)}
+                  onKeyDown={e=>{if(e.key==="Enter")tryPassword();}}
+                  style={{flex:1,minWidth:0,background:"#050e10",border:`1px solid ${shake?"#5a1a1a":"#0d2a30"}`,borderRadius:10,padding:"12px 14px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:15,outline:"none"}}/>
+                <button onClick={()=>setShowPw(s=>!s)} title={showPw?"Ocultar":"Mostrar"}
+                  style={{background:"#071418",border:"1px solid #0d2a30",borderRadius:10,padding:"0 14px",color:"#2a5a60",cursor:"pointer",fontSize:16}}>{showPw?"🙈":"👁"}</button>
+              </div>
+              <button className="btn-p" onClick={tryPassword} disabled={shake||!pw} style={{justifyContent:"center",opacity:pw?1:.5}}>Entrar</button>
+            </div>
+          ) : (
+            <>
+              <div className={shake?"shake":""} style={{display:"flex",gap:14}}>
+                {[0,1,2,3].map(i=>(<div key={i} style={{width:16,height:16,borderRadius:"50%",background:i<pin.length?pending.color:"#141e30",border:`2px solid ${i<pin.length?pending.color:"#1e2e45"}`,transition:"all .15s"}}/>))}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,72px)",gap:10,opacity:shake?.4:1,transition:"opacity .15s"}}>
+                {[1,2,3,4,5,6,7,8,9].map(n=>(<button key={n} className="pin-key" onClick={()=>handleDigit(String(n))} disabled={shake}>{n}</button>))}
+                <button className="pin-key" style={{background:"transparent",border:"1px solid #0a2028",color:"#1a4a50",fontSize:13}} onClick={()=>{setPending(null);setPin("");}}>←</button>
+                <button className="pin-key" onClick={()=>handleDigit("0")} disabled={shake}>0</button>
+                <button className="pin-key" style={{background:"transparent",border:"1px solid #0a2028",color:shake?"#1a4a50":"#2dcfe8",fontSize:18}} onClick={handleBack} disabled={shake}>⌫</button>
+              </div>
+            </>
+          )}
+
+          {shake&&<div style={{color:"#f87171",fontSize:13,marginTop:-10}}>{pending.password?"Contraseña incorrecta":"PIN incorrecto"}</div>}
+
+          <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"#2a5a60",cursor:"pointer",userSelect:"none"}}>
+            <input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)} style={{accentColor:"#0e7a8c",width:16,height:16}}/>
+            Recordar mi sesión en este dispositivo
+          </label>
+
+          <div style={{display:"flex",gap:18,fontSize:12}}>
+            <button onClick={()=>{setPending(null);setPin("");setPw("");}} style={{background:"transparent",border:"none",color:"#1a4a50",cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:12,textDecoration:"underline"}}>← Cambiar perfil</button>
+            <button onClick={()=>setForgot(true)} style={{background:"transparent",border:"none",color:"#2a5a60",cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:12,textDecoration:"underline"}}>¿No puedes entrar?</button>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,72px)",gap:10,opacity:shake?.4:1,transition:"opacity .15s"}}>
-            {[1,2,3,4,5,6,7,8,9].map(n=>(<button key={n} className="pin-key" onClick={()=>handleDigit(String(n))} disabled={shake}>{n}</button>))}
-            <button className="pin-key" style={{background:"transparent",border:"1px solid #0a2028",color:"#1a4a50",fontSize:13}} onClick={()=>{setPending(null);setPin("");}}>←</button>
-            <button className="pin-key" onClick={()=>handleDigit("0")} disabled={shake}>0</button>
-            <button className="pin-key" style={{background:"transparent",border:"1px solid #0a2028",color:shake?"#1a4a50":"#2dcfe8",fontSize:18}} onClick={handleBack} disabled={shake}>⌫</button>
+        </div>
+      )}
+
+      {forgot && (
+        <div className="ov" onClick={e=>{if(e.target===e.currentTarget)setForgot(false);}}>
+          <div className="modal" style={{maxWidth:380,textAlign:"center"}}>
+            <div style={{fontSize:40,marginBottom:10}}>🔐</div>
+            <div style={{fontSize:17,fontWeight:700,color:"#fff",marginBottom:8}}>Recuperar acceso</div>
+            <div style={{fontSize:13,color:"#7a94a8",lineHeight:1.6,marginBottom:16}}>
+              Por seguridad, los PIN y contraseñas solo los restablece el propietario.
+              Contacta a <strong style={{color:"#2dcfe8"}}>{owner?.name || "P.G"} (Propietario)</strong> y
+              él lo arregla desde su perfil en segundos.
+            </div>
+            <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap",marginBottom:14}}>
+              {phoneDigits(owner?.phone) && (
+                <a href={`https://wa.me/${phoneDigits(owner.phone)}?text=${encodeURIComponent("Hola! No puedo entrar a Optilatina, ¿me restableces el acceso?")}`}
+                  target="_blank" rel="noreferrer" className="btn-p" style={{textDecoration:"none",fontSize:13}}>📱 WhatsApp</a>
+              )}
+              {owner?.email && (
+                <a href={`mailto:${owner.email}?subject=${encodeURIComponent("Recuperar acceso Optilatina")}`}
+                  className="btn-g" style={{textDecoration:"none",fontSize:13,display:"inline-flex",alignItems:"center"}}>✉️ Correo</a>
+              )}
+            </div>
+            <button className="btn-g" onClick={()=>setForgot(false)}>Entendido</button>
           </div>
-          {shake&&<div style={{color:"#f87171",fontSize:13,marginTop:-16}}>PIN incorrecto</div>}
         </div>
       )}
     </div>
@@ -2859,6 +2990,8 @@ function ProfileSettingsTab({ profile, dynProfiles, saveDynProfiles }) {
     address:     live.address || "",
     pin:         "",
     pinConfirm:  "",
+    pw:          "",
+    pwConfirm:   "",
     photo:       live.photo || null,
     storeLogo:   live.storeLogo || null,   // logo personalizado de la tienda
   });
@@ -2899,6 +3032,8 @@ function ProfileSettingsTab({ profile, dynProfiles, saveDynProfiles }) {
     setPinErr(""); setSaving(true);
     if (f.pin && f.pin !== f.pinConfirm) { setPinErr("Los PINs no coinciden"); setSaving(false); return; }
     if (f.pin && (f.pin.length !== 4 || !/^\d{4}$/.test(f.pin))) { setPinErr("El PIN debe ser de 4 dígitos numéricos"); setSaving(false); return; }
+    if (f.pw && f.pw !== f.pwConfirm) { setPinErr("Las contraseñas no coinciden"); setSaving(false); return; }
+    if (f.pw && f.pw.length < 6) { setPinErr("La contraseña debe tener al menos 6 caracteres"); setSaving(false); return; }
     try {
       const updated = dynProfiles.map(p => p.id === profile.id ? {
         ...p,
@@ -2910,9 +3045,10 @@ function ProfileSettingsTab({ profile, dynProfiles, saveDynProfiles }) {
         photo:       f.photo,
         storeLogo:   f.storeLogo,
         ...(f.pin ? {pin: f.pin} : {}),
+        ...(f.pw  ? {password: f.pw} : {}),
       } : p);
       await saveDynProfiles(updated);
-      setF(p => ({...p, pin:"", pinConfirm:""}));
+      setF(p => ({...p, pin:"", pinConfirm:"", pw:"", pwConfirm:""}));
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch(e) {
@@ -2978,10 +3114,20 @@ function ProfileSettingsTab({ profile, dynProfiles, saveDynProfiles }) {
 
         <div className="rg2" style={{gap:12}}>
           <div className="field"><label>Nombre</label><input value={f.name} onChange={e=>sf("name",e.target.value)} placeholder="Tu nombre"/></div>
-          <div className="field"><label>Teléfono</label><input value={f.phone} onChange={e=>sf("phone",e.target.value)} placeholder="+58 412 000 0000"/></div>
+          <div className="field"><label>Teléfono</label><PhoneInput value={f.phone} onChange={v=>sf("phone",v)}/></div>
           <div className="field"><label>Correo electrónico</label><input type="email" value={f.email} onChange={e=>sf("email",e.target.value)} placeholder="tu@correo.com"/></div>
           {isStore && <div className="field"><label>Dirección / Ubicación</label><input value={f.address} onChange={e=>sf("address",e.target.value)} placeholder="Ej: Chinita, Local 12"/></div>}
           <div className="field" style={{gridColumn:"1/-1"}}><label>Descripción</label><input value={f.description} onChange={e=>sf("description",e.target.value)} placeholder="Descripción corta"/></div>
+        </div>
+
+        {/* Contraseña */}
+        <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:12,padding:"14px"}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#2dcfe8",marginBottom:4}}>🔑 Contraseña de acceso — dejar vacío para no modificar</div>
+          <div style={{fontSize:10,color:"#1a4a50",marginBottom:10}}>{live.password ? "Tienes contraseña activa: al entrar se te pedirá la contraseña en vez del PIN." : "Sin contraseña: entras con PIN. Si creas una contraseña, reemplaza al PIN en el login."}</div>
+          <div className="rg2" style={{gap:12}}>
+            <div className="field"><label>Nueva contraseña (mín. 6)</label><input type="password" value={f.pw} onChange={e=>sf("pw",e.target.value)} placeholder="••••••••"/></div>
+            <div className="field"><label>Confirmar contraseña</label><input type="password" value={f.pwConfirm} onChange={e=>sf("pwConfirm",e.target.value)} placeholder="••••••••"/></div>
+          </div>
         </div>
 
         {/* PIN */}
@@ -3070,6 +3216,32 @@ function GestionTab({ profilesData, savePD, payments, savePayments, dynProfiles,
     setNewAdmin({name:"",pin:"0000",color:"#3b82f6",description:""});
   };
 
+  // ── Invitacion: genera contraseña temporal y prepara mensaje para compartir ──
+  const [invite, setInvite] = useState(null); // {id,name,phone,email,pw}
+  const [inviteCopied, setInviteCopied] = useState(false);
+  const genTempPw = () => {
+    const chars = "abcdefghjkmnpqrstuvwxyz23456789"; // sin caracteres confusos (0/O, 1/l)
+    return Array.from({length:8},()=>chars[Math.floor(Math.random()*chars.length)]).join("");
+  };
+  const openInvite = async p => {
+    const pw = genTempPw();
+    await saveDynProfiles(dynProfiles.map(x => x.id===p.id ? {...x, password:pw} : x));
+    setInvite({id:p.id, name:p.name, phone:p.phone, email:p.email, pw});
+    setInviteCopied(false);
+  };
+  const inviteMsg = invite ? (
+`Hola ${invite.name}! 👓 Te invito a la app de Optilatina.
+
+1. Entra aquí: ${location.origin}
+2. Toca tu perfil "${invite.name}"
+3. Contraseña: ${invite.pw}
+4. Marca "Recordar mi sesión" para no volver a escribirla
+
+Puedes cambiar tu contraseña cuando quieras en "Mi perfil".`) : "";
+  const copyInvite = async () => {
+    try { await navigator.clipboard.writeText(inviteMsg); setInviteCopied(true); setTimeout(()=>setInviteCopied(false),2500); } catch {}
+  };
+
   return (
     <div style={{display:"flex",flexDirection:"column",gap:22}}>
       <div>
@@ -3119,6 +3291,34 @@ function GestionTab({ profilesData, savePD, payments, savePayments, dynProfiles,
           </div>
         )}
 
+        {invite && (
+          <div className="ov" onClick={e=>{if(e.target===e.currentTarget)setInvite(null);}}>
+            <div className="modal" style={{maxWidth:420}}>
+              <div style={{textAlign:"center",marginBottom:14}}>
+                <div style={{fontSize:36}}>✉️</div>
+                <div style={{fontSize:17,fontWeight:700,color:"#fff",marginTop:6}}>Invitación para {invite.name}</div>
+                <div style={{fontSize:12,color:"#7a94a8",marginTop:4}}>Se creó una contraseña nueva para su acceso. Compártele este mensaje:</div>
+              </div>
+              <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:10,padding:"12px 14px",fontSize:12,color:"#b0c0d8",whiteSpace:"pre-wrap",lineHeight:1.6,marginBottom:8}}>{inviteMsg}</div>
+              <div style={{textAlign:"center",marginBottom:14}}>
+                <span style={{fontSize:11,color:"#1a4a50"}}>Contraseña temporal: </span>
+                <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:700,color:"#34d399",letterSpacing:".08em"}}>{invite.pw}</span>
+              </div>
+              <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
+                <a href={phoneDigits(invite.phone) ? `https://wa.me/${phoneDigits(invite.phone)}?text=${encodeURIComponent(inviteMsg)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(inviteMsg)}`}
+                  target="_blank" rel="noreferrer" className="btn-p" style={{textDecoration:"none",fontSize:13}}>📱 Enviar por WhatsApp</a>
+                {invite.email&&<a href={`mailto:${invite.email}?subject=${encodeURIComponent("Invitación a Optilatina")}&body=${encodeURIComponent(inviteMsg)}`}
+                  className="btn-g" style={{textDecoration:"none",fontSize:13,display:"inline-flex",alignItems:"center"}}>✉️ Correo</a>}
+                <button className="btn-g" style={{fontSize:13}} onClick={copyInvite}>{inviteCopied?"✓ Copiado":"📋 Copiar"}</button>
+              </div>
+              <div style={{fontSize:10,color:"#1a4a50",textAlign:"center",marginTop:12}}>Si vuelves a tocar "Invitar" se genera una contraseña nueva (sirve también para restablecer el acceso).</div>
+              <div style={{display:"flex",justifyContent:"center",marginTop:12}}>
+                <button className="btn-g" onClick={()=>setInvite(null)}>Cerrar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {editProf && (
           <div className="ov" onClick={e=>{if(e.target===e.currentTarget)setEditProf(null);}}>
             <div className="modal" style={{maxWidth:400}}>
@@ -3128,10 +3328,17 @@ function GestionTab({ profilesData, savePD, payments, savePayments, dynProfiles,
               <div style={{display:"flex",flexDirection:"column",gap:12}}>
                 <div className="field"><label>Nombre</label><input value={pf.name||""} onChange={e=>setPf(p=>({...p,name:e.target.value}))}/></div>
                 <div className="field"><label>Descripción</label><input value={pf.description||""} onChange={e=>setPf(p=>({...p,description:e.target.value}))}/></div>
-                <div className="field"><label>Teléfono</label><input value={pf.phone||""} onChange={e=>setPf(p=>({...p,phone:e.target.value}))}/></div>
-                <div className="field"><label>Email</label><input value={pf.email||""} onChange={e=>setPf(p=>({...p,email:e.target.value}))}/></div>
+                <div className="field"><label>Teléfono</label><PhoneInput value={pf.phone||""} onChange={v=>setPf(p=>({...p,phone:v}))}/></div>
+                <div className="field"><label>Email</label><input type="email" value={pf.email||""} onChange={e=>setPf(p=>({...p,email:e.target.value}))} placeholder="correo@ejemplo.com"/></div>
                 {pf.role==="store"&&<div className="field"><label>Dirección</label><input value={pf.address||""} onChange={e=>setPf(p=>({...p,address:e.target.value}))}/></div>}
                 <div className="field"><label>PIN (4 dígitos)</label><input type="password" maxLength={4} value={pf.pin||""} onChange={e=>setPf(p=>({...p,pin:e.target.value}))}/></div>
+                <div className="field"><label>Contraseña de acceso {pf.password?"(activa)":"(sin definir — usa PIN)"}</label>
+                  <div style={{display:"flex",gap:6}}>
+                    <input style={{flex:1,minWidth:0}} value={pf.password||""} onChange={e=>setPf(p=>({...p,password:e.target.value}))} placeholder="Vacío = entra con PIN"/>
+                    {pf.password&&<button className="btn-d" style={{padding:"5px 10px",fontSize:11}} title="Quitar contraseña (vuelve al PIN)" onClick={()=>setPf(p=>({...p,password:""}))}>✕</button>}
+                  </div>
+                  <div style={{fontSize:10,color:"#1a4a50",marginTop:3}}>Si el usuario olvidó su acceso, escribe aquí una contraseña nueva y compártesela.</div>
+                </div>
                 <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
                   <button className="btn-g" onClick={()=>setEditProf(null)}>Cancelar</button>
                   <button className="btn-p" onClick={saveProf}><ICheck/>Guardar</button>
@@ -3153,6 +3360,7 @@ function GestionTab({ profilesData, savePD, payments, savePayments, dynProfiles,
                 </div>
               </div>
               <div style={{display:"flex",gap:7}}>
+                {p.id!=="owner"&&<button className="btn-g" style={{padding:"5px 11px",fontSize:12,color:"#34d399",borderColor:"#14402a"}} title="Enviar invitación con contraseña nueva" onClick={()=>openInvite(p)}>✉️ Invitar</button>}
                 <button className="btn-g" style={{padding:"5px 9px",fontSize:12}} onClick={()=>openEditProf(p)}><IEdit/></button>
                 {p.id!=="owner"&&<button className="btn-d" style={{padding:"5px 9px",fontSize:12}} onClick={()=>deleteProf(p.id)}><ITrash/></button>}
               </div>
