@@ -1,7 +1,7 @@
 {
-  "name": "Optilatina",
-  "short_name": "Optilatina",
-  "description": "Sistema de gestión para Óptica Optilatina",
+  "name": "Óptilatina",
+  "short_name": "Óptilatina",
+  "description": "Plataforma de gestión — Franquicia y Distribuidora Óptilatina",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#040d10",
