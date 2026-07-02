@@ -137,7 +137,7 @@ async function dbLoadAll() {
       DB.getSetting("payments"),
       DB.getSetting("profilesData"),
       DB.getSetting("dynProfiles"),
-    ], _timeout]);
+    ]), _timeout]);
     return { inventory, sales, expenses, deposits, investments,
              rate, payments, profilesData, dynProfiles };
   } catch (e) {
