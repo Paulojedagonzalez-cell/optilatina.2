@@ -507,9 +507,32 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
+      // 1) Hidratar desde el respaldo local al instante — la app arranca ya,
+      //    sin esperar a Firebase. Firebase sobreescribe despues si responde.
+      let hadBackup = false;
+      try {
+        const raw = localStorage.getItem("ol_backup");
+        if (raw) {
+          const b = JSON.parse(raw);
+          hadBackup = true;
+          if (b.inventory?.length) setInventory(b.inventory);
+          setSales(b.sales ?? []);
+          setDeposits(b.deposits ?? []);
+          setExpenses(b.expenses ?? []);
+          setInvestments(b.investments ?? []);
+          if (b.rate         != null) setRateState(b.rate);
+          if (b.payments     != null) setPayments(b.payments);
+          if (b.profilesData != null) setProfilesData(b.profilesData);
+          if (b.dynProfiles?.length)  setDynProfiles(b.dynProfiles);
+        }
+      } catch {}
+      if (hadBackup) setLoading(false);
+
       if (!CONFIGURED) {
-        setInventory(DEMO_INV); setSales([]); setLoading(false); return;
+        if (!hadBackup) { setInventory(DEMO_INV); setSales([]); }
+        setLoading(false); return;
       }
+      // 2) Cargar de Firebase (fuente de verdad cuando esta disponible)
       const data = await dbLoadAll();
       if (data) {
         setInventory(data.inventory?.length ? data.inventory : DEMO_INV);
@@ -521,12 +544,24 @@ export default function App() {
         if (data.payments     !== null) setPayments(data.payments);
         if (data.profilesData !== null) setProfilesData(data.profilesData);
         if (data.dynProfiles  !== null) setDynProfiles(data.dynProfiles);
-      } else {
+      } else if (!hadBackup) {
         setInventory(DEMO_INV);
       }
       setLoading(false);
     })();
   }, []);
+
+  // Respaldo local automatico: cada cambio se guarda en el dispositivo,
+  // asi los datos sobreviven recargas aunque Firebase no responda.
+  useEffect(() => {
+    if (loading) return;
+    try {
+      localStorage.setItem("ol_backup", JSON.stringify({
+        inventory, sales, deposits, expenses, investments,
+        rate, payments, profilesData, dynProfiles,
+      }));
+    } catch {}
+  }, [loading, inventory, sales, deposits, expenses, investments, rate, payments, profilesData, dynProfiles]);
 
   // Realtime listeners — Firebase onSnapshot sincroniza automáticamente entre dispositivos
   useEffect(() => {
