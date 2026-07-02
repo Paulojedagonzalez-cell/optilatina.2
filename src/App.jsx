@@ -442,6 +442,38 @@ const fmtUSD = (n=0) => "$"+Number(n).toLocaleString("en-US",{minimumFractionDig
 const fmtBs  = (n=0,r=36) => "Bs "+Number(n*r).toLocaleString("es-VE",{minimumFractionDigits:2,maximumFractionDigits:2});
 const getStock = p => p.isService ? 999 : (p.serials ? p.serials.length : (p.stock || 0));
 
+// Codigos internos generados para unidades sin serial (ajustes y cantidad rapida)
+const isAutoCode = s => /^(AJ-|U-)/.test(s);
+const genAutoCodes = n => Array.from({length:n}, (_,i) => `U-${Date.now().toString(36)}${i}`);
+const fmtSerials = arr => {
+  if (!arr?.length) return "—";
+  const real = arr.filter(s => !isAutoCode(s));
+  const auto = arr.length - real.length;
+  return [...real, ...(auto ? [`${auto} sin código`] : [])].join(", ");
+};
+
+// Comprimir imagen antes de guardar — Firestore limita cada documento a 1MB,
+// una foto de camara sin comprimir rompe la sincronizacion silenciosamente.
+const compressImage = (file, maxDim = 640, quality = 0.72) => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      c.getContext("2d").drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = reject;
+    img.src = ev.target.result;
+  };
+  r.onerror = reject;
+  r.readAsDataURL(file);
+});
+
 const CATS = ["Montura","Lente","Lente de contacto","Accesorio","Servicio","Otro"];
 const FRAME_TYPES = ["Clásica","Metálica","Sin aro","Deportiva","Aviador","Redonda","Cuadrada","Ojo de gato","Wraparound","Otro"];
 const CRYSTAL_TYPES = ["Monofocal","Progresivo","Bifocal","Antirreflejante","Fotocromático","Polarizado","UV400","Blue-Cut","Otro"];
@@ -797,8 +829,11 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, sav
       const prodInv = newInv.find(p=>p.id===r.product.id);
       let assignedSerials = [];
       if (prodInv && !prodInv.isService && prodInv.serials) {
-        assignedSerials = prodInv.serials.slice(0, r.qty);
-        prodInv.serials = prodInv.serials.slice(r.qty);
+        // Consumir primero las unidades sin codigo; los seriales reales
+        // se conservan en stock hasta que se vendan especificamente
+        const ordered = [...prodInv.serials].sort((a,b)=>(isAutoCode(a)?0:1)-(isAutoCode(b)?0:1));
+        assignedSerials = ordered.slice(0, r.qty);
+        prodInv.serials = ordered.slice(r.qty);
       }
       const lineLabCost = labC / resolved.length;
       const isBank = method === "bank"; // Pago Móvil = Bs
@@ -2853,15 +2888,11 @@ function ProfileSettingsTab({ profile, dynProfiles, saveDynProfiles }) {
 
   const handlePhoto = e => {
     const file = e.target.files[0]; if (!file) return;
-    const r = new FileReader();
-    r.onload = ev => sf("photo", ev.target.result);
-    r.readAsDataURL(file);
+    compressImage(file, 400).then(data => sf("photo", data)).catch(() => {});
   };
   const handleStoreLogo = e => {
     const file = e.target.files[0]; if (!file) return;
-    const r = new FileReader();
-    r.onload = ev => sf("storeLogo", ev.target.result);
-    r.readAsDataURL(file);
+    compressImage(file, 400).then(data => sf("storeLogo", data)).catch(() => {});
   };
 
   const handleSave = async () => {
@@ -3204,56 +3235,90 @@ function HistTab({byDate,sortedDates,setDD}) {
 
 // ── Modals ────────────────────────────────────────────────────────────────────
 function InvModal({item,inventory,saveInv,onClose,rate}) {
-  const existingSerials = item?.serials || [];
   const photoRef   = useRef(null);
   const [mode, setMode] = useState("normal");
+  // Serials existentes como estado local: quitar uno no cierra el modal
+  const [existingSerials, setExistingSerials] = useState(item?.serials || []);
   const [f,setF]=useState({
     name:item?.name??"", cat:item?.cat??CATS[0],
     cost:item?.cost??"", price:item?.price??"",
     isService:item?.isService??(item?.stock===999)??false,
-    newSerials:"", photo:item?.photo??null, description:item?.description??"",
+    newSerials:"", qty:"", photo:item?.photo??null, description:item?.description??"",
   });
-  const [fastItems, setFastItems] = useState([{id:uid(),name:"",cat:CATS[0],cost:"",price:"",serials:"",photo:null}]);
+  const [fastItems, setFastItems] = useState([{id:uid(),name:"",cat:CATS[0],cost:"",price:"",serials:"",qty:"",photo:null}]);
   const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
 
   const sf=(k,v)=>setF(p=>({...p,[k]:v}));
   const sfi=(id,k,v)=>setFastItems(its=>its.map(it=>it.id===id?{...it,[k]:v}:it));
 
   const parsedNew  = f.newSerials.split(/[\n,;]+/).map(x=>x.trim()).filter(Boolean);
+  const qtyNew     = Math.max(0, parseInt(f.qty) || 0);
   const allSerials = [...existingSerials,...parsedNew];
+
+  // Serials de OTROS productos, para detectar codigos repetidos
+  const otherSerials = new Set(
+    inventory.filter(p => p.id !== item?.id).flatMap(p => p.serials || [])
+  );
+  const dupInOthers = parsedNew.filter(s => otherSerials.has(s));
+  const dupInSelf   = parsedNew.filter((s,i) => existingSerials.includes(s) || parsedNew.indexOf(s) !== i);
+  const nameExists  = !item && f.name.trim() !== "" &&
+    inventory.some(p => p.name.trim().toLowerCase() === f.name.trim().toLowerCase());
 
   const handlePhoto = (e,target="main") => {
     const file=e.target.files?.[0]; if(!file) return;
-    const r=new FileReader();
-    r.onload=ev=>{if(target==="main")sf("photo",ev.target.result);else sfi(target,"photo",ev.target.result);};
-    r.readAsDataURL(file);
+    compressImage(file).then(data => {
+      if(target==="main") sf("photo",data); else sfi(target,"photo",data);
+    }).catch(()=>{});
   };
 
-  const removeSer = ser => {
-    const upd={...item,serials:existingSerials.filter(x=>x!==ser)};
-    saveInv(inventory.map(p=>p.id===item.id?upd:p));
-    onClose();
+  const removeSer = ser => setExistingSerials(prev => prev.filter(x => x !== ser));
+  const removeAutoOne = () => {
+    setExistingSerials(prev => {
+      const idx = prev.findIndex(isAutoCode);
+      return idx === -1 ? prev : [...prev.slice(0,idx), ...prev.slice(idx+1)];
+    });
   };
 
   const save2 = async () => {
-    if(!f.name||f.price==="") return;
+    setErr("");
+    if (!f.name.trim())  { setErr("Escribe el nombre del producto."); return; }
+    if (f.price === "" || isNaN(Number(f.price))) { setErr("Escribe el precio de venta."); return; }
+    if (Number(f.price) < 0 || (f.cost !== "" && Number(f.cost) < 0)) { setErr("El precio y el costo no pueden ser negativos."); return; }
+    if (dupInSelf.length)   { setErr(`Código repetido: ${dupInSelf.join(", ")}`); return; }
+    if (dupInOthers.length) { setErr(`Estos códigos ya existen en otro producto: ${dupInOthers.join(", ")}`); return; }
     setSaving(true);
-    const it={id:item?.id??uid(),name:f.name,cat:f.cat,cost:Number(f.cost)||0,price:Number(f.price),
-      isService:f.isService,serials:f.isService?[]:allSerials,photo:f.photo,description:f.description};
+    const it={...(item||{}), id:item?.id??uid(),name:f.name.trim(),cat:f.cat,cost:Number(f.cost)||0,price:Number(f.price),
+      isService:f.isService,serials:f.isService?[]:[...allSerials,...genAutoCodes(qtyNew)],photo:f.photo,description:f.description};
     await saveInv(item?inventory.map(p=>p.id===item.id?it:p):[...inventory,it]);
     setSaving(false); onClose();
   };
 
   const saveFast = async () => {
-    const valid=fastItems.filter(it=>it.name&&it.price); if(!valid.length) return;
+    setErr("");
+    const rows = fastItems.filter(it => it.name.trim() || it.price !== "" || it.serials.trim() || it.qty !== "");
+    if (!rows.length) { setErr("Agrega al menos un producto."); return; }
+    const incomplete = rows.filter(it => !it.name.trim() || it.price === "" || isNaN(Number(it.price)));
+    if (incomplete.length) { setErr(`Hay ${incomplete.length} producto(s) sin nombre o sin precio — complétalos o bórralos.`); return; }
+    const seen = new Set(otherSerials);
+    for (const it of rows) {
+      for (const s of it.serials.split(/[\n,;]+/).map(x=>x.trim()).filter(Boolean)) {
+        if (seen.has(s)) { setErr(`El código "${s}" está repetido.`); return; }
+        seen.add(s);
+      }
+    }
     setSaving(true);
-    const newItems=valid.map(it=>({id:uid(),name:it.name,cat:it.cat,cost:Number(it.cost)||0,price:Number(it.price),
-      isService:false,serials:it.serials.split(/[\n,;]+/).map(x=>x.trim()).filter(Boolean),photo:it.photo,description:""}));
+    const newItems=rows.map(it=>({id:uid(),name:it.name.trim(),cat:it.cat,cost:Number(it.cost)||0,price:Number(it.price),
+      isService:false,
+      serials:[...it.serials.split(/[\n,;]+/).map(x=>x.trim()).filter(Boolean), ...genAutoCodes(Math.max(0, parseInt(it.qty) || 0))],
+      photo:it.photo,description:""}));
     await saveInv([...inventory,...newItems]);
     setSaving(false); onClose();
   };
 
   const g=Number(f.price)-Number(f.cost);
+  const realSerials = existingSerials.filter(s => !isAutoCode(s));
+  const autoCount   = existingSerials.length - realSerials.length;
 
   return (
     <div className="ov" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
@@ -3289,6 +3354,7 @@ function InvModal({item,inventory,saveInv,onClose,rate}) {
             <div style={{flex:1,display:"flex",flexDirection:"column",gap:9}}>
               <div className="field"><label>Nombre del producto</label>
                 <input placeholder="Ej: Ray-Ban RB3025 Azul" value={f.name} onChange={e=>sf("name",e.target.value)} autoFocus/>
+                {nameExists&&<div style={{fontSize:10,color:"#fbbf24",marginTop:3}}>⚠️ Ya existe un producto con este nombre — si es el mismo, mejor edítalo desde la lista</div>}
               </div>
               <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
                 <div className="field" style={{flex:1}}><label>Categoría</label>
@@ -3326,26 +3392,43 @@ function InvModal({item,inventory,saveInv,onClose,rate}) {
 
           {!f.isService && (
             <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:12,padding:"12px",marginBottom:12}}>
-              <div style={{fontSize:11,fontWeight:600,color:"#2dcfe8",marginBottom:8}}>🔢 Códigos de serie — {allSerials.length} unidades</div>
-              {existingSerials.length>0&&(
+              <div style={{fontSize:11,fontWeight:600,color:"#2dcfe8",marginBottom:8}}>📦 Stock — {allSerials.length + qtyNew} unidades en total</div>
+              {(realSerials.length>0||autoCount>0)&&(
                 <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>
-                  {existingSerials.map(ser=>(
+                  {realSerials.map(ser=>(
                     <span key={ser} style={{background:"#071c22",border:"1px solid #0e3040",borderRadius:6,padding:"2px 8px",fontSize:10,color:"#4a9ab0",fontFamily:"'JetBrains Mono',monospace",display:"flex",alignItems:"center",gap:4}}>
                       {ser}{item&&<button onClick={()=>removeSer(ser)} style={{background:"transparent",border:"none",color:"#2a5060",cursor:"pointer",padding:0,fontSize:10}}>✕</button>}
                     </span>
                   ))}
+                  {autoCount>0&&(
+                    <span style={{background:"#0c1e14",border:"1px solid #14402a",borderRadius:6,padding:"2px 8px",fontSize:10,color:"#34d399",fontFamily:"'JetBrains Mono',monospace",display:"flex",alignItems:"center",gap:5}}>
+                      {autoCount} unidad(es) sin código
+                      {item&&<button onClick={removeAutoOne} title="Quitar una unidad" style={{background:"transparent",border:"none",color:"#2a6040",cursor:"pointer",padding:0,fontSize:10}}>−1</button>}
+                    </span>
+                  )}
                 </div>
               )}
-              <div className="field">
-                <label>Nuevos códigos (uno por línea o separados por coma)</label>
-                <textarea value={f.newSerials} onChange={e=>sf("newSerials",e.target.value)} rows={3}
-                  placeholder={"SN-001\nSN-002\nSN-003"}
-                  style={{background:"#050e10",border:"1px solid #0d2a30",borderRadius:8,padding:"9px 12px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:11,resize:"vertical",outline:"none",width:"100%"}}
-                />
-                {parsedNew.length>0&&<div style={{fontSize:10,color:"#34d399",marginTop:3}}>✓ Se agregarán {parsedNew.length} código(s)</div>}
+              <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:10,alignItems:"start"}}>
+                <div className="field">
+                  <label>Códigos de serie (uno por línea o separados por coma)</label>
+                  <textarea value={f.newSerials} onChange={e=>sf("newSerials",e.target.value)} rows={3}
+                    placeholder={"SN-001\nSN-002\nSN-003"}
+                    style={{background:"#050e10",border:"1px solid #0d2a30",borderRadius:8,padding:"9px 12px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:11,resize:"vertical",outline:"none",width:"100%"}}
+                  />
+                  {parsedNew.length>0&&dupInSelf.length===0&&dupInOthers.length===0&&<div style={{fontSize:10,color:"#34d399",marginTop:3}}>✓ Se agregarán {parsedNew.length} código(s)</div>}
+                  {dupInSelf.length>0&&<div style={{fontSize:10,color:"#f87171",marginTop:3}}>⚠️ Código repetido: {dupInSelf.join(", ")}</div>}
+                  {dupInOthers.length>0&&<div style={{fontSize:10,color:"#f87171",marginTop:3}}>⚠️ Ya existe en otro producto: {dupInOthers.join(", ")}</div>}
+                </div>
+                <div className="field" style={{width:130}}>
+                  <label>Sin código: cantidad</label>
+                  <input type="number" min="0" step="1" placeholder="0" value={f.qty} onChange={e=>sf("qty",e.target.value)}/>
+                  {qtyNew>0&&<div style={{fontSize:10,color:"#34d399",marginTop:3}}>✓ +{qtyNew} unidad(es)</div>}
+                </div>
               </div>
+              <div style={{fontSize:10,color:"#1a4a50",marginTop:6}}>Usa códigos para monturas con serial; usa cantidad para lentes de contacto, accesorios, etc.</div>
             </div>
           )}
+          {err&&<div style={{background:"#2a0c0c",border:"1px solid #5a1a1a",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#f87171",marginBottom:10}}>⚠️ {err}</div>}
           <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
             <button className="btn-g" onClick={onClose}>Cancelar</button>
             <button className="btn-p" onClick={save2} disabled={saving} style={{minWidth:130}}>
@@ -3357,41 +3440,50 @@ function InvModal({item,inventory,saveInv,onClose,rate}) {
         {mode==="fast"&&!item&&(<>
           <div style={{fontSize:11,color:"#1a4a50",marginBottom:12,lineHeight:1.5}}>Agrega varios productos de una sola vez. Foto + nombre + categoría + precios + códigos.</div>
           <div style={{display:"flex",flexDirection:"column",gap:10,maxHeight:"55vh",overflowY:"auto",paddingRight:2}}>
-            {fastItems.map((it)=>(
-              <div key={it.id} style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:12,padding:"12px"}}>
+            {fastItems.map((it)=>{
+              const touched = it.name.trim()||it.price!==""||it.serials.trim()||it.qty!=="";
+              const incomplete = touched && (!it.name.trim()||it.price==="");
+              const units = it.serials.split(/[\n,;]+/).filter(x=>x.trim()).length + Math.max(0, parseInt(it.qty)||0);
+              const dupName = it.name.trim()!=="" && inventory.some(p=>p.name.trim().toLowerCase()===it.name.trim().toLowerCase());
+              return (
+              <div key={it.id} style={{background:"#050f12",border:`1px solid ${incomplete?"#5a1a1a":"#0a2028"}`,borderRadius:12,padding:"12px"}}>
                 <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
                   <label style={{cursor:"pointer",flexShrink:0}}>
                     <div style={{width:56,height:56,borderRadius:9,background:"#071418",border:`1px dashed ${it.photo?"#0e7a8c":"#0a2028"}`,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden"}}>
                       {it.photo?<img src={it.photo} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>:<span style={{fontSize:20}}>📷</span>}
                     </div>
                     <input type="file" accept="image/*" capture="environment" style={{display:"none"}}
-                      onChange={e=>{const file=e.target.files?.[0];if(!file)return;const r=new FileReader();r.onload=ev=>sfi(it.id,"photo",ev.target.result);r.readAsDataURL(file);}}/>
+                      onChange={e=>handlePhoto(e, it.id)}/>
                   </label>
                   <div style={{flex:1,display:"grid",gridTemplateColumns:"2fr 1fr",gap:7}}>
                     <div className="field"><label style={{fontSize:9}}>Nombre</label>
-                      <input placeholder="Nombre del producto" value={it.name} onChange={e=>sfi(it.id,"name",e.target.value)} style={{padding:"6px 9px",fontSize:12}}/></div>
+                      <input placeholder="Nombre del producto" value={it.name} onChange={e=>sfi(it.id,"name",e.target.value)} style={{padding:"6px 9px",fontSize:12}}/>
+                      {dupName&&<span style={{fontSize:9,color:"#fbbf24"}}>⚠️ ya existe</span>}</div>
                     <div className="field"><label style={{fontSize:9}}>Categoría</label>
                       <select value={it.cat} onChange={e=>sfi(it.id,"cat",e.target.value)} style={{padding:"6px 8px",fontSize:12}}>
                         {CATS.filter(c=>c!=="Servicio").map(c=><option key={c}>{c}</option>)}</select></div>
                     <div className="field"><label style={{fontSize:9}}>Costo USD</label>
                       <input type="number" min="0" step="0.01" placeholder="0.00" value={it.cost} onChange={e=>sfi(it.id,"cost",e.target.value)} style={{padding:"6px 9px",fontSize:12}}/></div>
-                    <div className="field"><label style={{fontSize:9}}>Precio USD</label>
+                    <div className="field"><label style={{fontSize:9}}>Precio USD {incomplete&&<span style={{color:"#f87171"}}>*</span>}</label>
                       <input type="number" min="0" step="0.01" placeholder="0.00" value={it.price} onChange={e=>sfi(it.id,"price",e.target.value)} style={{padding:"6px 9px",fontSize:12}}/></div>
-                    <div className="field" style={{gridColumn:"1/-1"}}><label style={{fontSize:9}}>Códigos de serie (separados por coma)</label>
-                      <input placeholder="SN-001, SN-002" value={it.serials} onChange={e=>sfi(it.id,"serials",e.target.value)} style={{padding:"6px 9px",fontFamily:"'JetBrains Mono',monospace",fontSize:11}}/>
-                      {it.serials&&<span style={{fontSize:9,color:"#34d399",marginLeft:4}}>{it.serials.split(/[\n,;]+/).filter(x=>x.trim()).length} pz</span>}</div>
+                    <div className="field"><label style={{fontSize:9}}>Códigos de serie (coma)</label>
+                      <input placeholder="SN-001, SN-002" value={it.serials} onChange={e=>sfi(it.id,"serials",e.target.value)} style={{padding:"6px 9px",fontFamily:"'JetBrains Mono',monospace",fontSize:11}}/></div>
+                    <div className="field"><label style={{fontSize:9}}>Sin código: cantidad</label>
+                      <input type="number" min="0" step="1" placeholder="0" value={it.qty} onChange={e=>sfi(it.id,"qty",e.target.value)} style={{padding:"6px 9px",fontSize:12}}/>
+                      {units>0&&<span style={{fontSize:9,color:"#34d399"}}>{units} pz en total</span>}</div>
                   </div>
                   <button onClick={()=>setFastItems(items=>items.filter(x=>x.id!==it.id))} style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:18,padding:"2px 4px",flexShrink:0}}>×</button>
                 </div>
               </div>
-            ))}
+            );})}
           </div>
+          {err&&<div style={{background:"#2a0c0c",border:"1px solid #5a1a1a",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#f87171",marginTop:10}}>⚠️ {err}</div>}
           <div style={{display:"flex",justifyContent:"space-between",marginTop:12,alignItems:"center"}}>
-            <button className="btn-g" style={{fontSize:12}} onClick={()=>setFastItems(f=>[...f,{id:uid(),name:"",cat:CATS[0],cost:"",price:"",serials:"",photo:null}])}><IPlus/> Otro producto</button>
+            <button className="btn-g" style={{fontSize:12}} onClick={()=>setFastItems(f=>[...f,{id:uid(),name:"",cat:CATS[0],cost:"",price:"",serials:"",qty:"",photo:null}])}><IPlus/> Otro producto</button>
             <div style={{display:"flex",gap:8}}>
               <button className="btn-g" onClick={onClose}>Cancelar</button>
               <button className="btn-p" onClick={saveFast} disabled={saving} style={{minWidth:150}}>
-                <ICheck/>{saving?"Guardando…":`Guardar ${fastItems.filter(i=>i.name&&i.price).length} producto(s)`}
+                <ICheck/>{saving?"Guardando…":`Guardar ${fastItems.filter(i=>i.name.trim()&&i.price!=="").length} producto(s)`}
               </button>
             </div>
           </div>
@@ -3436,7 +3528,7 @@ function DayModal({date,sales,onClose,rate}) {
                   <td><div style={{color:"#b0c0d8",fontSize:13}}>{s.productName}</div>{s.note&&<div style={{fontSize:11,color:"#1e3050"}}>{s.note}</div>}</td>
                   <td style={{textAlign:"center",color:"#3a5070"}}>{s.qty}</td>
                   <td style={{fontSize:10,fontFamily:"'JetBrains Mono',monospace",color:"#2a5060"}}>
-                    {s.serials?.length ? s.serials.join(", ") : "—"}
+                    {fmtSerials(s.serials)}
                   </td>
                   <td style={{textAlign:"center"}}>{who?<span style={{fontSize:11,color:who.color,background:`${who.color}15`,padding:"2px 8px",borderRadius:20}}>{who.name}</span>:"-"}</td>
                   <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#60a5fa"}}>{fmtUSD(s.total)}</td>
