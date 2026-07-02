@@ -785,7 +785,10 @@ export default function App() {
 
   if (!profile) return <LoginScreen onSelect={handleLogin} dynProfiles={dynProfiles} />;
   const p = dynProfiles.find(x => x.id === profile);
-  const shared = { inventory, sales, rate, deposits, expenses, investments, orders, payments, profilesData, dynProfiles, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, saveOrders, saveDynProfiles, setViewAs, onLogout:handleLogout };
+  // Cambio directo de perfil (solo owner, desde Gestion): entra de lleno al
+  // otro perfil. La sesion recordada sigue siendo la suya — al recargar vuelve.
+  const switchTo = id => { setViewAs(null); setProfile(id); };
+  const shared = { inventory, sales, rate, deposits, expenses, investments, orders, payments, profilesData, dynProfiles, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, saveOrders, saveDynProfiles, setViewAs, switchTo, onLogout:handleLogout };
 
   // "Ver como": el propietario puede ver la app tal cual la ve otro perfil
   if (viewAs && p?.id === "owner") {
@@ -1621,7 +1624,7 @@ function CameraModal({ onClose, onDetect }) {
 }
 
 // ── Admin View ────────────────────────────────────────────────────────────────
-function AdminView({ profile, inventory, sales, rate, deposits, expenses, investments, orders, payments, profilesData, dynProfiles, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, saveOrders, saveDynProfiles, setViewAs, onLogout }) {
+function AdminView({ profile, inventory, sales, rate, deposits, expenses, investments, orders, payments, profilesData, dynProfiles, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, saveOrders, saveDynProfiles, setViewAs, switchTo, onLogout }) {
   const [tab,       setTab]      = useState("dash");
   const [invModal,  setInvModal] = useState(null);
   const [detailDate,setDD]       = useState(null);
@@ -1814,7 +1817,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
         {tab==="inv"      && <InvTab     {...{inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,isMobile}} />}
         {tab==="history"  && <HistTab    {...{byDate,sortedDates,setDD,storeFilter}} />}
         {tab==="miperfil" && <ProfileSettingsTab profile={profile} dynProfiles={dynProfiles} saveDynProfiles={saveDynProfiles}/>}
-        {tab==="ajustes"  && profile.id==="owner" && <GestionTab {...{profilesData,savePD,payments,savePayments,dynProfiles,saveDynProfiles,setViewAs}} />}
+        {tab==="ajustes"  && profile.id==="owner" && <GestionTab {...{profilesData,savePD,payments,savePayments,dynProfiles,saveDynProfiles,setViewAs,switchTo}} />}
       </main>
 
       {/* ── MOBILE BOTTOM NAV ── */}
@@ -3687,7 +3690,7 @@ function CierreTab({ sales, expenses, orders, rate, dynProfiles, profile }) {
   );
 }
 
-function GestionTab({ profilesData, savePD, payments, savePayments, dynProfiles, saveDynProfiles, setViewAs }) {
+function GestionTab({ profilesData, savePD, payments, savePayments, dynProfiles, saveDynProfiles, setViewAs, switchTo }) {
   const [pay, setPay] = useState(payments || DEFAULT_PAYMENTS);
   const [savingPay, setSavingPay] = useState(false);
   const [editProf, setEditProf] = useState(null);
@@ -3871,7 +3874,8 @@ Puedes cambiar tu contraseña cuando quieras en "Mi perfil".`) : "";
                 </div>
               </div>
               <div style={{display:"flex",gap:7}}>
-                {p.id!=="owner"&&<button className="btn-g" style={{padding:"5px 11px",fontSize:12,color:"#e8c96a",borderColor:"#4a3a10",display:"flex",alignItems:"center",gap:5}} title="Ver la app como este perfil" onClick={()=>setViewAs?.(p.id)}><IEye/> Ver</button>}
+                {p.id!=="owner"&&<button className="btn-g" style={{padding:"5px 11px",fontSize:12,color:"#e8c96a",borderColor:"#4a3a10",display:"flex",alignItems:"center",gap:5}} title="Ver la app como este perfil (con barra para volver)" onClick={()=>setViewAs?.(p.id)}><IEye/> Ver</button>}
+                {p.id!=="owner"&&<button className="btn-g" style={{padding:"5px 11px",fontSize:12,color:"#60a5fa",borderColor:"#1e3a60"}} title="Entrar de lleno a este perfil (para volver: Cambiar perfil o recargar)" onClick={()=>switchTo?.(p.id)}>→ Entrar</button>}
                 {p.id!=="owner"&&<button className="btn-g" style={{padding:"5px 11px",fontSize:12,color:"#34d399",borderColor:"#14402a"}} title="Enviar invitación con contraseña nueva" onClick={()=>openInvite(p)}>✉️ Invitar</button>}
                 <button className="btn-g" style={{padding:"5px 9px",fontSize:12}} onClick={()=>openEditProf(p)}><IEdit/></button>
                 {p.id!=="owner"&&<button className="btn-d" style={{padding:"5px 9px",fontSize:12}} onClick={()=>deleteProf(p.id)}><ITrash/></button>}
