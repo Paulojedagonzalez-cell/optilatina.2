@@ -11,12 +11,12 @@ const weekStart = () => { const d=new Date(); d.setDate(d.getDate()-d.getDay());
 // 🔧  REEMPLAZA CON TU CONFIGURACIÓN DE FIREBASE
 //     Firebase Console → Tu proyecto → Configuración → Apps web → firebaseConfig
 const FIREBASE_CONFIG = {
-  apiKey:            "AIzaSyBNdhAeQSE1fklt4h8YCUVRb3SirYiraGE",
-  authDomain:        "optilatina-c3c95.firebaseapp.com",
-  projectId:         "optilatina-c3c95",
-  storageBucket:     "optilatina-c3c95.firebasestorage.app",
-  messagingSenderId: "212208578793",
-  appId:             "1:212208578793:web:2081484a79b03f33afc078",
+  apiKey:            "AIzaSyAacxqRKfmdQ1AAqsT0d1T-lcQ0UxKDWKM",
+  authDomain:        "optilatina-595e2.firebaseapp.com",
+  projectId:         "optilatina-595e2",
+  storageBucket:     "optilatina-595e2.firebasestorage.app",
+  messagingSenderId: "361156126696",
+  appId:             "1:361156126696:web:b4117c7ccb43a6c346e65d",
 };
 
 const CONFIGURED = true; // Firebase configurado ✓
