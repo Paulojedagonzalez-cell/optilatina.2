@@ -3280,6 +3280,123 @@ function ProfileSettingsTab({ profile, dynProfiles, saveDynProfiles }) {
 }
 
 // ── Gestión Tab (solo P.G) ────────────────────────────────────────────────────
+// ── Registro rapido: interpreta una venta dictada en texto libre ──────────────
+const parseQuickSale = (text) => {
+  const t = text.replace(/\s+/g, " ").trim();
+  const low = t.toLowerCase();
+  const num = s => parseFloat(String(s).replace(",", "."));
+  // total: "se vendio a 200", "total 200$", "precio 200", "por 200 dolares"
+  const totalM = low.match(/(?:se\s+vendi[oó](?:\s+(?:a|en|por))?|vendid[oa](?:\s+(?:a|en|por))?|total(?:\s+de)?|precio(?:\s+de)?|cuesta|cost[oó])\s*:?\s*\$?\s*(\d+(?:[.,]\d{1,2})?)/);
+  // abono: "se abonaron 100", "abono 100", "adelanto 100", "dio 100"
+  const abonoM = low.match(/(?:se\s+abon[oó]|abonaron|abon[oó]|adelant[oó]|adelanto(?:\s+de)?|di[oó]\s+de\s+abono|di[oó])\s*:?\s*\$?\s*(\d+(?:[.,]\d{1,2})?)/);
+  const pagoCompleto = /pag[oó]\s+(?:todo|completo)|complet[oa]\b|cancel[oó]\s+(?:todo|completo)/.test(low);
+  // metodo de pago
+  let method = "efectivo";
+  if (/zelle/.test(low)) method = "zelle";
+  else if (/usdt|cripto|binance/.test(low)) method = "usdt";
+  else if (/pago\s*m[oó]vil|pagomovil/.test(low)) method = "pagoMovil";
+  else if (/transferencia|transferi/.test(low)) method = "transferencia";
+  // telefono: secuencia de 8+ digitos (admite +58, espacios, guiones)
+  const phoneM = t.match(/(\+?\d[\d\s.·-]{6,14}\d)/);
+  // nombre: despues de "cliente", "nombre", "sr(a)", "a nombre de"
+  const nameM = t.match(/(?:a\s+nombre\s+de|cliente|nombre(?:\s+del?\s+cliente)?|se[ñn]or[a]?|sra?\.?)\s*:?\s+([A-Za-zÁÉÍÓÚÑáéíóúñü]+(?:\s+[A-Za-zÁÉÍÓÚÑáéíóúñü]+){0,3})/i);
+  // producto: el texto antes de la primera señal de precio/venta
+  const cut = low.search(/se\s+vendi|vendid|,?\s*total|precio\s|\$\s*\d|\d+\s*d[oó]lares/);
+  const product = (cut > 3 ? t.slice(0, cut) : t).replace(/[,.;\s]+$/, "").trim();
+  const total = totalM ? num(totalM[1]) : null;
+  const abono = abonoM ? num(abonoM[1]) : (pagoCompleto && total ? total : 0);
+  return {
+    product, total, abono, method,
+    customer: nameM ? nameM[1].replace(/\s+(numero|celular|telefono|tel).*$/i,"").trim() : "",
+    phone: phoneM ? phoneM[1].replace(/[\s.·-]/g, "") : "",
+  };
+};
+
+function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum }) {
+  const [txt,   setTxt]   = useState("");
+  const [draft, setDraft] = useState(null);
+  const [err,   setErr]   = useState("");
+  const [done,  setDone]  = useState(false);
+
+  const interpret = () => {
+    setErr("");
+    if (txt.trim().length < 8) { setErr("Escribe la venta con más detalle."); return; }
+    const d = parseQuickSale(txt);
+    setDraft({...d, orderNumber: nextOrderNum});
+  };
+  const sd = (k,v) => setDraft(p=>({...p,[k]:v}));
+
+  const save = async () => {
+    setErr("");
+    if (!draft.product?.trim()) { setErr("Falta la descripción del producto."); return; }
+    if (!draft.total || isNaN(Number(draft.total)) || Number(draft.total)<=0) { setErr("Falta el precio total."); return; }
+    const abono = Math.min(Number(draft.abono)||0, Number(draft.total));
+    const o = {
+      id: uid(), orderNumber: parseInt(draft.orderNumber)||nextOrderNum,
+      customer: draft.customer?.trim() || "Cliente", phone: draft.phone||"",
+      product: draft.product.trim(), total: Number(draft.total),
+      payments: abono>0 ? [{id:uid(), date:today(), amount:abono, method:draft.method,
+        amountBs: methodCur(draft.method)==="Bs" ? abono*rate : null, rate}] : [],
+      status: "pendiente", storeId: profile.id,
+      createdAt: new Date().toISOString(), createdDate: today(), viaTexto: true,
+    };
+    await saveOrders([...orders, o]);
+    setDraft(null); setTxt(""); setDone(true);
+    setTimeout(()=>setDone(false), 3500);
+  };
+
+  const bal = draft ? Math.max(0, (Number(draft.total)||0) - (Number(draft.abono)||0)) : 0;
+
+  return (
+    <div className="card" style={{borderColor:"#14402a"}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#34d399",marginBottom:4}}>⚡ Registro rápido — escribe la venta y el sistema la organiza</div>
+      <div style={{fontSize:11,color:"#1a4a50",marginBottom:10}}>Ej: "Lentes Nike azul, fórmula miopía, fotocromático. Se vendió a 200$. Abonó 100 en efectivo. Cliente María Pérez 0414 1234567"</div>
+      {done && <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#34d399",marginBottom:10}}>✓ Guardado — la orden quedó registrada en su lugar</div>}
+      {!draft ? (
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <textarea value={txt} onChange={e=>setTxt(e.target.value)} rows={3}
+            placeholder="Escribe aquí la venta tal como la dirías…"
+            style={{background:"#050e10",border:"1px solid #0d2a30",borderRadius:10,padding:"11px 14px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:14,resize:"vertical",outline:"none",width:"100%"}}/>
+          {err&&<div style={{fontSize:12,color:"#f87171"}}>⚠️ {err}</div>}
+          <div style={{display:"flex",justifyContent:"flex-end"}}>
+            <button className="btn-p" onClick={interpret} style={{background:"linear-gradient(135deg,#0d7a50,#10b981)"}}>➤ Enviar</button>
+          </div>
+        </div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div style={{fontSize:11,color:"#fbbf24"}}>Revisa lo que entendí — corrige lo que haga falta y guarda:</div>
+          <div className="field"><label>Producto</label><input value={draft.product} onChange={e=>sd("product",e.target.value)}/></div>
+          <div className="rg2" style={{gap:10}}>
+            <div className="field"><label>Cliente</label><input value={draft.customer} onChange={e=>sd("customer",e.target.value)} placeholder="Nombre del cliente"/></div>
+            <div className="field"><label>Teléfono</label><PhoneInput value={draft.phone} onChange={v=>sd("phone",v)}/></div>
+          </div>
+          <div className="rg3" style={{gap:10}}>
+            <div className="field"><label>Total (USD)</label><input type="number" min="0" step="0.01" value={draft.total??""} onChange={e=>sd("total",e.target.value)}/></div>
+            <div className="field"><label>Abonado (USD)</label><input type="number" min="0" step="0.01" value={draft.abono??""} onChange={e=>sd("abono",e.target.value)}/></div>
+            <div className="field"><label>Método del abono</label>
+              <select value={draft.method} onChange={e=>sd("method",e.target.value)}>
+                {Object.entries(METHOD_INFO).map(([id,m])=><option key={id} value={id}>{m.icon} {m.label} ({m.cur})</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:10,padding:"10px 14px",display:"flex",gap:16,flexWrap:"wrap",fontSize:12}}>
+            <span style={{color:"#60a5fa",fontFamily:"'JetBrains Mono',monospace"}}>Orden #{draft.orderNumber}</span>
+            {methodCur(draft.method)==="Bs" && Number(draft.abono)>0 && <span style={{color:"#fbbf24",fontFamily:"'JetBrains Mono',monospace"}}>Abono = Bs {(Number(draft.abono)*rate).toLocaleString("es-VE",{maximumFractionDigits:0})}</span>}
+            {bal>0
+              ? <span style={{color:"#fbbf24"}}>Queda debiendo <strong>{fmtUSD(bal)}</strong> — se registra como apartado pendiente</span>
+              : <span style={{color:"#34d399"}}>✓ Pagado completo — quedará listo para entregar</span>}
+          </div>
+          {err&&<div style={{fontSize:12,color:"#f87171"}}>⚠️ {err}</div>}
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+            <button className="btn-g" onClick={()=>setDraft(null)}>← Corregir texto</button>
+            <button className="btn-p" onClick={save}><ICheck/>Guardar venta</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Apartados: clientes que pagan por partes y retiran al completar ───────────
 function ApartadosTab({ orders, saveOrders, rate, profile, isMobile }) {
   const [showNew,  setShowNew]  = useState(false);
@@ -3371,6 +3488,8 @@ function ApartadosTab({ orders, saveOrders, rate, profile, isMobile }) {
         </div>
         <button className="btn-p" onClick={()=>{setShowNew(true);setErr("");}}><IPlus/>Nuevo apartado</button>
       </div>
+
+      <QuickEntry orders={orders} saveOrders={saveOrders} rate={rate} profile={profile} nextOrderNum={nextOrderNum}/>
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11}}>
         <div className="card-sm" style={{textAlign:"center"}}>
