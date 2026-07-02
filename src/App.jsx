@@ -127,19 +127,20 @@ async function dbLoadAll() {
     // Timeout de 5s: si Firebase no responde, la app arranca con datos locales
     const _timeout = new Promise((_, reject) =>
       setTimeout(() => reject(new Error("Firebase timeout")), 5000));
-    const [inventory, sales, expenses, deposits, investments,
+    const [inventory, sales, expenses, deposits, investments, orders,
            rate, payments, profilesData, dynProfiles] = await Promise.race([Promise.all([
       DB.getAll("inventory", "name"),
       DB.getAll("sales",     "date"),
       DB.getAll("expenses",  "createdAt"),
       DB.getAll("deposits",  "date"),
       DB.getAll("investments","date"),
+      DB.getAll("orders",    "createdAt"),
       DB.getSetting("rate"),
       DB.getSetting("payments"),
       DB.getSetting("profilesData"),
       DB.getSetting("dynProfiles"),
     ]), _timeout]);
-    return { inventory, sales, expenses, deposits, investments,
+    return { inventory, sales, expenses, deposits, investments, orders,
              rate, payments, profilesData, dynProfiles };
   } catch (e) {
     console.error("Firebase load error:", e);
@@ -461,6 +462,46 @@ const fmtSerials = arr => {
   return [...real, ...(auto ? [`${auto} sin código`] : [])].join(", ");
 };
 
+// ── Metodos de pago (Venezuela): cada uno con su moneda ──────────────────────
+// Bs entra por Pago Movil y Transferencia; USD por Efectivo y Zelle; USDT aparte.
+const METHOD_INFO = {
+  efectivo:      {label:"Efectivo",      icon:"💵", cur:"USD"},
+  zelle:         {label:"Zelle",         icon:"💸", cur:"USD"},
+  usdt:          {label:"USDT",          icon:"₮",  cur:"USDT"},
+  pagoMovil:     {label:"Pago Móvil",    icon:"📱", cur:"Bs"},
+  transferencia: {label:"Transferencia", icon:"🏦", cur:"Bs"},
+};
+// Ventas viejas usan ids legacy: cash → efectivo, bank → pagoMovil
+const normMethod = m => m==="cash" ? "efectivo" : m==="bank" ? "pagoMovil" : (m || "efectivo");
+const methodCur  = m => METHOD_INFO[normMethod(m)]?.cur || "USD";
+const methodLbl  = m => { const i = METHOD_INFO[normMethod(m)]; return i ? `${i.icon} ${i.label}` : m; };
+
+// Suma entradas de dinero por metodo y moneda (ventas directas + abonos de apartados)
+const moneyIn = (salesList, ordersList, fromDate, toDate) => {
+  const inRange = d => d && d >= fromDate && d <= toDate;
+  const acc = {}; // {metodo: {usd, bs}}
+  const add = (method, usd, bs) => {
+    const m = normMethod(method);
+    if (!acc[m]) acc[m] = {usd:0, bs:0};
+    acc[m].usd += usd; acc[m].bs += bs;
+  };
+  salesList.forEach(s => { if (inRange(s.date)) add(s.paymentMethod, s.total, s.totalBs ?? 0); });
+  ordersList.forEach(o => (o.payments||[]).forEach(p => {
+    if (inRange(p.date)) add(p.method, p.amount, p.amountBs ?? 0);
+  }));
+  let totUSD = 0, totBs = 0, totUSDT = 0;
+  Object.entries(acc).forEach(([m,v]) => {
+    const cur = methodCur(m);
+    if (cur === "Bs") totBs += v.bs || 0;
+    else if (cur === "USDT") totUSDT += v.usd;
+    else totUSD += v.usd;
+  });
+  return {byMethod: acc, totUSD, totBs, totUSDT};
+};
+
+const orderPaid    = o => (o.payments||[]).reduce((s,p)=>s+p.amount,0);
+const orderBalance = o => Math.max(0, (o.total||0) - orderPaid(o));
+
 // ── Telefonos internacionales ─────────────────────────────────────────────────
 const CC_LIST = [
   ["+58","🇻🇪 Venezuela"],["+57","🇨🇴 Colombia"],["+1","🇺🇸 USA/Canadá"],["+52","🇲🇽 México"],
@@ -566,6 +607,7 @@ export default function App() {
   const [deposits,     setDeposits]     = useState([]);
   const [expenses,     setExpenses]     = useState([]);
   const [investments,  setInvestments]  = useState([]);
+  const [orders,       setOrders]       = useState([]); // apartados con abonos
   const [rate,         setRateState]    = useState(36.5);
   const [payments,     setPayments]     = useState(DEFAULT_PAYMENTS);
   const [profilesData, setProfilesData] = useState(DEFAULT_PROFILES_DATA);
@@ -588,6 +630,7 @@ export default function App() {
           setDeposits(b.deposits ?? []);
           setExpenses(b.expenses ?? []);
           setInvestments(b.investments ?? []);
+          setOrders(b.orders ?? []);
           if (b.rate         != null) setRateState(b.rate);
           if (b.payments     != null) setPayments(b.payments);
           if (b.profilesData != null) setProfilesData(b.profilesData);
@@ -608,6 +651,7 @@ export default function App() {
         setDeposits(data.deposits ?? []);
         setExpenses(data.expenses ?? []);
         setInvestments(data.investments ?? []);
+        setOrders(data.orders ?? []);
         if (data.rate         !== null) setRateState(data.rate);
         if (data.payments     !== null) setPayments(data.payments);
         if (data.profilesData !== null) setProfilesData(data.profilesData);
@@ -630,14 +674,14 @@ export default function App() {
       try {
         localStorage.setItem("ol_backup", JSON.stringify({
           inventory: inventory.map(({photo, ...rest}) => rest),
-          sales, deposits, expenses, investments,
+          sales, deposits, expenses, investments, orders,
           rate, payments, profilesData,
           dynProfiles: dynProfiles.map(({photo, storeLogo, ...rest}) => rest),
         }));
       } catch {}
     }, 1500);
     return () => clearTimeout(t);
-  }, [loading, inventory, sales, deposits, expenses, investments, rate, payments, profilesData, dynProfiles]);
+  }, [loading, inventory, sales, deposits, expenses, investments, orders, rate, payments, profilesData, dynProfiles]);
 
   // Sesion recordada: si el usuario marco "Recordar mi sesion", entrar directo
   useEffect(() => {
@@ -660,6 +704,7 @@ export default function App() {
       DB.listen("expenses",    d => setExpenses(d)),
       DB.listen("deposits",    d => setDeposits(d)),
       DB.listen("investments", d => setInvestments(d)),
+      DB.listen("orders",      d => setOrders(d)),
       DB.listenSetting("rate",          v => setRateState(v)),
       DB.listenSetting("payments",      v => setPayments(v)),
       DB.listenSetting("profilesData",  v => setProfilesData(v)),
@@ -681,6 +726,13 @@ export default function App() {
     setSales(d);
     if (newItems.length) await dbSaveSales(newItems);
   }, [sales]);
+
+  const saveOrders = useCallback(async d => {
+    const removed = orders.filter(o => !d.find(x => x.id === o.id));
+    setOrders(d);
+    await DB.upsertMany("orders", d);
+    await Promise.all(removed.map(o => DB.delete("orders", o.id)));
+  }, [orders]);
 
   const saveDeposits    = useCallback(async d => { setDeposits(d);    await dbSaveDeposits(d);    }, []);
   const saveExpenses    = useCallback(async d => { setExpenses(d);    await dbSaveExpenses(d);    }, []);
@@ -727,156 +779,91 @@ export default function App() {
 
   if (!profile) return <LoginScreen onSelect={handleLogin} dynProfiles={dynProfiles} />;
   const p = dynProfiles.find(x => x.id === profile);
-  const shared = { inventory, sales, rate, deposits, expenses, investments, payments, profilesData, dynProfiles, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, saveDynProfiles, onLogout:handleLogout };
+  const shared = { inventory, sales, rate, deposits, expenses, investments, orders, payments, profilesData, dynProfiles, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, saveOrders, saveDynProfiles, onLogout:handleLogout };
   return p?.role === "store"
     ? <StoreView  profile={p} {...shared} />
     : <AdminView  profile={p} {...shared} />;
 }
 
-// ── Login ─────────────────────────────────────────────────────────────────────
+// ── Login por invitación: usuario/correo + contraseña, sin perfiles visibles ──
 function LoginScreen({ onSelect, dynProfiles }) {
-  const [pending,  setPending]  = useState(null);
-  const [pin,      setPin]      = useState("");
+  const [user,     setUser]     = useState("");
   const [pw,       setPw]       = useState("");
   const [showPw,   setShowPw]   = useState(false);
-  const [shake,    setShake]    = useState(false);
   const [remember, setRemember] = useState(true);
+  const [error,    setError]    = useState("");
   const [forgot,   setForgot]   = useState(false);
+  const [busy,     setBusy]     = useState(false);
 
   const owner = dynProfiles.find(p => p.id === "owner");
 
-  const handleSelect = p => { setPending(p); setPin(""); setPw(""); setShowPw(false); };
-  const fail = () => { setShake(true); setTimeout(() => { setShake(false); setPin(""); setPw(""); }, 700); };
-
-  const handleDigit = d => {
-    if (shake) return;
-    const next = pin + d;
-    setPin(next);
-    if (next.length === 4) {
-      if (next === (pending.pin || "0000")) {
-        onSelect(pending.id, remember); setPending(null); setPin("");
-      } else fail();
-    }
+  const tryLogin = () => {
+    setError("");
+    const u = user.trim().toLowerCase();
+    if (!u || !pw) { setError("Escribe tu usuario y contraseña."); return; }
+    setBusy(true);
+    // Buscar por correo, nombre, o nombre de tienda — sin revelar qué perfiles existen
+    const p = dynProfiles.find(x =>
+      x.email?.trim().toLowerCase() === u ||
+      x.name?.trim().toLowerCase() === u ||
+      (x.role === "store" && (x.address?.trim().toLowerCase() === u || `${x.storeName||""} ${x.address||""}`.trim().toLowerCase() === u))
+    );
+    const ok = p && (p.password ? pw === p.password : pw === (p.pin || "0000"));
+    setTimeout(() => { // pequeña pausa para no delatar si el usuario existe
+      setBusy(false);
+      if (ok) { onSelect(p.id, remember); }
+      else setError("Usuario o contraseña incorrectos.");
+    }, 350);
   };
-  const handleBack = () => { if (!shake) setPin(p => p.slice(0,-1)); };
-
-  const tryPassword = () => {
-    if (shake || !pw) return;
-    if (pw === pending.password) { onSelect(pending.id, remember); setPending(null); setPw(""); }
-    else fail();
-  };
-
-  const adminProfiles = dynProfiles.filter(p=>p.role==="admin");
-  const storeProfiles = dynProfiles.filter(p=>p.role==="store");
 
   return (
     <div style={{minHeight:"100vh",background:"#040d10",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,fontFamily:"'Outfit',sans-serif"}}>
-      <style>{CSS + `
-        @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
-        .shake{animation:shake .5s ease}
-        .pin-key{background:#071418;border:1px solid #0d2a30;border-radius:14px;width:72px;height:72px;font-size:22px;font-weight:600;color:#e2e8f4;font-family:'Outfit',sans-serif;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
-        .pin-key:hover{background:#0c2030;border-color:#1a5060}
-        .pin-key:active{transform:scale(.93);background:#0d2840}
-        .profile-card{background:#071418;border:1px solid #0d2a30;border-radius:20px;padding:26px 22px;cursor:pointer;transition:all .25s;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:155px}
-        .profile-card:hover{transform:translateY(-5px);border-color:#1a5060;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-      `}</style>
-      {!pending ? (
-        <>
-          <div style={{textAlign:"center",marginBottom:40}}>
-            <div style={{width:80,height:80,margin:"0 auto 14px",borderRadius:18,overflow:"hidden",boxShadow:"0 0 40px #0e7a8c40"}}><Logo s={80}/></div>
-            <div style={{fontSize:28,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Optilatina</div>
-            <div style={{fontSize:13,color:"#1a4a50",marginTop:4}}>Selecciona tu perfil para continuar</div>
+      <style>{CSS}</style>
+      <div style={{width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:18}}>
+        <div style={{textAlign:"center",marginBottom:6}}>
+          <div style={{width:76,height:76,margin:"0 auto 14px",borderRadius:18,overflow:"hidden",boxShadow:"0 0 40px #0e7a8c40"}}><Logo s={76}/></div>
+          <div style={{fontSize:30,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Optilatina</div>
+          <div style={{fontSize:13,color:"#1a4a50",marginTop:4}}>Plataforma de gestión</div>
+        </div>
+
+        <div className="field">
+          <label>Usuario o correo</label>
+          <input autoFocus placeholder="tu nombre o tu@correo.com" value={user}
+            onChange={e=>setUser(e.target.value)}
+            onKeyDown={e=>{if(e.key==="Enter")tryLogin();}}
+            style={{padding:"13px 15px",fontSize:15,borderRadius:12}}/>
+        </div>
+        <div className="field">
+          <label>Contraseña</label>
+          <div style={{display:"flex",gap:6}}>
+            <input type={showPw?"text":"password"} placeholder="••••••••" value={pw}
+              onChange={e=>setPw(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter")tryLogin();}}
+              style={{flex:1,minWidth:0,padding:"13px 15px",fontSize:15,borderRadius:12}}/>
+            <button onClick={()=>setShowPw(s=>!s)} title={showPw?"Ocultar":"Mostrar"}
+              style={{background:"#071418",border:"1px solid #0d2a30",borderRadius:12,padding:"0 15px",color:"#2a5a60",cursor:"pointer",fontSize:16}}>{showPw?"🙈":"👁"}</button>
           </div>
-          {adminProfiles.length>0 && (
-            <div style={{marginBottom:24}}>
-              <div style={{fontSize:10,color:"#1a4060",textTransform:"uppercase",letterSpacing:".12em",marginBottom:12,textAlign:"center"}}>Administradores</div>
-              <div style={{display:"flex",gap:16,flexWrap:"wrap",justifyContent:"center"}}>
-                {adminProfiles.map(p=>(
-                  <div key={p.id} className="profile-card" onClick={()=>handleSelect(p)}>
-                    {p.photo ? <img src={p.photo} style={{width:60,height:60,borderRadius:"50%",objectFit:"cover",border:`2px solid ${p.color}40`}}/>
-                      : <div style={{width:60,height:60,borderRadius:"50%",background:`${p.color}18`,border:`2px solid ${p.color}35`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:700,color:p.color}}>{p.name.slice(0,2)}</div>}
-                    <div style={{textAlign:"center"}}>
-                      <div style={{fontSize:17,fontWeight:700,color:"#e2e8f4"}}>{p.name}</div>
-                      {p.description&&<div style={{fontSize:11,color:`${p.color}99`,marginTop:2}}>{p.description}</div>}
-                    </div>
-                    <div style={{background:`${p.color}12`,color:p.color,borderRadius:20,padding:"4px 14px",fontSize:11,fontWeight:600,border:`1px solid ${p.color}25`}}>🔒 Admin</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {storeProfiles.length>0 && (
-            <div>
-              <div style={{fontSize:10,color:"#1a4060",textTransform:"uppercase",letterSpacing:".12em",marginBottom:12,textAlign:"center"}}>Tiendas</div>
-              <div style={{display:"flex",gap:16,flexWrap:"wrap",justifyContent:"center"}}>
-                {storeProfiles.map(p=>(
-                  <div key={p.id} className="profile-card" onClick={()=>handleSelect(p)}>
-                    {p.photo ? <img src={p.photo} style={{width:60,height:60,borderRadius:12,objectFit:"cover",border:`2px solid ${p.color}40`}}/>
-                      : p.storeLogo
-                        ? <img src={p.storeLogo} style={{width:60,height:60,borderRadius:12,objectFit:"cover",border:`2px solid ${p.color}35`}} alt="logo"/>
-                        : <div style={{width:60,height:60,borderRadius:12,overflow:"hidden",border:`2px solid ${p.color}35`}}><Logo2 s={60}/></div>}
-                    <div style={{textAlign:"center"}}>
-                      <div style={{fontSize:13,fontWeight:800,color:"#e2e8f4",letterSpacing:"-.01em"}}>{p.storeName||"Optilatina"}</div>
-                      <div style={{fontSize:14,color:p.color,fontWeight:600,marginTop:2}}>{p.address}</div>
-                    </div>
-                    <div style={{background:`${p.color}12`,color:p.color,borderRadius:20,padding:"4px 14px",fontSize:11,fontWeight:600,border:`1px solid ${p.color}25`}}>🔒 Tienda</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      ) : (
-        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:24,width:"100%",maxWidth:340}}>
-          <div style={{textAlign:"center"}}>
-            {pending.role==="store"
-              ? <div style={{width:68,height:68,borderRadius:14,background:`${pending.color}18`,border:`2px solid ${pending.color}35`,overflow:"hidden",margin:"0 auto 12px"}}><Logo2 s={68}/></div>
-              : <div style={{width:68,height:68,borderRadius:"50%",background:`${pending.color}18`,border:`2px solid ${pending.color}35`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,fontWeight:700,color:pending.color,margin:"0 auto 12px"}}>{pending.name.slice(0,2)}</div>}
-            <div style={{fontSize:20,fontWeight:700,color:"#fff"}}>
-              {pending.role==="store" ? `${pending.storeName||"Optilatina"} — ${pending.address}` : pending.name}
-            </div>
-            <div style={{fontSize:13,color:"#1a4a50",marginTop:4}}>{pending.password ? "Contraseña de acceso" : "PIN de acceso"}</div>
-          </div>
-
-          {pending.password ? (
-            <div className={shake?"shake":""} style={{width:"100%",display:"flex",flexDirection:"column",gap:12}}>
-              <div style={{display:"flex",gap:6}}>
-                <input type={showPw?"text":"password"} autoFocus placeholder="Tu contraseña" value={pw}
-                  onChange={e=>setPw(e.target.value)}
-                  onKeyDown={e=>{if(e.key==="Enter")tryPassword();}}
-                  style={{flex:1,minWidth:0,background:"#050e10",border:`1px solid ${shake?"#5a1a1a":"#0d2a30"}`,borderRadius:10,padding:"12px 14px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:15,outline:"none"}}/>
-                <button onClick={()=>setShowPw(s=>!s)} title={showPw?"Ocultar":"Mostrar"}
-                  style={{background:"#071418",border:"1px solid #0d2a30",borderRadius:10,padding:"0 14px",color:"#2a5a60",cursor:"pointer",fontSize:16}}>{showPw?"🙈":"👁"}</button>
-              </div>
-              <button className="btn-p" onClick={tryPassword} disabled={shake||!pw} style={{justifyContent:"center",opacity:pw?1:.5}}>Entrar</button>
-            </div>
-          ) : (
-            <>
-              <div className={shake?"shake":""} style={{display:"flex",gap:14}}>
-                {[0,1,2,3].map(i=>(<div key={i} style={{width:16,height:16,borderRadius:"50%",background:i<pin.length?pending.color:"#141e30",border:`2px solid ${i<pin.length?pending.color:"#1e2e45"}`,transition:"all .15s"}}/>))}
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,72px)",gap:10,opacity:shake?.4:1,transition:"opacity .15s"}}>
-                {[1,2,3,4,5,6,7,8,9].map(n=>(<button key={n} className="pin-key" onClick={()=>handleDigit(String(n))} disabled={shake}>{n}</button>))}
-                <button className="pin-key" style={{background:"transparent",border:"1px solid #0a2028",color:"#1a4a50",fontSize:13}} onClick={()=>{setPending(null);setPin("");}}>←</button>
-                <button className="pin-key" onClick={()=>handleDigit("0")} disabled={shake}>0</button>
-                <button className="pin-key" style={{background:"transparent",border:"1px solid #0a2028",color:shake?"#1a4a50":"#2dcfe8",fontSize:18}} onClick={handleBack} disabled={shake}>⌫</button>
-              </div>
-            </>
-          )}
-
-          {shake&&<div style={{color:"#f87171",fontSize:13,marginTop:-10}}>{pending.password?"Contraseña incorrecta":"PIN incorrecto"}</div>}
-
-          <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"#2a5a60",cursor:"pointer",userSelect:"none"}}>
-            <input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)} style={{accentColor:"#0e7a8c",width:16,height:16}}/>
-            Recordar mi sesión en este dispositivo
-          </label>
-
-          <div style={{display:"flex",gap:18,fontSize:12}}>
-            <button onClick={()=>{setPending(null);setPin("");setPw("");}} style={{background:"transparent",border:"none",color:"#1a4a50",cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:12,textDecoration:"underline"}}>← Cambiar perfil</button>
-            <button onClick={()=>setForgot(true)} style={{background:"transparent",border:"none",color:"#2a5a60",cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:12,textDecoration:"underline"}}>¿No puedes entrar?</button>
+          <div style={{textAlign:"right",marginTop:6}}>
+            <button onClick={()=>setForgot(true)} style={{background:"transparent",border:"none",color:"#2a5a60",cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:12,textDecoration:"underline"}}>¿Olvidaste tu contraseña?</button>
           </div>
         </div>
-      )}
+
+        {error&&<div style={{background:"#2a0c0c",border:"1px solid #5a1a1a",borderRadius:10,padding:"11px 14px",fontSize:13,color:"#f87171"}}>{error}</div>}
+
+        <button className="btn-p" onClick={tryLogin} disabled={busy}
+          style={{justifyContent:"center",padding:"14px",fontSize:15,borderRadius:12,opacity:busy?.6:1}}>
+          {busy?"Verificando…":"Entrar"}
+        </button>
+
+        <label style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,fontSize:13,color:"#2a5a60",cursor:"pointer",userSelect:"none"}}>
+          <input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)} style={{accentColor:"#0e7a8c",width:16,height:16}}/>
+          Recordar mi sesión en este dispositivo
+        </label>
+
+        <div style={{textAlign:"center",fontSize:12,color:"#1a4a50",lineHeight:1.6}}>
+          ¿Necesitas una cuenta? Pídesela al propietario —<br/>el acceso es únicamente por invitación.
+        </div>
+      </div>
 
       {forgot && (
         <div className="ov" onClick={e=>{if(e.target===e.currentTarget)setForgot(false);}}>
@@ -884,9 +871,9 @@ function LoginScreen({ onSelect, dynProfiles }) {
             <div style={{fontSize:40,marginBottom:10}}>🔐</div>
             <div style={{fontSize:17,fontWeight:700,color:"#fff",marginBottom:8}}>Recuperar acceso</div>
             <div style={{fontSize:13,color:"#7a94a8",lineHeight:1.6,marginBottom:16}}>
-              Por seguridad, los PIN y contraseñas solo los restablece el propietario.
+              Por seguridad, las contraseñas solo las restablece el propietario.
               Contacta a <strong style={{color:"#2dcfe8"}}>{owner?.name || "P.G"} (Propietario)</strong> y
-              él lo arregla desde su perfil en segundos.
+              él te envía una invitación nueva en segundos.
             </div>
             <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap",marginBottom:14}}>
               {phoneDigits(owner?.phone) && (
@@ -907,10 +894,11 @@ function LoginScreen({ onSelect, dynProfiles }) {
 }
 
 // ── Store View (pantalla tienda) ──────────────────────────────────────────────
-function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, saveInv, saveSal, onLogout }) {
+function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, orders, saveOrders, saveInv, saveSal, onLogout }) {
   const [lines,      setLines]     = useState([]);
   const [note,       setNote]      = useState("");
   const [method,     setMethod]    = useState("cash");
+  const [showApart,  setShowApart] = useState(false);
   const [success,    setSuccess]   = useState(null);
   const [catF,       setCatF]      = useState("Todos");
   const [addStockM,  setAddStockM] = useState(false);
@@ -924,10 +912,11 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, sav
   const [camera,     setCamera]    = useState(false); // camera modal
 
   const METHODS = [
-    {id:"cash",  label:"Efectivo",   icon:"💵", currency:"USD", detail:null},
-    {id:"usdt",  label:"USDT",       icon:"₮",  currency:"USD", detail:payments?.usdt?.address  ? `${payments.usdt.network} · ${payments.usdt.address}` : null},
-    {id:"zelle", label:"Zelle",      icon:"💸", currency:"USD", detail:payments?.zelle?.name    ? `${payments.zelle.name} — ${payments.zelle.email||payments.zelle.phone}` : null},
-    {id:"bank",  label:"Pago Móvil", icon:"📱", currency:"Bs",  detail:payments?.bank?.name     ? `${payments.bank.bank} · ${payments.bank.phone} · ${payments.bank.name}` : null},
+    {id:"cash",          label:"Efectivo",      icon:"💵", currency:"USD", detail:null},
+    {id:"zelle",         label:"Zelle",         icon:"💸", currency:"USD", detail:payments?.zelle?.name ? `${payments.zelle.name} — ${payments.zelle.email||payments.zelle.phone}` : null},
+    {id:"usdt",          label:"USDT",          icon:"₮",  currency:"USDT", detail:payments?.usdt?.address ? `${payments.usdt.network} · ${payments.usdt.address}` : null},
+    {id:"bank",          label:"Pago Móvil",    icon:"📱", currency:"Bs",  detail:payments?.bank?.name ? `${payments.bank.bank} · ${payments.bank.phone} · ${payments.bank.name}` : null},
+    {id:"transferencia", label:"Transferencia", icon:"🏦", currency:"Bs",  detail:payments?.bank?.account ? `${payments.bank.bank} · ${payments.bank.account} · ${payments.bank.name}` : null},
   ];
   const selMethod = METHODS.find(m=>m.id===method);
 
@@ -967,14 +956,14 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, sav
         prodInv.serials = ordered.slice(r.qty);
       }
       const lineLabCost = labC / resolved.length;
-      const isBank = method === "bank"; // Pago Móvil = Bs
+      const isBs = methodCur(method) === "Bs"; // Pago Móvil / Transferencia = Bs
       newSales.push({
         id:uid(), saleId, date:today(), note, paymentMethod:method,
         registeredBy:profile.id, storeId:profile.id,
         productId:r.product.id, productName:r.product.name, cat:r.product.cat,
         cost:r.product.cost, price:r.product.price, qty:r.qty,
         total:r.subtotal + lineLabCost, profit:r.profit,
-        totalBs: isBank ? (r.subtotal + lineLabCost) * rate : null, // Bs amount for pago móvil
+        totalBs: isBs ? (r.subtotal + lineLabCost) * rate : null, // monto en Bs (pago móvil / transferencia)
         serials:assignedSerials,
         frameType, crystalType, lab, labCost:lineLabCost,
         rx: (r.product.cat==="Lente"||r.product.cat==="Lente de contacto") ? rx : null,
@@ -1026,6 +1015,15 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, sav
     <div style={{fontFamily:"'Outfit',sans-serif",background:"#040d10",color:"#e2e8f4",display:"flex",flexDirection:"column",height:isMobile?"auto":"100dvh",minHeight:isMobile?"100svh":"100dvh",overflow:isMobile?"auto":"hidden"}}>
       <style>{CSS}</style>
 
+      {showApart && (
+        <div style={{position:"fixed",inset:0,background:"#040d10",zIndex:200,overflow:"auto",padding:"16px"}}>
+          <div style={{maxWidth:920,margin:"0 auto"}}>
+            <button className="btn-g" onClick={()=>setShowApart(false)} style={{marginBottom:14}}>← Volver a ventas</button>
+            <ApartadosTab orders={orders||[]} saveOrders={saveOrders} rate={rate} profile={profile} isMobile={isMobile}/>
+          </div>
+        </div>
+      )}
+
       {success && (
         <div className="popin" style={{position:"fixed",inset:0,background:"rgba(2,8,10,.95)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:10}}>
           <div style={{fontSize:72}}>✅</div>
@@ -1053,6 +1051,7 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, sav
             </div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <button className="btn-p" style={{fontSize:11,padding:"6px 10px",display:"flex",alignItems:"center",gap:4,background:"linear-gradient(135deg,#7a5a0a,#b8860b)"}} onClick={()=>setShowApart(true)}>🧾{isMobile?"":" Apartados"}{orders?.filter(o=>o.status!=="entregado"&&orderBalance(o)>0).length>0&&<span style={{background:"#2a1e08",borderRadius:10,padding:"0 6px",fontSize:10}}>{orders.filter(o=>o.status!=="entregado"&&orderBalance(o)>0).length}</span>}</button>
             <button className="btn-p" style={{fontSize:11,padding:"6px 10px",display:"flex",alignItems:"center",gap:4}} onClick={()=>setCamera(true)}>📷{isMobile?"":" Escanear"}</button>
             <button onClick={()=>setAddStockM(true)} className="btn-p" style={{fontSize:11,padding:"6px 10px",display:"flex",alignItems:"center",gap:4}}><IPlus/>{isMobile?"":" Stock"}</button>
             <button onClick={onLogout} className="btn-g" style={{fontSize:11,padding:"6px 10px",display:"flex",alignItems:"center",gap:4,borderColor:"#1a3040"}}>
@@ -1587,7 +1586,7 @@ function CameraModal({ onClose, onDetect }) {
 }
 
 // ── Admin View ────────────────────────────────────────────────────────────────
-function AdminView({ profile, inventory, sales, rate, deposits, expenses, investments, payments, profilesData, dynProfiles, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, saveDynProfiles, onLogout }) {
+function AdminView({ profile, inventory, sales, rate, deposits, expenses, investments, orders, payments, profilesData, dynProfiles, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, saveOrders, saveDynProfiles, onLogout }) {
   const [tab,       setTab]      = useState("dash");
   const [invModal,  setInvModal] = useState(null);
   const [detailDate,setDD]       = useState(null);
@@ -1640,16 +1639,17 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
 
   const NAV_ITEMS = [
     {id:"dash",    I:IHome,   l:"Inicio"},
+    {id:"apart",   I:ITag,    l:"Apartados"},
     {id:"stats",   I:IStats,  l:"Stats"},
-    {id:"finanzas",I:IMoney,  l:"Finanzas"},
     {id:"caja",    I:ICash,   l:"Caja"},
     {id:"inv",     I:IBox,    l:"Inventario"},
     {id:"history", I:IChart,  l:"Historial"},
   ];
   const SIDE_EXTRA = [
     {id:"week",    I:IWeek,   l:"Esta semana"},
+    {id:"finanzas",I:IMoney,  l:"Finanzas"},
     {id:"miperfil",I:IGear,   l:"Mi perfil"},
-    ...(profile.id==="owner" ? [{id:"ajustes",I:IUsers,l:"Gestión"}] : []),
+    ...(profile.id==="owner" ? [{id:"ajustes",I:IUsers,l:"Gestión"},{id:"cierre",I:IChart,l:"Cierre"}] : []),
   ];
 
   return (
@@ -1717,6 +1717,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
           )}
           {[
             {id:"dash",    I:IHome,   l:"Dashboard"},
+            {id:"apart",   I:ITag,    l:"Apartados"},
             {id:"stats",   I:IStats,  l:"Estadísticas"},
             {id:"week",    I:IWeek,   l:"Esta semana"},
             {id:"finanzas",I:IMoney,  l:"Finanzas"},
@@ -1724,7 +1725,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
             {id:"inv",     I:IBox,    l:"Inventario"},
             {id:"history", I:IChart,  l:"Historial"},
             {id:"miperfil",I:IGear,   l:"Mi perfil"},
-            ...(profile.id==="owner" ? [{id:"ajustes",I:IUsers,l:"Gestión"}] : []),
+            ...(profile.id==="owner" ? [{id:"ajustes",I:IUsers,l:"Gestión"},{id:"cierre",I:IChart,l:"Cierre de caja"}] : []),
           ].map(({id,I,l})=>(
             <button key={id} className={`nav-btn ${tab===id?"active":""}`} onClick={()=>setTab(id)}><I/>{l}</button>
           ))}
@@ -1772,7 +1773,9 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
         {tab==="stats"    && <StatsTab   {...{sales:filteredSales,expenses,rate,isMobile,profile}} />}
         {tab==="week"     && <WeekTab    {...{byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles,isMobile}} />}
         {tab==="finanzas" && <FinanzasTab {...{sales:filteredSales,expenses,investments,inventory,rate,saveExpenses,saveInvestments,profile,isMobile}} />}
-        {tab==="caja"     && <CajaTab    {...{sales:filteredSales,deposits,saveDeposits,rate,payments,isMobile}} />}
+        {tab==="apart"    && <ApartadosTab {...{orders,saveOrders,rate,profile,isMobile}} />}
+        {tab==="caja"     && <CajaTab    {...{sales:filteredSales,deposits,saveDeposits,rate,payments,isMobile,orders}} />}
+        {tab==="cierre"   && profile.id==="owner" && <CierreTab {...{sales,expenses,orders,rate,dynProfiles,profile}} />}
         {tab==="inv"      && <InvTab     {...{inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,isMobile}} />}
         {tab==="history"  && <HistTab    {...{byDate,sortedDates,setDD,storeFilter}} />}
         {tab==="miperfil" && <ProfileSettingsTab profile={profile} dynProfiles={dynProfiles} saveDynProfiles={saveDynProfiles}/>}
@@ -2117,24 +2120,34 @@ function StatsTab({ sales, expenses=[], rate, profile, isMobile }) {
     return key;
   };
 
-  const buildData = () => { /* eslint-disable-line */
-    const buckets = {};
+  // Buckets CONTINUOS hasta hoy: cada dia/semana/mes/año existe aunque no
+  // haya ventas — asi cada venta cae en su lugar y no se deforma el tiempo.
+  const keyOf = date => {
+    if (period === "day")   return date;
+    if (period === "week")  { const d=new Date(date+"T12:00"), w=new Date(d); w.setDate(d.getDate()-d.getDay()); return w.toISOString().slice(0,10); }
+    if (period === "month") return date.slice(0,7);
+    return date.slice(0,4);
+  };
+  const buildData = () => {
+    const limit = period==="day"?14 : period==="week"?12 : period==="month"?12 : 6;
+    // generar las llaves del rango, terminando hoy
+    const keys = [];
+    const now = new Date(today()+"T12:00");
+    for (let i=limit-1; i>=0; i--) {
+      const d = new Date(now);
+      if (period==="day")        d.setDate(now.getDate()-i);
+      else if (period==="week")  d.setDate(now.getDate()-now.getDay()-i*7);
+      else if (period==="month") d.setMonth(now.getMonth()-i);
+      else                       d.setFullYear(now.getFullYear()-i);
+      const iso = d.toISOString().slice(0,10);
+      keys.push(period==="month" ? iso.slice(0,7) : period==="year" ? iso.slice(0,4) : iso);
+    }
+    const buckets = Object.fromEntries(keys.map(k=>[k,{rev:0,profit:0,items:0}]));
     sales.forEach(s => {
-      let key;
-      if (period === "day")   key = s.date;
-      else if (period === "week") {
-        const d = new Date(s.date+"T12:00"), w = new Date(d);
-        w.setDate(d.getDate()-d.getDay()); key = w.toISOString().slice(0,10);
-      } else if (period === "month") key = s.date.slice(0,7);
-      else key = s.date.slice(0,4);
-      if (!buckets[key]) buckets[key] = {rev:0,profit:0,items:0};
-      buckets[key].rev    += s.total;
-      buckets[key].profit += s.profit;
-      buckets[key].items  += s.qty;
+      const k = keyOf(s.date);
+      if (buckets[k]) { buckets[k].rev+=s.total; buckets[k].profit+=s.profit; buckets[k].items+=s.qty; }
     });
-    const limit = period==="day"?30 : period==="week"?16 : period==="month"?12 : 10;
-    return Object.keys(buckets).sort().slice(-limit)
-      .map(k => ({key:k, lbl:fmtLabel(k,period), ...buckets[k]}));
+    return keys.map(k => ({key:k, lbl:fmtLabel(k,period), ...buckets[k]}));
   };
 
   const data      = buildData();
@@ -2302,47 +2315,42 @@ function StatsTab({ sales, expenses=[], rate, profile, isMobile }) {
                 </g>
               ))}
 
-              {/* Areas */}
-              <path d={areaPath(revPath,data.length)}  fill="url(#fillRev)"/>
-              <path d={areaPath(profPath,data.length)} fill="url(#fillProf)"/>
-
-              {/* Lines */}
-              <path d={revPath}  fill="none" stroke="#2dcfe8" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round" filter="url(#gR)"/>
-              <path d={revPath}  fill="none" stroke="#7af0ff" strokeWidth="0.9" strokeLinejoin="round" strokeLinecap="round" opacity=".45"/>
-              <path d={profPath} fill="none" stroke="#34d399" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" filter="url(#gP)"/>
-
-              {/* Hover zones */}
+              {/* Barras: ingreso (cian) con la ganancia encima (verde) */}
               {data.map((d,i)=>{
-                const x=xOf(i,data.length);
-                const ry=yOf(d.rev,maxRev), py=yOf(d.profit,maxRev);
-                const zW=innerW/Math.max(data.length,1);
+                const slot = innerW/data.length;
+                const bw   = Math.min(46, slot*0.62);
+                const x    = padL + slot*i + (slot-bw)/2;
+                const ry   = yOf(d.rev,maxRev),  rh = padT+innerH-ry;
+                const py   = yOf(d.profit,maxRev), ph = padT+innerH-py;
+                const hov  = hover===i;
                 return (
                   <g key={i} onMouseEnter={()=>setHover(i)} style={{cursor:"crosshair"}}>
-                    <rect x={x-zW/2} y={padT} width={zW} height={innerH} fill="transparent"/>
-                    {hover===i && <>
-                      <line x1={x} x2={x} y1={padT} y2={padT+innerH} stroke="#0e7a8c" strokeWidth="1" strokeDasharray="3,3" opacity=".7"/>
-                      <circle cx={x} cy={ry} r="4.5" fill="#2dcfe8" stroke="#030b0e" strokeWidth="1.5" filter="url(#gR)"/>
-                      <circle cx={x} cy={py} r="3.5" fill="#34d399" stroke="#030b0e" strokeWidth="1.5" filter="url(#gP)"/>
-                    </>}
+                    <rect x={padL+slot*i} y={padT} width={slot} height={innerH} fill={hov?"#0a202808":"transparent"}/>
+                    {d.rev>0 && <rect x={x} y={ry} width={bw} height={Math.max(rh,2)} rx="4" fill={hov?"#3addf5":"#1a9ab5"} opacity={hov?1:.85}/>}
+                    {d.profit>0 && <rect x={x+bw*0.2} y={py} width={bw*0.6} height={Math.max(ph,2)} rx="3" fill={hov?"#4ef0b0":"#22a874"}/>}
+                    {d.rev===0 && <rect x={x} y={padT+innerH-2} width={bw} height="2" rx="1" fill="#0d2530"/>}
+                    {hov && d.rev>0 && (
+                      <text x={x+bw/2} y={ry-6} textAnchor="middle" fontSize="10" fill="#3addf5" fontFamily="'JetBrains Mono',monospace" fontWeight="700">${d.rev.toFixed(0)}</text>
+                    )}
                   </g>
                 );
               })}
 
-              {/* X labels — day name + date */}
+              {/* Etiquetas del eje X */}
               {data.map((d,i)=>{
-                const x=xOf(i,data.length);
-                const step=data.length>20?Math.ceil(data.length/12):1;
-                const show=i%step===0||i===data.length-1;
-                // For daily: split label into two lines (day name + "date mon")
+                const slot = innerW/data.length;
+                const x = padL + slot*i + slot/2;
+                const step = data.length>12 ? 2 : 1;
+                const show = i%step===0 || i===data.length-1;
                 const parts = period==="day" ? d.lbl.split(" ") : [d.lbl];
                 return show ? (
                   <g key={i}>
                     {parts.length===3
                       ? <>
-                          <text x={x} y={chartH-14} textAnchor="middle" fontSize="9" fill={hover===i?"#2dcfe8":"#2dcfe8"} fontFamily="'JetBrains Mono',monospace" fontWeight="700">{parts[0]}</text>
+                          <text x={x} y={chartH-14} textAnchor="middle" fontSize="9" fill={hover===i?"#3addf5":"#2dcfe8"} fontFamily="'JetBrains Mono',monospace" fontWeight="700">{parts[0]}</text>
                           <text x={x} y={chartH-4}  textAnchor="middle" fontSize="8.5" fill="#1a4055" fontFamily="'JetBrains Mono',monospace">{parts[1]} {parts[2]}</text>
                         </>
-                      : <text x={x} y={chartH-6} textAnchor="middle" fontSize={data.length>20?7.5:9} fill="#1a4055" fontFamily="'JetBrains Mono',monospace">{d.lbl}</text>
+                      : <text x={x} y={chartH-6} textAnchor="middle" fontSize="9" fill={hover===i?"#3addf5":"#1a4055"} fontFamily="'JetBrains Mono',monospace">{d.lbl}</text>
                     }
                   </g>
                 ) : null;
@@ -2829,22 +2837,28 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate}) 
 }
 
 // ── Caja Tab ─────────────────────────────────────────────────────────────────
-function CajaTab({ sales, deposits, saveDeposits, rate, payments }) {
+function CajaTab({ sales, deposits, saveDeposits, rate, payments, orders = [] }) {
   const [showDeposit, setShowDeposit] = useState(false);
   const [depAmount,   setDepAmount]   = useState("");
   const [depNote,     setDepNote]     = useState("");
   const [depDate,     setDepDate]     = useState(today());
+  const [inPeriod,    setInPeriod]    = useState("hoy"); // hoy | semana | mes
 
-  const cashSales   = sales.filter(s=>s.paymentMethod==="cash"||s.paymentMethod==="efectivo");
+  const cashSales   = sales.filter(s=>normMethod(s.paymentMethod)==="efectivo");
   const totalCash   = cashSales.reduce((s,v)=>s+v.total,0);
   const totalDep    = deposits.reduce((s,d)=>s+d.amount,0);
   const saldoCaja   = totalCash - totalDep;
 
-  // By payment method breakdown
+  // Desglose por metodo (normaliza ids legacy: cash→efectivo, bank→pagoMovil)
   const byMethod = PAY_METHODS.map(m=>{
-    const ms = sales.filter(s=>s.paymentMethod===m.id||(m.id==="efectivo"&&s.paymentMethod==="cash"));
+    const ms = sales.filter(s=>normMethod(s.paymentMethod)===m.id);
     return {...m, total:ms.reduce((s,v)=>s+v.total,0), count:ms.reduce((s,v)=>s+v.qty,0)};
   }).filter(m=>m.total>0);
+
+  // Entradas de dinero del periodo: ventas directas + abonos de apartados
+  const from = inPeriod==="hoy" ? today() : inPeriod==="semana" ? weekStart() : today().slice(0,7)+"-01";
+  const flow = moneyIn(sales, orders, from, today());
+  const porCobrar = orders.filter(o=>o.status!=="entregado").reduce((s,o)=>s+orderBalance(o),0);
 
   const handleDeposit = async () => {
     const amt = parseFloat(depAmount);
@@ -2862,6 +2876,58 @@ function CajaTab({ sales, deposits, saveDeposits, rate, payments }) {
           <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Control de efectivo y métodos de cobro</div>
         </div>
         <button className="btn-p" onClick={()=>setShowDeposit(true)}><IDeposit/>Registrar depósito</button>
+      </div>
+
+      {/* ── Entradas de dinero por moneda: cuántos Bs y $ entraron ── */}
+      <div className="card">
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#2dcfe8"}}>💱 Dinero que entró — ventas + abonos</div>
+          <div style={{display:"flex",gap:6}}>
+            {[["hoy","Hoy"],["semana","Esta semana"],["mes","Este mes"]].map(([id,l])=>(
+              <button key={id} className={`period-btn ${inPeriod===id?"active":""}`} onClick={()=>setInPeriod(id)}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11,marginBottom:14}}>
+          <div className="card-sm" style={{textAlign:"center",borderColor:"#2a2010"}}>
+            <div style={{fontSize:10,color:"#7a6420",marginBottom:4}}>BOLÍVARES (Bs)</div>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:700,color:"#fbbf24"}}>Bs {flow.totBs.toLocaleString("es-VE",{maximumFractionDigits:0})}</div>
+            <div style={{fontSize:9,color:"#5a4a18",marginTop:2}}>Pago Móvil + Transferencia</div>
+          </div>
+          <div className="card-sm" style={{textAlign:"center",borderColor:"#0e3040"}}>
+            <div style={{fontSize:10,color:"#2a6070",marginBottom:4}}>DÓLARES (USD)</div>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:700,color:"#34d399"}}>{fmtUSD(flow.totUSD)}</div>
+            <div style={{fontSize:9,color:"#1a4a50",marginTop:2}}>Efectivo + Zelle</div>
+          </div>
+          <div className="card-sm" style={{textAlign:"center",borderColor:"#1e1440"}}>
+            <div style={{fontSize:10,color:"#5a4a90",marginBottom:4}}>USDT</div>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:700,color:"#a78bfa"}}>{flow.totUSDT.toFixed(2)} USDT</div>
+            <div style={{fontSize:9,color:"#3a2a60",marginTop:2}}>Cripto</div>
+          </div>
+        </div>
+        {Object.keys(flow.byMethod).length>0 ? (
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {Object.entries(flow.byMethod).sort((a,b)=>b[1].usd-a[1].usd).map(([m,v])=>{
+              const info = METHOD_INFO[m] || {label:m, icon:"💳", cur:"USD"};
+              return (
+                <div key={m} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#050f12",borderRadius:10,padding:"9px 14px",border:"1px solid #0a2028"}}>
+                  <div style={{fontSize:13,color:"#b0c0d8"}}>{info.icon} {info.label} <span style={{fontSize:10,color:info.cur==="Bs"?"#fbbf24":info.cur==="USDT"?"#a78bfa":"#34d399"}}>({info.cur})</span></div>
+                  <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,textAlign:"right"}}>
+                    {info.cur==="Bs"
+                      ? <><span style={{color:"#fbbf24"}}>Bs {(v.bs||v.usd*rate).toLocaleString("es-VE",{maximumFractionDigits:0})}</span><span style={{color:"#2a4060",fontSize:11}}> · {fmtUSD(v.usd)}</span></>
+                      : <span style={{color:info.cur==="USDT"?"#a78bfa":"#34d399"}}>{fmtUSD(v.usd)}</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : <div style={{textAlign:"center",color:"#1e3050",fontSize:12,padding:"10px 0"}}>Sin entradas en este período</div>}
+        {porCobrar>0 && (
+          <div style={{marginTop:12,background:"#2a1e08",border:"1px solid #4a3510",borderRadius:10,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontSize:12,color:"#fbbf24"}}>⚠️ Pendiente por cobrar (apartados)</div>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,fontWeight:700,color:"#fbbf24"}}>{fmtUSD(porCobrar)} · {fmtBs(porCobrar,rate)}</div>
+          </div>
+        )}
       </div>
 
       {/* Modal depósito */}
@@ -3176,6 +3242,416 @@ function ProfileSettingsTab({ profile, dynProfiles, saveDynProfiles }) {
 }
 
 // ── Gestión Tab (solo P.G) ────────────────────────────────────────────────────
+// ── Apartados: clientes que pagan por partes y retiran al completar ───────────
+function ApartadosTab({ orders, saveOrders, rate, profile, isMobile }) {
+  const [showNew,  setShowNew]  = useState(false);
+  const [payFor,   setPayFor]   = useState(null); // orden a abonar
+  const [filter,   setFilter]   = useState("activos"); // activos | pagados | entregados | todos
+  const [search,   setSearch]   = useState("");
+  const [err,      setErr]      = useState("");
+
+  const nextOrderNum = orders.reduce((m,o)=>Math.max(m, o.orderNumber||0), 0) + 1;
+  const [no, setNo] = useState({customer:"", phone:"", product:"", total:"", orderNumber:"", firstAmt:"", firstMethod:"efectivo"});
+  const [ab, setAb] = useState({amount:"", method:"efectivo", date:today()});
+
+  const sno = (k,v)=>setNo(p=>({...p,[k]:v}));
+
+  const statusOf = o => o.status==="entregado" ? "entregado" : orderBalance(o)<=0 ? "pagado" : "pendiente";
+  const visible = orders
+    .filter(o => {
+      const st = statusOf(o);
+      if (filter==="activos")    return st==="pendiente";
+      if (filter==="pagados")    return st==="pagado";
+      if (filter==="entregados") return st==="entregado";
+      return true;
+    })
+    .filter(o => !search || o.customer?.toLowerCase().includes(search.toLowerCase()) || String(o.orderNumber).includes(search))
+    .sort((a,b) => (b.createdAt||"").localeCompare(a.createdAt||""));
+
+  const totalPendiente = orders.filter(o=>o.status!=="entregado").reduce((s,o)=>s+orderBalance(o),0);
+  const activos  = orders.filter(o=>statusOf(o)==="pendiente").length;
+  const listos   = orders.filter(o=>statusOf(o)==="pagado").length;
+
+  const createOrder = async () => {
+    setErr("");
+    if (!no.customer.trim()) { setErr("Escribe el nombre del cliente."); return; }
+    if (!no.total || isNaN(Number(no.total)) || Number(no.total)<=0) { setErr("Escribe el total de la orden."); return; }
+    const num = parseInt(no.orderNumber) || nextOrderNum;
+    if (orders.some(o=>o.orderNumber===num)) { setErr(`Ya existe la orden #${num}. Usa otro número.`); return; }
+    const first = Number(no.firstAmt)||0;
+    if (first > Number(no.total)) { setErr("El abono inicial no puede ser mayor que el total."); return; }
+    const o = {
+      id: uid(), orderNumber: num,
+      customer: no.customer.trim(), phone: no.phone||"",
+      product: no.product.trim(), total: Number(no.total),
+      payments: first>0 ? [{id:uid(), date:today(), amount:first, method:no.firstMethod,
+        amountBs: methodCur(no.firstMethod)==="Bs" ? first*rate : null, rate}] : [],
+      status: "pendiente",
+      storeId: profile.id, createdAt: new Date().toISOString(), createdDate: today(),
+    };
+    await saveOrders([...orders, o]);
+    setShowNew(false);
+    setNo({customer:"", phone:"", product:"", total:"", orderNumber:"", firstAmt:"", firstMethod:"efectivo"});
+  };
+
+  const addPayment = async () => {
+    setErr("");
+    const amt = Number(ab.amount);
+    if (!amt || amt<=0) { setErr("Escribe el monto del abono."); return; }
+    const bal = orderBalance(payFor);
+    if (amt > bal + 0.001) { setErr(`El abono excede lo que falta (${fmtUSD(bal)}). Ajusta el monto.`); return; }
+    const p = {id:uid(), date:ab.date, amount:amt, method:ab.method,
+      amountBs: methodCur(ab.method)==="Bs" ? amt*rate : null, rate};
+    const upd = orders.map(o => o.id===payFor.id ? {...o, payments:[...(o.payments||[]), p]} : o);
+    await saveOrders(upd);
+    setPayFor(null); setAb({amount:"", method:"efectivo", date:today()});
+  };
+
+  const markDelivered = async o => {
+    if (orderBalance(o) > 0) return;
+    if (!confirm(`¿Entregar la orden #${o.orderNumber} a ${o.customer}?`)) return;
+    await saveOrders(orders.map(x => x.id===o.id ? {...x, status:"entregado", deliveredAt:today()} : x));
+  };
+  const removeOrder = async o => {
+    if (!confirm(`¿Eliminar la orden #${o.orderNumber} de ${o.customer}? Se borra su historial de abonos.`)) return;
+    await saveOrders(orders.filter(x => x.id!==o.id));
+  };
+
+  const stChip = o => {
+    const st = statusOf(o);
+    if (st==="entregado") return <span className="badge bb">✓ Entregado</span>;
+    if (st==="pagado")    return <span className="badge bg">💰 Pagado — listo para entregar</span>;
+    return <span className="badge ba">Debe {fmtUSD(orderBalance(o))}</span>;
+  };
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+        <div>
+          <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Apartados</h1>
+          <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Clientes que pagan por partes — se entrega al completar el pago</div>
+        </div>
+        <button className="btn-p" onClick={()=>{setShowNew(true);setErr("");}}><IPlus/>Nuevo apartado</button>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11}}>
+        <div className="card-sm" style={{textAlign:"center"}}>
+          <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>POR COBRAR</div>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:700,color:"#fbbf24"}}>{fmtUSD(totalPendiente)}</div>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:"#7a6420"}}>{fmtBs(totalPendiente,rate)}</div>
+        </div>
+        <div className="card-sm" style={{textAlign:"center"}}>
+          <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>APARTADOS ACTIVOS</div>
+          <div style={{fontSize:22,fontWeight:700,color:"#60a5fa",fontFamily:"'Outfit',sans-serif"}}>{activos}</div>
+        </div>
+        <div className="card-sm" style={{textAlign:"center"}}>
+          <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>LISTOS PARA ENTREGAR</div>
+          <div style={{fontSize:22,fontWeight:700,color:"#34d399",fontFamily:"'Outfit',sans-serif"}}>{listos}</div>
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <input placeholder="Buscar cliente o # de orden…" value={search} onChange={e=>setSearch(e.target.value)}
+          style={{background:"#0c1220",border:"1px solid #141e30",borderRadius:8,padding:"8px 12px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:13,width:210}}/>
+        {[["activos","Con deuda"],["pagados","Listos"],["entregados","Entregados"],["todos","Todos"]].map(([id,l])=>(
+          <button key={id} onClick={()=>setFilter(id)} style={{background:filter===id?"#0f1e35":"transparent",border:`1px solid ${filter===id?"#1e3a60":"#141e30"}`,color:filter===id?"#60a5fa":"#1e3050",borderRadius:20,padding:"4px 12px",fontSize:12,fontFamily:"'Outfit',sans-serif",cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
+
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {visible.length===0 && <div className="card" style={{textAlign:"center",color:"#1e3050",padding:"30px"}}>Sin apartados en esta vista</div>}
+        {visible.map(o=>{
+          const paid = orderPaid(o), bal = orderBalance(o), pct = o.total>0 ? Math.min(100, paid/o.total*100) : 0;
+          return (
+            <div key={o.id} className="card" style={{padding:"16px 18px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
+                <div style={{minWidth:200}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                    <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#2dcfe8",background:"#071c22",border:"1px solid #0e3040",borderRadius:6,padding:"2px 8px"}}>#{o.orderNumber}</span>
+                    <span style={{fontSize:15,fontWeight:700,color:"#e2e8f4"}}>{o.customer}</span>
+                    {stChip(o)}
+                  </div>
+                  <div style={{fontSize:12,color:"#3a5070",marginTop:4}}>{o.product||"—"}{o.phone?` · 📞 ${o.phone}`:""} · creado {o.createdDate||o.createdAt?.slice(0,10)}</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13}}>
+                    <span style={{color:"#34d399"}}>{fmtUSD(paid)}</span>
+                    <span style={{color:"#1e3050"}}> / </span>
+                    <span style={{color:"#60a5fa"}}>{fmtUSD(o.total)}</span>
+                  </div>
+                  {bal>0 && <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:2}}>faltan {fmtUSD(bal)} · {fmtBs(bal,rate)}</div>}
+                </div>
+              </div>
+              {/* Barra de progreso del pago */}
+              <div style={{background:"#050f12",borderRadius:8,height:8,marginTop:10,overflow:"hidden"}}>
+                <div style={{width:`${pct}%`,height:"100%",borderRadius:8,background:pct>=100?"linear-gradient(90deg,#0d7a50,#34d399)":"linear-gradient(90deg,#0e5a8c,#60a5fa)",transition:"width .3s"}}/>
+              </div>
+              {/* Historial de abonos */}
+              {(o.payments||[]).length>0 && (
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:9}}>
+                  {o.payments.map(p=>(
+                    <span key={p.id} style={{fontSize:10,fontFamily:"'JetBrains Mono',monospace",background:"#071418",border:"1px solid #0d2a30",borderRadius:6,padding:"3px 8px",color:"#4a9ab0"}}>
+                      {p.date.slice(5)} · {methodLbl(p.method)} · {methodCur(p.method)==="Bs" ? `Bs ${(p.amountBs??p.amount*(p.rate||rate)).toLocaleString("es-VE",{maximumFractionDigits:0})} (${fmtUSD(p.amount)})` : fmtUSD(p.amount)}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div style={{display:"flex",gap:7,justifyContent:"flex-end",marginTop:10}}>
+                {statusOf(o)==="pendiente" && <button className="btn-p" style={{fontSize:12,padding:"6px 13px"}} onClick={()=>{setPayFor(o);setAb({amount:"",method:"efectivo",date:today()});setErr("");}}>💰 Abonar</button>}
+                {statusOf(o)==="pagado" && <button className="btn-p" style={{fontSize:12,padding:"6px 13px",background:"linear-gradient(135deg,#0d7a50,#10b981)"}} onClick={()=>markDelivered(o)}>✓ Marcar entregado</button>}
+                <button className="btn-d" style={{padding:"5px 9px"}} onClick={()=>removeOrder(o)}><ITrash/></button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Modal nuevo apartado */}
+      {showNew && (
+        <div className="ov" onClick={e=>{if(e.target===e.currentTarget)setShowNew(false);}}>
+          <div className="modal" style={{maxWidth:460}}>
+            <div style={{fontSize:17,fontWeight:700,color:"#fff",marginBottom:16}}>🧾 Nuevo apartado</div>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div className="rg2" style={{gap:10}}>
+                <div className="field"><label>Cliente *</label><input autoFocus placeholder="Nombre y apellido" value={no.customer} onChange={e=>sno("customer",e.target.value)}/></div>
+                <div className="field"><label># Orden</label><input type="number" placeholder={`${nextOrderNum} (auto)`} value={no.orderNumber} onChange={e=>sno("orderNumber",e.target.value)}/></div>
+              </div>
+              <div className="field"><label>Teléfono</label><PhoneInput value={no.phone} onChange={v=>sno("phone",v)}/></div>
+              <div className="field"><label>Producto / Descripción</label><input placeholder="Ej: Montura Ray-Ban + cristales progresivos" value={no.product} onChange={e=>sno("product",e.target.value)}/></div>
+              <div className="rg2" style={{gap:10}}>
+                <div className="field"><label>Total (USD) *</label><input type="number" min="0" step="0.01" placeholder="0.00" value={no.total} onChange={e=>sno("total",e.target.value)}/></div>
+                <div className="field"><label>Equivale en Bs</label><div style={{padding:"10px 13px",fontFamily:"'JetBrains Mono',monospace",fontSize:13,color:"#fbbf24"}}>{no.total?fmtBs(Number(no.total),rate):"—"}</div></div>
+              </div>
+              <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:10,padding:"12px"}}>
+                <div style={{fontSize:11,fontWeight:600,color:"#2dcfe8",marginBottom:8}}>Abono inicial (opcional)</div>
+                <div className="rg2" style={{gap:10}}>
+                  <div className="field"><label>Monto (USD)</label><input type="number" min="0" step="0.01" placeholder="0.00" value={no.firstAmt} onChange={e=>sno("firstAmt",e.target.value)}/></div>
+                  <div className="field"><label>Método</label>
+                    <select value={no.firstMethod} onChange={e=>sno("firstMethod",e.target.value)}>
+                      {Object.entries(METHOD_INFO).map(([id,m])=><option key={id} value={id}>{m.icon} {m.label} ({m.cur})</option>)}
+                    </select>
+                  </div>
+                </div>
+                {no.firstAmt>0 && methodCur(no.firstMethod)==="Bs" && <div style={{fontSize:10,color:"#fbbf24",marginTop:6,fontFamily:"'JetBrains Mono',monospace"}}>Recibirás Bs {(Number(no.firstAmt)*rate).toLocaleString("es-VE",{maximumFractionDigits:0})} (tasa {rate})</div>}
+              </div>
+              {err&&<div style={{background:"#2a0c0c",border:"1px solid #5a1a1a",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#f87171"}}>⚠️ {err}</div>}
+              <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                <button className="btn-g" onClick={()=>setShowNew(false)}>Cancelar</button>
+                <button className="btn-p" onClick={createOrder}><ICheck/>Crear apartado</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal abonar */}
+      {payFor && (
+        <div className="ov" onClick={e=>{if(e.target===e.currentTarget)setPayFor(null);}}>
+          <div className="modal" style={{maxWidth:400}}>
+            <div style={{fontSize:17,fontWeight:700,color:"#fff"}}>💰 Abonar — orden #{payFor.orderNumber}</div>
+            <div style={{fontSize:12,color:"#3a5070",marginBottom:14}}>{payFor.customer} · faltan <strong style={{color:"#fbbf24"}}>{fmtUSD(orderBalance(payFor))}</strong> ({fmtBs(orderBalance(payFor),rate)})</div>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div className="rg2" style={{gap:10}}>
+                <div className="field"><label>Monto (USD)</label><input autoFocus type="number" min="0" step="0.01" placeholder="0.00" value={ab.amount} onChange={e=>setAb(p=>({...p,amount:e.target.value}))}/></div>
+                <div className="field"><label>Fecha</label><input type="date" value={ab.date} onChange={e=>setAb(p=>({...p,date:e.target.value}))}/></div>
+              </div>
+              <div className="field"><label>Método de pago</label>
+                <select value={ab.method} onChange={e=>setAb(p=>({...p,method:e.target.value}))}>
+                  {Object.entries(METHOD_INFO).map(([id,m])=><option key={id} value={id}>{m.icon} {m.label} ({m.cur})</option>)}
+                </select>
+              </div>
+              {ab.amount>0 && methodCur(ab.method)==="Bs" && <div style={{fontSize:11,color:"#fbbf24",fontFamily:"'JetBrains Mono',monospace"}}>= Bs {(Number(ab.amount)*rate).toLocaleString("es-VE",{maximumFractionDigits:0})} a tasa {rate}</div>}
+              {Number(ab.amount)>=orderBalance(payFor)-0.001 && Number(ab.amount)>0 && <div style={{fontSize:11,color:"#34d399"}}>✓ Con este abono la orden queda PAGADA — podrás marcarla como entregada</div>}
+              {err&&<div style={{background:"#2a0c0c",border:"1px solid #5a1a1a",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#f87171"}}>⚠️ {err}</div>}
+              <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                <button className="btn-g" onClick={()=>setPayFor(null)}>Cancelar</button>
+                <button className="btn-p" onClick={addPayment}><ICheck/>Registrar abono</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Cierre de caja mensual: resumen + HTML descargable + registro ────────────
+function CierreTab({ sales, expenses, orders, rate, dynProfiles, profile }) {
+  const [month, setMonth]   = useState(today().slice(0,7));
+  const [saved, setSaved]   = useState(false);
+
+  const monthName = m => {
+    const [y,mm] = m.split("-");
+    const names = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+    return `${names[parseInt(mm)-1]} ${y}`;
+  };
+
+  const mSales    = sales.filter(s => s.date?.slice(0,7) === month);
+  const mOrders   = orders.filter(o => (o.createdDate || o.createdAt || "").slice(0,7) === month);
+  const abonosMes = orders.flatMap(o => (o.payments||[]).map(p => ({...p, customer:o.customer, orderNumber:o.orderNumber})))
+                          .filter(p => p.date?.slice(0,7) === month);
+
+  const ventasDirectas = mSales.reduce((s,v)=>s+v.total,0);
+  const facturado  = ventasDirectas + mOrders.reduce((s,o)=>s+(o.total||0),0);
+  const cobrado    = ventasDirectas + abonosMes.reduce((s,p)=>s+p.amount,0);
+  const unidades   = mSales.reduce((s,v)=>s+v.qty,0);
+  const clientes   = new Set([...mSales.map(s=>s.saleId), ...mOrders.map(o=>o.id)]).size;
+  const deudores   = orders.filter(o => o.status!=="entregado" && orderBalance(o)>0)
+                           .sort((a,b)=>orderBalance(b)-orderBalance(a));
+  const porCobrar  = deudores.reduce((s,o)=>s+orderBalance(o),0);
+
+  const flow = moneyIn(sales, orders, month+"-01", month+"-31");
+
+  const mExpenses  = expenses.filter(e => (e.month || e.date?.slice(0,7)) === month);
+  const gastosTotal= mExpenses.reduce((s,e)=>s+e.amount,0);
+  const byCat = EXPENSE_CATS.map(c => ({
+    ...c, items: mExpenses.filter(e=>e.cat===c.id),
+    total: mExpenses.filter(e=>e.cat===c.id).reduce((s,e)=>s+e.amount,0),
+  })).filter(c=>c.total>0);
+
+  const utilidad  = cobrado - gastosTotal;
+  const margen    = cobrado>0 ? (utilidad/cobrado*100) : 0;
+  const alCobrar  = utilidad + porCobrar;
+
+  const buildHTML = () => {
+    const rows = arr => arr.map(e=>`<div class="row"><span class="row-name">${e.note||e.label||e.cat||"—"}</span><span class="row-amount">$${e.amount.toLocaleString("en-US",{minimumFractionDigits:2})}</span></div>`).join("");
+    const deudoresHTML = deudores.map(o=>`<div class="deuda-card"><div class="nombre">${o.customer}</div><div class="orden">Orden #${o.orderNumber}</div><div class="monto">$${orderBalance(o).toLocaleString("en-US")}</div></div>`).join("");
+    const metodosHTML = Object.entries(flow.byMethod).map(([m,v])=>{
+      const info = METHOD_INFO[m]||{label:m,icon:"💳",cur:"USD"};
+      const val = info.cur==="Bs" ? `Bs ${(v.bs||v.usd*rate).toLocaleString("es-VE",{maximumFractionDigits:0})} <small>($${v.usd.toFixed(2)})</small>` : `$${v.usd.toLocaleString("en-US",{minimumFractionDigits:2})}`;
+      return `<div class="row"><span class="row-name">${info.icon} ${info.label} (${info.cur})</span><span class="row-amount">${val}</span></div>`;
+    }).join("");
+    return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Cierre de Caja ${monthName(month)} — OptiLatina</title>
+<style>
+  body{font-family:Georgia,serif;background:#f0ead9;color:#1e3a2f;margin:0;padding:30px 16px}
+  .page{max-width:820px;margin:0 auto}
+  .header{text-align:center;padding:26px;background:#173325;color:#f0ead9;border-radius:16px;margin-bottom:22px}
+  .header h1{margin:0;font-size:30px;letter-spacing:.04em}
+  .header .sub{opacity:.75;font-size:14px;margin-top:6px}
+  .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px}
+  .metric{background:#fff;border-radius:14px;padding:18px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .metric-label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#6a7a68}
+  .metric-value{font-size:26px;font-weight:700;margin-top:6px}
+  .metric-sub{font-size:11px;color:#8a9a88;margin-top:3px}
+  .section{background:#fff;border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .section-title{font-size:15px;font-weight:700;border-bottom:2px solid #173325;padding-bottom:8px;margin-bottom:12px;display:flex;justify-content:space-between}
+  .row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed #e0d8c4;font-size:14px}
+  .row-amount{font-weight:700}
+  .gt{background:#173325;color:#f0ead9;border-radius:14px;padding:22px;text-align:center;margin-bottom:16px}
+  .gt .amt{font-size:34px;font-weight:700}
+  .gt .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.12em;opacity:.8}
+  .deuda-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+  .deuda-card{background:#fdf6e3;border:1px solid #e6d8b8;border-radius:10px;padding:12px;text-align:center}
+  .deuda-card .nombre{font-weight:700;font-size:13px}
+  .deuda-card .orden{font-size:11px;color:#8a7a58;margin:3px 0}
+  .deuda-card .monto{font-size:17px;font-weight:700;color:#a05a1a}
+  .footer{text-align:center;font-size:11px;color:#8a9a88;margin-top:24px}
+</style></head><body><div class="page">
+  <div class="header"><h1>🔒 Cierre de Caja — OptiLatina</h1>
+    <div class="sub">📅 ${monthName(month)} &nbsp;·&nbsp; Generado el ${new Date().toLocaleDateString("es-VE",{day:"numeric",month:"long",year:"numeric"})} &nbsp;·&nbsp; ✅ Por ${profile.name}</div></div>
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Total facturado</div><div class="metric-value">$${facturado.toLocaleString("en-US",{maximumFractionDigits:0})}</div><div class="metric-sub">${clientes} operaciones · ${unidades} artículos</div></div>
+    <div class="metric"><div class="metric-label">Total cobrado</div><div class="metric-value" style="color:#1a7a4a">$${cobrado.toLocaleString("en-US",{maximumFractionDigits:0})}</div><div class="metric-sub">Ventas + abonos recibidos</div></div>
+    <div class="metric"><div class="metric-label">Por cobrar</div><div class="metric-value" style="color:#a05a1a">$${porCobrar.toLocaleString("en-US",{maximumFractionDigits:0})}</div><div class="metric-sub">Pendiente clientes</div></div>
+  </div>
+  <div class="section"><div class="section-title"><span>💱 Dinero recibido por método</span><span>Bs ${flow.totBs.toLocaleString("es-VE",{maximumFractionDigits:0})} + $${flow.totUSD.toFixed(2)} + ${flow.totUSDT.toFixed(2)} USDT</span></div>${metodosHTML||'<div class="row"><span class="row-name">Sin movimientos</span></div>'}</div>
+  ${byCat.map(c=>`<div class="section"><div class="section-title"><span>${c.icon} ${c.label}</span><span>$${c.total.toLocaleString("en-US",{minimumFractionDigits:2})}</span></div>${rows(c.items)}</div>`).join("")}
+  <div class="gt"><div class="lbl">Utilidad neta — cierre de caja</div><div class="amt">$${utilidad.toLocaleString("en-US",{minimumFractionDigits:2})}</div>
+    <div style="font-size:12px;opacity:.75;margin-top:6px">$${cobrado.toLocaleString("en-US",{maximumFractionDigits:0})} cobrado — $${gastosTotal.toLocaleString("en-US",{minimumFractionDigits:2})} gastos · Margen ${margen.toFixed(1)}%</div>
+    <div style="font-size:13px;margin-top:10px">🎯 Ganancia total al cobrar todo: <strong>$${alCobrar.toLocaleString("en-US",{minimumFractionDigits:2})}</strong> ($${utilidad.toFixed(2)} actuales + $${porCobrar.toFixed(2)} por cobrar)</div></div>
+  ${deudores.length?`<div class="section"><div class="section-title"><span>📋 Clientes con saldo pendiente</span><span>$${porCobrar.toLocaleString("en-US")}</span></div><div class="deuda-grid">${deudoresHTML}</div></div>`:""}
+  <div class="footer">OptiLatina · Cierre de ${monthName(month)} · Tasa del día: Bs ${rate} por USD</div>
+</div></body></html>`;
+  };
+
+  const download = () => {
+    const blob = new Blob([buildHTML()], {type:"text/html;charset=utf-8"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `cierre-optilatina-${month}.html`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const guardar = async () => {
+    await DB.set("cierres", month, {
+      month, generatedAt:new Date().toISOString(), by:profile.name,
+      facturado, cobrado, porCobrar, gastosTotal, utilidad, margen, alCobrar, unidades, clientes,
+      flow: {totBs:flow.totBs, totUSD:flow.totUSD, totUSDT:flow.totUSDT},
+      deudores: deudores.map(o=>({customer:o.customer, orderNumber:o.orderNumber, balance:orderBalance(o)})),
+    });
+    setSaved(true); setTimeout(()=>setSaved(false), 3000);
+  };
+
+  const Metric = ({label, value, sub, color="#2dcfe8"}) => (
+    <div className="card-sm" style={{textAlign:"center"}}>
+      <div style={{fontSize:10,color:"#2a4060",marginBottom:4,textTransform:"uppercase",letterSpacing:".08em"}}>{label}</div>
+      <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:18,fontWeight:700,color}}>{value}</div>
+      {sub&&<div style={{fontSize:10,color:"#1a4a50",marginTop:3}}>{sub}</div>}
+    </div>
+  );
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:10}}>
+        <div>
+          <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Cierre de caja</h1>
+          <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Resumen mensual — descárgalo como registro</div>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
+          <div className="field"><label>Mes</label><input type="month" value={month} onChange={e=>setMonth(e.target.value)}/></div>
+          <button className="btn-g" onClick={guardar}>{saved?"✓ Guardado":"💾 Guardar registro"}</button>
+          <button className="btn-p" onClick={download}>⬇️ Descargar cierre (HTML)</button>
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11}}>
+        <Metric label="Total facturado" value={fmtUSD(facturado)} sub={`${clientes} operaciones · ${unidades} artículos`} color="#60a5fa"/>
+        <Metric label="Total cobrado" value={fmtUSD(cobrado)} sub="Ventas + abonos recibidos" color="#34d399"/>
+        <Metric label="Por cobrar" value={fmtUSD(porCobrar)} sub={`${deudores.length} clientes pendientes`} color="#fbbf24"/>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11}}>
+        <Metric label="Entró en Bs" value={`Bs ${flow.totBs.toLocaleString("es-VE",{maximumFractionDigits:0})}`} sub="Pago Móvil + Transferencia" color="#fbbf24"/>
+        <Metric label="Entró en USD" value={fmtUSD(flow.totUSD)} sub="Efectivo + Zelle" color="#34d399"/>
+        <Metric label="Entró en USDT" value={`${flow.totUSDT.toFixed(2)}`} sub="Cripto" color="#a78bfa"/>
+      </div>
+
+      <div className="card">
+        <div style={{fontSize:13,fontWeight:700,color:"#f87171",marginBottom:10}}>🏢 Gastos del mes — {fmtUSD(gastosTotal)}</div>
+        {byCat.length===0 ? <div style={{color:"#1e3050",fontSize:12}}>Sin gastos registrados este mes</div>
+          : byCat.map(c=>(
+            <div key={c.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #081820",fontSize:13}}>
+              <span style={{color:"#b0c0d8"}}>{c.icon} {c.label} <span style={{color:"#1e3050",fontSize:11}}>({c.items.length})</span></span>
+              <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#f87171"}}>{fmtUSD(c.total)}</span>
+            </div>
+          ))}
+      </div>
+
+      <div className="card" style={{background:"#06231a",borderColor:"#14503a",textAlign:"center"}}>
+        <div style={{fontSize:11,color:"#3a9a70",textTransform:"uppercase",letterSpacing:".1em"}}>Utilidad neta del mes</div>
+        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:30,fontWeight:700,color:utilidad>=0?"#34d399":"#f87171",marginTop:6}}>{fmtUSD(utilidad)}</div>
+        <div style={{fontSize:11,color:"#2a7a55",marginTop:4}}>{fmtUSD(cobrado)} cobrado − {fmtUSD(gastosTotal)} gastos · Margen {margen.toFixed(1)}%</div>
+        <div style={{fontSize:13,color:"#e2e8f4",marginTop:12}}>🎯 Ganancia total al cobrar todo: <strong style={{color:"#34d399",fontFamily:"'JetBrains Mono',monospace"}}>{fmtUSD(alCobrar)}</strong></div>
+      </div>
+
+      {deudores.length>0 && (
+        <div className="card">
+          <div style={{fontSize:13,fontWeight:700,color:"#fbbf24",marginBottom:12}}>📋 Clientes con saldo pendiente — {fmtUSD(porCobrar)}</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:10}}>
+            {deudores.map(o=>(
+              <div key={o.id} style={{background:"#050f12",border:"1px solid #2a2010",borderRadius:10,padding:"11px",textAlign:"center"}}>
+                <div style={{fontSize:13,fontWeight:700,color:"#e2e8f4"}}>{o.customer}</div>
+                <div style={{fontSize:10,color:"#5a4a18",margin:"3px 0"}}>Orden #{o.orderNumber}</div>
+                <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:15,fontWeight:700,color:"#fbbf24"}}>{fmtUSD(orderBalance(o))}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GestionTab({ profilesData, savePD, payments, savePayments, dynProfiles, saveDynProfiles }) {
   const [pay, setPay] = useState(payments || DEFAULT_PAYMENTS);
   const [savingPay, setSavingPay] = useState(false);
@@ -3230,13 +3706,13 @@ function GestionTab({ profilesData, savePD, payments, savePayments, dynProfiles,
     setInviteCopied(false);
   };
   const inviteMsg = invite ? (
-`Hola ${invite.name}! 👓 Te invito a la app de Optilatina.
+`Hola ${invite.name}! 👓 Te invito a la plataforma de Optilatina.
 
-1. Entra aquí: ${location.origin}
-2. Toca tu perfil "${invite.name}"
-3. Contraseña: ${invite.pw}
-4. Marca "Recordar mi sesión" para no volver a escribirla
+Entra aquí: ${location.origin}
+Usuario: ${invite.name}${invite.email?` (o tu correo ${invite.email})`:""}
+Contraseña: ${invite.pw}
 
+Marca "Recordar mi sesión" para no volver a escribirla.
 Puedes cambiar tu contraseña cuando quieras en "Mi perfil".`) : "";
   const copyInvite = async () => {
     try { await navigator.clipboard.writeText(inviteMsg); setInviteCopied(true); setTimeout(()=>setInviteCopied(false),2500); } catch {}
