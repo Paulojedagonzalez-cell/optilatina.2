@@ -679,7 +679,7 @@ export default function App() {
       // 2) Cargar de Firebase (fuente de verdad cuando esta disponible)
       const data = await dbLoadAll();
       if (data) {
-        setInventory(data.inventory?.length ? data.inventory : DEMO_INV);
+        setInventory(data.inventory ?? []);
         setSales(data.sales ?? []);
         setDeposits(data.deposits ?? []);
         setExpenses(data.expenses ?? []);
@@ -689,8 +689,6 @@ export default function App() {
         if (data.payments     !== null) setPayments(data.payments);
         if (data.profilesData !== null) setProfilesData(data.profilesData);
         if (data.dynProfiles  !== null) setDynProfiles(data.dynProfiles);
-      } else if (!hadBackup) {
-        setInventory(DEMO_INV);
       }
       setLoading(false);
     })();
@@ -732,7 +730,7 @@ export default function App() {
   useEffect(() => {
     if (!profile || !CONFIGURED) return;
     const unsubs = [
-      DB.listen("inventory",   d => setInventory(d.length ? d : DEMO_INV)),
+      DB.listen("inventory",   d => setInventory(d)),
       DB.listen("sales",       d => setSales(d)),
       DB.listen("expenses",    d => setExpenses(d)),
       DB.listen("deposits",    d => setDeposits(d)),
@@ -781,7 +779,7 @@ export default function App() {
     try { const rs = await navigator.serviceWorker?.getRegistrations?.(); rs?.forEach(r => r.update()); } catch {}
     const data = await dbLoadAll();
     if (!data) return false;
-    setInventory(data.inventory?.length ? data.inventory : DEMO_INV);
+    setInventory(data.inventory ?? []);
     setSales(data.sales ?? []);
     setDeposits(data.deposits ?? []);
     setExpenses(data.expenses ?? []);
