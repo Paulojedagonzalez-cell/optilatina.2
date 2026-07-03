@@ -813,12 +813,9 @@ function LoginScreen({ onSelect, dynProfiles }) {
       <div style={{width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:18}}>
         <div style={{textAlign:"center",marginBottom:6}}>
           <div style={{width:90,height:90,margin:"0 auto 14px",borderRadius:"50%",overflow:"hidden",boxShadow:"0 0 46px #c9a22745"}}><Logo s={90}/></div>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-            <div style={{fontSize:30,fontWeight:800,color:"#e8c96a",letterSpacing:".01em"}}>OptiLatina</div>
-            <span style={{fontSize:10,fontWeight:700,color:"#fbbf24",background:"#2a2008",border:"1px solid #4a3810",borderRadius:6,padding:"2px 7px",letterSpacing:".08em"}}>BETA</span>
-          </div>
+          <div style={{fontSize:30,fontWeight:800,color:"#e8c96a",letterSpacing:".01em"}}>OptiLatina</div>
           <div style={{fontSize:12,color:"#3a5a68",marginTop:4,textTransform:"uppercase",letterSpacing:".22em"}}>Plataforma de gestión</div>
-          <div style={{fontSize:11,color:"#2a5a60",marginTop:8,lineHeight:1.5}}>Versión de prueba · la estamos afinando este mes</div>
+          <div style={{fontSize:11,color:"#2a5a60",marginTop:8,lineHeight:1.5}}>Versión 1.0</div>
         </div>
 
         <div className="field">
@@ -1085,7 +1082,7 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
               }
             </div>
             <div>
-              <div style={{fontSize:isMobile?14:16,fontWeight:800,color:"#fff",letterSpacing:"-.01em",display:"flex",alignItems:"center",gap:6}}>{profile.storeName||"OptiLatina"}<span style={{fontSize:9,color:"#fbbf24",fontWeight:700,background:"#2a2008",border:"1px solid #4a3810",borderRadius:5,padding:"1px 5px"}}>BETA</span></div>
+              <div style={{fontSize:isMobile?14:16,fontWeight:800,color:"#fff",letterSpacing:"-.01em",display:"flex",alignItems:"center",gap:6}}>{profile.storeName||"OptiLatina"}</div>
               <div style={{fontSize:isMobile?11:13,fontWeight:600,color:profile.color,marginTop:1}}>{profile.address}</div>
             </div>
           </div>
@@ -1716,7 +1713,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
             <Logo s={28}/>
             <div>
               <div style={{fontSize:14,fontWeight:700,color:"#fff"}}>{profile.name}</div>
-              <div style={{fontSize:10,color:profile.color}}>Administrador <span style={{color:"#fbbf24",fontWeight:700,marginLeft:2}}>· BETA</span></div>
+              <div style={{fontSize:10,color:profile.color}}>Administrador</div>
             </div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -1753,7 +1750,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
             <div style={{width:34,height:34,borderRadius:8,overflow:"hidden"}}><Logo s={34}/></div>
             <div>
               <div style={{fontSize:14,fontWeight:700,color:"#e2e8f4"}}>{profile.name}</div>
-              <div style={{fontSize:11,color:`${profile.color}99`}}>Administrador <span style={{color:"#fbbf24",fontWeight:700}}>· BETA</span></div>
+              <div style={{fontSize:11,color:`${profile.color}99`}}>Administrador</div>
             </div>
           </div>
         </div>
