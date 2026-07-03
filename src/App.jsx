@@ -868,12 +868,17 @@ function LoginScreen({ onSelect, dynProfiles }) {
               </button>
             ) : (
               <button onClick={()=>setIosHelp(v=>!v)} className="btn-g" style={{width:"100%",justifyContent:"center",display:"flex",alignItems:"center",gap:8,padding:"11px",borderColor:"#0e3a4a",color:"#2dcfe8"}}>
-                📲 Instalar como app en tu iPhone
+                📲 Cómo ponerla en tu iPhone {iosHelp?"▲":"▼"}
               </button>
             )}
             {iosHelp && (
-              <div style={{fontSize:11,color:"#7a94a8",lineHeight:1.6,marginTop:8,background:"#050f12",border:"1px solid #0a2028",borderRadius:10,padding:"11px 14px"}}>
-                En tu iPhone, con Safari: toca el botón <strong style={{color:"#2dcfe8"}}>Compartir</strong> (el cuadrito con la flecha ↑) abajo, baja y elige <strong style={{color:"#2dcfe8"}}>"Agregar a inicio"</strong>. Quedará como una app más en tu pantalla.
+              <div style={{fontSize:12,color:"#9ab4c4",lineHeight:1.7,marginTop:8,background:"#050f12",border:"1px solid #0a2028",borderRadius:10,padding:"13px 15px"}}>
+                <div style={{color:"#fbbf24",marginBottom:6,fontWeight:600}}>⚠️ En iPhone no se descarga — se agrega manual desde Safari:</div>
+                1. Abre esta página en <strong style={{color:"#2dcfe8"}}>Safari</strong> (no Chrome).<br/>
+                2. Toca el botón <strong style={{color:"#2dcfe8"}}>Compartir</strong> abajo (cuadrito con flecha ↑).<br/>
+                3. Desliza y elige <strong style={{color:"#2dcfe8"}}>"Agregar a inicio"</strong>.<br/>
+                4. Toca <strong style={{color:"#2dcfe8"}}>"Agregar"</strong> arriba a la derecha.<br/>
+                <span style={{color:"#5a7a88"}}>Queda con el logo dorado en tu pantalla, como una app.</span>
               </div>
             )}
           </div>
