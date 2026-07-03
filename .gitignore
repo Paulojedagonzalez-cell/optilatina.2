@@ -5,3 +5,5 @@ dist/
 .vercel
 .env*
 FORMATO OPTILATINA.xlsx
+
+backup-firestore-*.json
