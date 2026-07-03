@@ -1876,9 +1876,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
 function FinanzasTab({ sales, expenses, investments, inventory, rate, saveExpenses, saveInvestments, profile }) {
   const [viewMonth, setViewMonth] = useState(today().slice(0,7));
   const [showExpForm, setShowExpForm] = useState(false);
-  const [showInvForm, setShowInvForm] = useState(false);
   const [ef, setEf] = useState({cat:"alquiler", amount:"", month:today().slice(0,7), note:""});
-  const [ivf, setIvf]= useState({date:today(), description:"", amount:"", note:""});
 
   // ── Calculations for selected month ──
   const mSales    = sales.filter(s=>s.date.slice(0,7)===viewMonth);
@@ -1899,22 +1897,12 @@ function FinanzasTab({ sales, expenses, investments, inventory, rate, saveExpens
 
   const monthExpenses = expenses.filter(e=>e.month===viewMonth);
 
-  // ── Investment totals ──
-  const totalInvested    = investments.reduce((s,i)=>s+i.amount,0);
-  const currentStockVal  = inventory.reduce((s,p)=>s+(p.isService?0:p.cost*getStock(p)),0);
-
   const saveExp = async () => {
     if (!ef.amount) return;
     await saveExpenses([...expenses,{id:uid(),cat:ef.cat,amount:+ef.amount,month:ef.month,date:ef.date||ef.month,note:ef.note}]);
     setShowExpForm(false); setEf({cat:"alquiler",amount:"",month:today().slice(0,7),note:""});
   };
-  const saveInv2 = async () => {
-    if (!ivf.amount||!ivf.description) return;
-    await saveInvestments([...investments,{id:uid(),date:ivf.date,description:ivf.description,amount:+ivf.amount,note:ivf.note}]);
-    setShowInvForm(false); setIvf({date:today(),description:"",amount:"",note:""});
-  };
   const delExp = async id => await saveExpenses(expenses.filter(e=>e.id!==id));
-  const delInv = async id => await saveInvestments(investments.filter(i=>i.id!==id));
 
   const Card = ({l,usd,txt,c,sub}) => (
     <div className="card-sm" style={{borderLeft:`3px solid ${c}50`}}>
@@ -1933,7 +1921,7 @@ function FinanzasTab({ sales, expenses, investments, inventory, rate, saveExpens
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <div>
           <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Finanzas</h1>
-          <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Inversiones · Gastos fijos · Distribución de ganancias</div>
+          <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Gastos fijos · Distribución de ganancias</div>
         </div>
         <select value={viewMonth} onChange={e=>setViewMonth(e.target.value)}
           style={{background:"#071418",border:"1px solid #0d2a30",borderRadius:8,padding:"8px 14px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:13}}>
@@ -2098,56 +2086,6 @@ function FinanzasTab({ sales, expenses, investments, inventory, rate, saveExpens
         }
       </div>
 
-      {/* ── Historial de inversiones ── */}
-      <div className="card">
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-          <div>
-            <div style={{fontSize:13,fontWeight:700,color:"#fbbf24"}}>💰 Historial de inversiones</div>
-            <div style={{fontSize:11,color:"#1a4a50",marginTop:2}}>
-              Total invertido: <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#fbbf24"}}>{fmtUSD(totalInvested)}</span>
-              &nbsp;·&nbsp; Valor actual en tienda: <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#2dcfe8"}}>{fmtUSD(currentStockVal)}</span>
-            </div>
-          </div>
-          <button className="btn-p" style={{fontSize:12,padding:"7px 14px"}} onClick={()=>setShowInvForm(true)}><IPlus/>Registrar inversión</button>
-        </div>
-
-        {showInvForm && (
-          <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:12,padding:"16px",marginBottom:16,display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{fontSize:11,color:"#1a4a50",lineHeight:1.7}}>
-              💡 Registra aquí cada vez que compres mercancía o inviertas dinero en la óptica. Esto es tu <strong style={{color:"#fbbf24"}}>base de inversión</strong>, no ganancia.
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              <div className="field"><label>Fecha</label><input type="date" value={ivf.date} onChange={e=>setIvf(f=>({...f,date:e.target.value}))}/></div>
-              <div className="field"><label>Monto invertido (USD)</label><input type="number" min="0" placeholder="0.00" value={ivf.amount} onChange={e=>setIvf(f=>({...f,amount:e.target.value}))}/></div>
-            </div>
-            <div className="field"><label>Descripción</label><input placeholder="Ej: Compra lentes Hoya x10 pares" value={ivf.description} onChange={e=>setIvf(f=>({...f,description:e.target.value}))}/></div>
-            <div className="field"><label>Nota (opcional)</label><input placeholder="Ej: Proveedor Luis, factura #123" value={ivf.note} onChange={e=>setIvf(f=>({...f,note:e.target.value}))}/></div>
-            <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-              <button className="btn-g" onClick={()=>setShowInvForm(false)}>Cancelar</button>
-              <button className="btn-p" onClick={saveInv2}><ICheck/>Guardar</button>
-            </div>
-          </div>
-        )}
-
-        {investments.length===0
-          ? <div style={{color:"#0d2a30",textAlign:"center",padding:"20px 0",fontSize:13}}>Sin inversiones registradas</div>
-          : <table>
-              <thead><tr><th>Fecha</th><th>Descripción</th><th>Nota</th><th style={{textAlign:"right"}}>USD</th><th style={{textAlign:"right"}}>Bs</th><th></th></tr></thead>
-              <tbody>
-                {[...investments].sort((a,b)=>b.date.localeCompare(a.date)).map(i=>(
-                  <tr key={i.id}>
-                    <td style={{color:"#4a8090",fontSize:12,whiteSpace:"nowrap"}}>{i.date}</td>
-                    <td style={{color:"#a0c8d0"}}>{i.description}</td>
-                    <td style={{color:"#1a4a50",fontSize:12}}>{i.note||"—"}</td>
-                    <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:13,color:"#fbbf24"}}>{fmtUSD(i.amount)}</td>
-                    <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#a08020"}}>{fmtBs(i.amount,rate)}</td>
-                    <td><button className="btn-d" style={{padding:"3px 8px",fontSize:11}} onClick={()=>delInv(i.id)}>✕</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-        }
-      </div>
     </div>
   );
 }
