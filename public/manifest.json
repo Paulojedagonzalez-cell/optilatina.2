@@ -1,7 +1,7 @@
 {
-  "name": "Óptilatina",
-  "short_name": "Óptilatina",
-  "description": "Plataforma de gestión — Franquicia y Distribuidora Óptilatina",
+  "name": "OptiLatina",
+  "short_name": "OptiLatina",
+  "description": "Plataforma de gestión — Franquicia y Distribuidora OptiLatina",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#040d10",
