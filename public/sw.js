@@ -1,4 +1,4 @@
-const CACHE = "optilatina-v6";
+const CACHE = "optilatina-v7";
 
 self.addEventListener("install", e => {
   e.waitUntil(
