@@ -208,7 +208,6 @@ async function dbSaveSetting(key, value) { await DB.setSetting(key, value); }
 // Legacy shims
 const KEYS = {};
 const load = async () => null;
-const save = async () => {};
 const useIsMobile = () => {
   const [m, setM] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
   useEffect(() => {
@@ -218,125 +217,33 @@ const useIsMobile = () => {
   }, []);
   return m;
 };
-const g = {
-  col1: { display: "grid", gridTemplateColumns: "1fr", gap: 13 },
-  col2: (m) => ({ display: "grid", gridTemplateColumns: m ? "1fr" : "1fr 1fr", gap: 13 }),
-  col3: (m) => ({ display: "grid", gridTemplateColumns: m ? "1fr 1fr" : "1fr 1fr 1fr", gap: 13 }),
-  col4: (m) => ({ display: "grid", gridTemplateColumns: m ? "1fr 1fr" : "repeat(4,1fr)", gap: 13 }),
-  colAuto: (min = 175) => ({ display: "grid", gridTemplateColumns: `repeat(auto-fit,minmax(${min}px,1fr))`, gap: 13 }),
+
+// Instalación como app (PWA): captura el evento del navegador para ofrecer instalar
+const useInstallPrompt = () => {
+  const [deferred, setDeferred] = useState(null);
+  const [installed, setInstalled] = useState(() =>
+    typeof window !== "undefined" &&
+    (window.matchMedia?.("(display-mode: standalone)").matches || window.navigator.standalone === true)
+  );
+  useEffect(() => {
+    const onPrompt = e => { e.preventDefault(); setDeferred(e); };
+    const onInstalled = () => { setInstalled(true); setDeferred(null); };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+  const isIOS = typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  const install = async () => {
+    if (!deferred) return;
+    deferred.prompt();
+    try { await deferred.userChoice; } catch {}
+    setDeferred(null);
+  };
+  return { canInstall: !!deferred, installed, isIOS, install };
 };
-
-
-// ── Demo sales ────────────────────────────────────────────────────────────────
-const DS = (date,product,cat,cost,price,qty,pay,by) => ({
-  id:uid(), saleId:uid(), date, note:"", paymentMethod:pay, registeredBy:by,
-  productId:uid(), productName:product, cat, cost, price, qty,
-  total:+(price*qty).toFixed(2), profit:+((price-cost)*qty).toFixed(2)
-});
-const DEMO_SALES = [
-  // Diciembre 2024
-  DS("2024-12-02","Montura Ray-Ban RB5154","Montura",14,30,2,"efectivo","local"),
-  DS("2024-12-02","Estuche de lujo","Accesorio",1.5,4,3,"efectivo","local"),
-  DS("2024-12-03","Lente Antirreflejante","Lente",5,12,2,"pagoMovil","rene"),
-  DS("2024-12-04","Ajuste y limpieza","Servicio",0,2,5,"efectivo","local"),
-  DS("2024-12-05","Montura Oakley OX8046","Montura",20,45,1,"zelle","local"),
-  DS("2024-12-05","Lente Progresivo Hoya","Lente",10,25,1,"usdt","owner"),
-  DS("2024-12-06","Lente de Contacto Acuvue (caja)","Lente de contacto",7,13,2,"efectivo","local"),
-  DS("2024-12-07","Lente Antirreflejante","Lente",5,12,3,"efectivo","local"),
-  DS("2024-12-09","Montura Ray-Ban RB5154","Montura",14,30,1,"transferencia","rene"),
-  DS("2024-12-09","Estuche de lujo","Accesorio",1.5,4,4,"efectivo","local"),
-  DS("2024-12-10","Lente Progresivo Hoya","Lente",10,25,2,"usdt","owner"),
-  DS("2024-12-11","Ajuste y limpieza","Servicio",0,2,6,"efectivo","local"),
-  DS("2024-12-12","Montura Oakley OX8046","Montura",20,45,2,"efectivo","local"),
-  DS("2024-12-12","Lente de Contacto Acuvue (caja)","Lente de contacto",7,13,1,"zelle","local"),
-  DS("2024-12-13","Montura Ray-Ban RB5154","Montura",14,30,1,"efectivo","local"),
-  DS("2024-12-14","Lente Antirreflejante","Lente",5,12,4,"pagoMovil","rene"),
-  DS("2024-12-16","Lente Progresivo Hoya","Lente",10,25,3,"usdt","owner"),
-  DS("2024-12-16","Estuche de lujo","Accesorio",1.5,4,5,"efectivo","local"),
-  DS("2024-12-17","Montura Oakley OX8046","Montura",20,45,1,"zelle","local"),
-  DS("2024-12-18","Ajuste y limpieza","Servicio",0,2,4,"efectivo","local"),
-  DS("2024-12-18","Lente de Contacto Acuvue (caja)","Lente de contacto",7,13,3,"efectivo","local"),
-  DS("2024-12-19","Montura Ray-Ban RB5154","Montura",14,30,2,"transferencia","rene"),
-  DS("2024-12-20","Lente Antirreflejante","Lente",5,12,2,"efectivo","local"),
-  DS("2024-12-20","Lente Progresivo Hoya","Lente",10,25,1,"usdt","owner"),
-  DS("2024-12-21","Montura Oakley OX8046","Montura",20,45,1,"efectivo","local"),
-  DS("2024-12-21","Estuche de lujo","Accesorio",1.5,4,6,"efectivo","local"),
-  DS("2024-12-23","Montura Ray-Ban RB5154","Montura",14,30,3,"zelle","local"),
-  DS("2024-12-23","Lente de Contacto Acuvue (caja)","Lente de contacto",7,13,2,"pagoMovil","rene"),
-  DS("2024-12-24","Lente Progresivo Hoya","Lente",10,25,2,"usdt","owner"),
-  DS("2024-12-24","Lente Antirreflejante","Lente",5,12,5,"efectivo","local"),
-  DS("2024-12-24","Ajuste y limpieza","Servicio",0,2,8,"efectivo","local"),
-  DS("2024-12-26","Montura Oakley OX8046","Montura",20,45,2,"efectivo","local"),
-  DS("2024-12-26","Estuche de lujo","Accesorio",1.5,4,4,"efectivo","local"),
-  DS("2024-12-27","Montura Ray-Ban RB5154","Montura",14,30,1,"transferencia","rene"),
-  DS("2024-12-27","Lente Progresivo Hoya","Lente",10,25,1,"usdt","owner"),
-  DS("2024-12-28","Lente de Contacto Acuvue (caja)","Lente de contacto",7,13,2,"efectivo","local"),
-  DS("2024-12-28","Lente Antirreflejante","Lente",5,12,3,"efectivo","local"),
-  DS("2024-12-30","Montura Ray-Ban RB5154","Montura",14,30,2,"zelle","local"),
-  DS("2024-12-30","Ajuste y limpieza","Servicio",0,2,5,"efectivo","local"),
-  DS("2024-12-31","Montura Oakley OX8046","Montura",20,45,1,"efectivo","local"),
-  DS("2024-12-31","Estuche de lujo","Accesorio",1.5,4,3,"efectivo","local"),
-  // Enero 2025
-  DS("2025-01-06","Montura Ray-Ban RB5154","Montura",14,30,1,"efectivo","local"),
-  DS("2025-01-06","Lente Antirreflejante","Lente",5,12,2,"efectivo","local"),
-  DS("2025-01-09","Lente Progresivo Hoya","Lente",10,25,1,"usdt","owner"),
-  DS("2025-01-13","Montura Oakley OX8046","Montura",20,45,1,"zelle","local"),
-  DS("2025-01-14","Estuche de lujo","Accesorio",1.5,4,3,"efectivo","local"),
-  DS("2025-01-17","Ajuste y limpieza","Servicio",0,2,4,"efectivo","local"),
-  DS("2025-01-20","Lente de Contacto Acuvue (caja)","Lente de contacto",7,13,2,"pagoMovil","rene"),
-  DS("2025-01-22","Montura Ray-Ban RB5154","Montura",14,30,1,"efectivo","local"),
-  DS("2025-01-24","Lente Progresivo Hoya","Lente",10,25,2,"usdt","owner"),
-  DS("2025-01-28","Lente Antirreflejante","Lente",5,12,3,"efectivo","local"),
-  DS("2025-01-30","Montura Oakley OX8046","Montura",20,45,1,"zelle","local"),
-  DS("2025-02-03","Lente Progresivo Hoya","Lente",10,25,1,"efectivo","local"),
-  DS("2025-02-03","Ajuste y limpieza","Servicio",0,2,2,"efectivo","local"),
-  DS("2025-02-05","Montura Ray-Ban RB5154","Montura",14,30,2,"usdt","owner"),
-  DS("2025-02-07","Estuche de lujo","Accesorio",1.5,4,4,"efectivo","local"),
-  DS("2025-02-10","Lente de Contacto Acuvue (caja)","Lente de contacto",7,13,1,"pagoMovil","rene"),
-  DS("2025-02-12","Lente Antirreflejante","Lente",5,12,2,"transferencia","rene"),
-  DS("2025-02-14","Montura Oakley OX8046","Montura",20,45,1,"zelle","local"),
-  DS("2025-02-17","Lente Progresivo Hoya","Lente",10,25,1,"efectivo","local"),
-  DS("2025-02-19","Montura Ray-Ban RB5154","Montura",14,30,1,"efectivo","local"),
-  DS("2025-02-21","Lente de Contacto Acuvue (caja)","Lente de contacto",7,13,2,"usdt","owner"),
-  DS("2025-02-24","Ajuste y limpieza","Servicio",0,2,5,"efectivo","local"),
-  DS("2025-02-26","Montura Oakley OX8046","Montura",20,45,1,"efectivo","local"),
-  DS("2025-03-03","Lente Progresivo Hoya","Lente",10,25,2,"usdt","owner"),
-  DS("2025-03-05","Montura Ray-Ban RB5154","Montura",14,30,1,"efectivo","local"),
-  DS("2025-03-06","Lente Antirreflejante","Lente",5,12,4,"efectivo","local"),
-  DS("2025-03-10","Estuche de lujo","Accesorio",1.5,4,2,"pagoMovil","rene"),
-  DS("2025-03-12","Montura Oakley OX8046","Montura",20,45,2,"zelle","local"),
-  DS("2025-03-14","Lente Progresivo Hoya","Lente",10,25,1,"efectivo","local"),
-  DS("2025-03-17","Ajuste y limpieza","Servicio",0,2,3,"efectivo","local"),
-  DS("2025-03-18","Montura Ray-Ban RB5154","Montura",14,30,2,"usdt","owner"),
-  DS("2025-03-20","Lente de Contacto Acuvue (caja)","Lente de contacto",7,13,3,"transferencia","rene"),
-  DS("2025-03-24","Lente Antirreflejante","Lente",5,12,2,"efectivo","local"),
-  DS("2025-03-27","Montura Oakley OX8046","Montura",20,45,1,"efectivo","local"),
-  DS("2025-03-31","Lente Progresivo Hoya","Lente",10,25,2,"usdt","owner"),
-  DS("2025-04-02","Montura Ray-Ban RB5154","Montura",14,30,1,"efectivo","local"),
-  DS("2025-04-04","Estuche de lujo","Accesorio",1.5,4,5,"efectivo","local"),
-  DS("2025-04-07","Lente Progresivo Hoya","Lente",10,25,3,"usdt","owner"),
-  DS("2025-04-09","Lente de Contacto Acuvue (caja)","Lente de contacto",7,13,2,"zelle","local"),
-  DS("2025-04-11","Montura Oakley OX8046","Montura",20,45,1,"efectivo","local"),
-  DS("2025-04-14","Lente Antirreflejante","Lente",5,12,3,"pagoMovil","rene"),
-  DS("2025-04-16","Ajuste y limpieza","Servicio",0,2,6,"efectivo","local"),
-  DS("2025-04-18","Montura Ray-Ban RB5154","Montura",14,30,2,"transferencia","rene"),
-  DS("2025-04-22","Lente Progresivo Hoya","Lente",10,25,1,"usdt","owner"),
-  DS("2025-04-24","Montura Oakley OX8046","Montura",20,45,1,"efectivo","local"),
-  DS("2025-04-28","Lente de Contacto Acuvue (caja)","Lente de contacto",7,13,1,"efectivo","local"),
-  DS("2025-04-30","Lente Antirreflejante","Lente",5,12,2,"efectivo","local"),
-  DS("2025-05-02","Montura Ray-Ban RB5154","Montura",14,30,1,"efectivo","local"),
-  DS("2025-05-05","Lente Progresivo Hoya","Lente",10,25,2,"usdt","owner"),
-  DS("2025-05-07","Montura Oakley OX8046","Montura",20,45,1,"zelle","local"),
-  DS("2025-05-09","Ajuste y limpieza","Servicio",0,2,4,"efectivo","local"),
-  DS("2025-05-12","Lente Antirreflejante","Lente",5,12,3,"efectivo","local"),
-  DS("2025-05-14","Estuche de lujo","Accesorio",1.5,4,3,"pagoMovil","rene"),
-  DS("2025-05-16","Lente de Contacto Acuvue (caja)","Lente de contacto",7,13,2,"transferencia","rene"),
-  DS("2025-05-19","Montura Ray-Ban RB5154","Montura",14,30,3,"usdt","owner"),
-  DS("2025-05-21","Lente Progresivo Hoya","Lente",10,25,1,"efectivo","local"),
-  DS("2025-05-23","Montura Oakley OX8046","Montura",20,45,2,"efectivo","local"),
-  DS("2025-05-27","Lente Antirreflejante","Lente",5,12,4,"efectivo","local"),
-  DS("2025-05-29","Ajuste y limpieza","Servicio",0,2,2,"efectivo","local"),
-];;
 
 // ── SVG Icons ─────────────────────────────────────────────────────────────────
 const Svg = ({d,s=20}) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d={d}/></svg>;
@@ -580,15 +487,6 @@ const LogoDist = ({s=26}) => <img src={`data:image/jpeg;base64,${LOGO_B64}`} alt
 const LOGO2_B64 = "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";
 const Logo2 = ({s=44}) => <img src={`data:image/jpeg;base64,${LOGO2_B64}`} style={{width:s,height:s,borderRadius:s*.15,objectFit:"cover"}}/>;
 
-const DEMO_INV = [
-  {id:"di1",name:"Montura Ray-Ban RB5154",       cat:"Montura",          cost:14, price:30, isService:false, serials:["ARZ-RB001","ARZ-RB002","ARZ-RB003","ARZ-RB004"], photo:null, description:""},
-  {id:"di2",name:"Montura Oakley OX8046",         cat:"Montura",          cost:20, price:45, isService:false, serials:["ARZ-OK001","ARZ-OK002"], photo:null, description:""},
-  {id:"di3",name:"Lente Progresivo Hoya",         cat:"Lente",            cost:10, price:25, isService:false, serials:["LPH-001","LPH-002","LPH-003","LPH-004"], photo:null, description:""},
-  {id:"di4",name:"Lente Antirreflejante",         cat:"Lente",            cost:5,  price:12, isService:false, serials:["LAR-001","LAR-002","LAR-003","LAR-004","LAR-005","LAR-006"], photo:null, description:""},
-  {id:"di5",name:"Lente de Contacto Acuvue",      cat:"Lente de contacto",cost:7,  price:13, isService:false, serials:["LCA-001","LCA-002","LCA-003"], photo:null, description:""},
-  {id:"di6",name:"Estuche de lujo",               cat:"Accesorio",        cost:1.5,price:4,  isService:false, serials:["EST-001","EST-002","EST-003","EST-004","EST-005"], photo:null, description:""},
-  {id:"di7",name:"Ajuste y limpieza",             cat:"Servicio",         cost:0,  price:2,  isService:true,  serials:[], photo:null, description:""},
-];
 const PAY_METHODS = [
   {id:"efectivo",      label:"Efectivo",       icon:"💵"},
   {id:"usdt",          label:"USDT",           icon:"🔐"},
@@ -673,7 +571,7 @@ export default function App() {
       if (hadBackup) setLoading(false);
 
       if (!CONFIGURED) {
-        if (!hadBackup) { setInventory(DEMO_INV); setSales([]); }
+        if (!hadBackup) { setInventory([]); setSales([]); }
         setLoading(false); return;
       }
       // 2) Cargar de Firebase (fuente de verdad cuando esta disponible)
@@ -872,6 +770,8 @@ function LoginScreen({ onSelect, dynProfiles }) {
   const [recEmail, setRecEmail] = useState("");
   const [recSent,  setRecSent]  = useState(null); // true | "error"
   const [busy,     setBusy]     = useState(false);
+  const [iosHelp,  setIosHelp]  = useState(false);
+  const { canInstall, installed, isIOS, install } = useInstallPrompt();
 
   const owner = dynProfiles.find(p => p.id === "owner");
 
@@ -913,8 +813,12 @@ function LoginScreen({ onSelect, dynProfiles }) {
       <div style={{width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:18}}>
         <div style={{textAlign:"center",marginBottom:6}}>
           <div style={{width:90,height:90,margin:"0 auto 14px",borderRadius:"50%",overflow:"hidden",boxShadow:"0 0 46px #c9a22745"}}><Logo s={90}/></div>
-          <div style={{fontSize:30,fontWeight:800,color:"#e8c96a",letterSpacing:".01em"}}>OptiLatina</div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+            <div style={{fontSize:30,fontWeight:800,color:"#e8c96a",letterSpacing:".01em"}}>OptiLatina</div>
+            <span style={{fontSize:10,fontWeight:700,color:"#fbbf24",background:"#2a2008",border:"1px solid #4a3810",borderRadius:6,padding:"2px 7px",letterSpacing:".08em"}}>BETA</span>
+          </div>
           <div style={{fontSize:12,color:"#3a5a68",marginTop:4,textTransform:"uppercase",letterSpacing:".22em"}}>Plataforma de gestión</div>
+          <div style={{fontSize:11,color:"#2a5a60",marginTop:8,lineHeight:1.5}}>Versión de prueba · la estamos afinando este mes</div>
         </div>
 
         <div className="field">
@@ -954,6 +858,26 @@ function LoginScreen({ onSelect, dynProfiles }) {
         <div style={{textAlign:"center",fontSize:12,color:"#1a4a50",lineHeight:1.6}}>
           ¿Necesitas una cuenta? Pídesela al administrador —<br/>el acceso es únicamente por invitación.
         </div>
+
+        {/* Instalar como app en el teléfono */}
+        {!installed && (canInstall || isIOS) && (
+          <div style={{marginTop:2}}>
+            {canInstall ? (
+              <button onClick={install} className="btn-g" style={{width:"100%",justifyContent:"center",display:"flex",alignItems:"center",gap:8,padding:"11px",borderColor:"#0e3a4a",color:"#2dcfe8"}}>
+                📲 Instalar como app en este dispositivo
+              </button>
+            ) : (
+              <button onClick={()=>setIosHelp(v=>!v)} className="btn-g" style={{width:"100%",justifyContent:"center",display:"flex",alignItems:"center",gap:8,padding:"11px",borderColor:"#0e3a4a",color:"#2dcfe8"}}>
+                📲 Instalar como app en tu iPhone
+              </button>
+            )}
+            {iosHelp && (
+              <div style={{fontSize:11,color:"#7a94a8",lineHeight:1.6,marginTop:8,background:"#050f12",border:"1px solid #0a2028",borderRadius:10,padding:"11px 14px"}}>
+                En tu iPhone, con Safari: toca el botón <strong style={{color:"#2dcfe8"}}>Compartir</strong> (el cuadrito con la flecha ↑) abajo, baja y elige <strong style={{color:"#2dcfe8"}}>"Agregar a inicio"</strong>. Quedará como una app más en tu pantalla.
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:9,marginTop:8,paddingTop:16,borderTop:"1px solid #081820"}}>
           <LogoDist s={22}/>
@@ -1156,7 +1080,7 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
               }
             </div>
             <div>
-              <div style={{fontSize:isMobile?14:16,fontWeight:800,color:"#fff",letterSpacing:"-.01em"}}>{profile.storeName||"OptiLatina"}</div>
+              <div style={{fontSize:isMobile?14:16,fontWeight:800,color:"#fff",letterSpacing:"-.01em",display:"flex",alignItems:"center",gap:6}}>{profile.storeName||"OptiLatina"}<span style={{fontSize:9,color:"#fbbf24",fontWeight:700,background:"#2a2008",border:"1px solid #4a3810",borderRadius:5,padding:"1px 5px"}}>BETA</span></div>
               <div style={{fontSize:isMobile?11:13,fontWeight:600,color:profile.color,marginTop:1}}>{profile.address}</div>
             </div>
           </div>
@@ -1787,7 +1711,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
             <Logo s={28}/>
             <div>
               <div style={{fontSize:14,fontWeight:700,color:"#fff"}}>{profile.name}</div>
-              <div style={{fontSize:10,color:profile.color}}>Administrador</div>
+              <div style={{fontSize:10,color:profile.color}}>Administrador <span style={{color:"#fbbf24",fontWeight:700,marginLeft:2}}>· BETA</span></div>
             </div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -1824,7 +1748,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
             <div style={{width:34,height:34,borderRadius:8,overflow:"hidden"}}><Logo s={34}/></div>
             <div>
               <div style={{fontSize:14,fontWeight:700,color:"#e2e8f4"}}>{profile.name}</div>
-              <div style={{fontSize:11,color:`${profile.color}99`}}>Administrador</div>
+              <div style={{fontSize:11,color:`${profile.color}99`}}>Administrador <span style={{color:"#fbbf24",fontWeight:700}}>· BETA</span></div>
             </div>
           </div>
         </div>
