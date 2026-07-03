@@ -3459,6 +3459,8 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum }) {
   const [draft, setDraft] = useState(null);
   const [err,   setErr]   = useState("");
   const [done,  setDone]  = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const scanRef = useRef(null);
 
   const interpret = () => {
     setErr("");
@@ -3467,6 +3469,47 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum }) {
     setDraft({...d, orderNumber: nextOrderNum});
   };
   const sd = (k,v) => setDraft(p=>({...p,[k]:v}));
+
+  // Escanear la factura con IA de visión (el servidor guarda la clave)
+  const scanReceipt = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setErr(""); setScanning(true);
+    try {
+      const img = await compressImage(file, 1500, 0.8);
+      const res = await fetch("/api/scan-receipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: img }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.status === 503 || json.error === "not_configured") {
+        setErr("El escáner todavía no está activado. Pídeselo al administrador (falta conectar la clave de IA).");
+        return;
+      }
+      if (!res.ok || !json.ok) {
+        setErr(json.message || "No se pudo leer la factura. Intenta con mejor luz o registra la venta a mano.");
+        return;
+      }
+      const d = json.data || {};
+      const extras = [d.rx, d.cedula ? `C.I. ${d.cedula}` : ""].filter(Boolean).join(" · ");
+      setDraft({
+        product:  [d.product, extras].filter(Boolean).join(" · "),
+        customer: d.customer || "",
+        phone:    d.phone ? (String(d.phone).startsWith("+") ? String(d.phone) : `+58 ${d.phone}`) : "",
+        total:    d.total ?? "",
+        abono:    d.abono ?? 0,
+        method:   METHOD_INFO[d.method] ? d.method : "efectivo",
+        orderNumber: d.orderNumber || nextOrderNum,
+        _scanned: true,
+      });
+    } catch {
+      setErr("No se pudo procesar la imagen. Revisa tu conexión e intenta de nuevo.");
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const save = async () => {
     setErr("");
@@ -3491,11 +3534,21 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum }) {
 
   return (
     <div className="card" style={{borderColor:"#14402a"}}>
-      <div style={{fontSize:13,fontWeight:700,color:"#34d399",marginBottom:4}}>⚡ Registro rápido — escribe la venta y el sistema la organiza</div>
-      <div style={{fontSize:11,color:"#1a4a50",marginBottom:10}}>Ej: "Lentes Nike azul, fórmula miopía, fotocromático. Se vendió a 200$. Abonó 100 en efectivo. Cliente María Pérez 0414 1234567"</div>
+      <div style={{fontSize:13,fontWeight:700,color:"#34d399",marginBottom:4}}>⚡ Registro rápido — escanea la factura o escribe la venta</div>
+      <div style={{fontSize:11,color:"#1a4a50",marginBottom:10}}>Toma foto de la factura y el sistema la lee, o escríbela: "Lentes Nike azul, fotocromático. Se vendió a 200$. Abonó 100 en efectivo. Cliente María Pérez 0414 1234567"</div>
       {done && <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#34d399",marginBottom:10}}>✓ Guardado — la orden quedó registrada en su lugar</div>}
       {!draft ? (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <input ref={scanRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={scanReceipt}/>
+          <button className="btn-p" onClick={()=>scanRef.current?.click()} disabled={scanning}
+            style={{justifyContent:"center",background:scanning?"#0a2028":"linear-gradient(135deg,#7a5a0a,#b8860b)",opacity:scanning?.7:1}}>
+            {scanning ? "📷 Leyendo factura…" : "📷 Escanear factura"}
+          </button>
+          <div style={{display:"flex",alignItems:"center",gap:10,margin:"2px 0"}}>
+            <div style={{flex:1,height:1,background:"#0d2a30"}}/>
+            <span style={{fontSize:10,color:"#1a4a50"}}>o escribe la venta</span>
+            <div style={{flex:1,height:1,background:"#0d2a30"}}/>
+          </div>
           <textarea value={txt} onChange={e=>setTxt(e.target.value)} rows={3}
             placeholder="Escribe aquí la venta tal como la dirías…"
             style={{background:"#050e10",border:"1px solid #0d2a30",borderRadius:10,padding:"11px 14px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:14,resize:"vertical",outline:"none",width:"100%"}}/>
