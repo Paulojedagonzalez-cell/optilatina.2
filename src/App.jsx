@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 // ── Utilidades globales ───────────────────────────────────────────────────────
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -370,7 +370,7 @@ input,select{outline:none}button{cursor:pointer}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#080c14}::-webkit-scrollbar-thumb{background:#1a3a3e;border-radius:4px}
 .card{background:#071418;border:1px solid #0d2a30;border-radius:16px;padding:22px}
 .card-sm{background:#071418;border:1px solid #0d2a30;border-radius:12px;padding:16px}
-.nav-btn{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:none;background:transparent;color:#2a5a60;font-family:'Outfit',sans-serif;font-size:14px;font-weight:500;transition:all .2s;width:100%;text-align:left;cursor:pointer}
+.nav-btn{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:none;background:transparent;color:#2a5a60;font-family:'Outfit',sans-serif;font-size:14px;font-weight:500;transition:background .2s,color .2s;width:100%;text-align:left;cursor:pointer}
 .nav-btn:hover{background:#081e22;color:#6abbc8}
 .nav-btn.active{background:#0c2e35;color:#2dcfe8;box-shadow:inset 0 0 0 1px #1a5060}
 .btn-p{background:linear-gradient(135deg,#0a6070,#0e7a8c);color:#fff;border:none;border-radius:10px;padding:10px 20px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px;transition:all .2s;cursor:pointer}
@@ -389,11 +389,11 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#1a4a50;fo
 td{padding:11px 14px;border-bottom:1px solid #071015;font-size:14px}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:#061215}
-.ov{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
 .modal{background:#071c22;border:1px solid #0d2a30;border-radius:20px;padding:28px;width:100%;max-width:500px;max-height:85vh;overflow-y:auto}
 .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
 .bb{background:#0d2a38;color:#2dcfe8}.bg{background:#0f2820;color:#34d399}.ba{background:#2a1e08;color:#fbbf24}.br{background:#2a0c0c;color:#f87171}.bv{background:#1e1440;color:#a78bfa}
-.prod-card{background:#071418;border:1px solid #0d2a30;border-radius:12px;padding:13px 14px;cursor:pointer;transition:all .18s;text-align:left;color:#e2e8f4;font-family:'Outfit',sans-serif;width:100%}
+.prod-card{background:#071418;border:1px solid #0d2a30;border-radius:12px;padding:13px 14px;cursor:pointer;transition:border-color .18s,background .18s;text-align:left;color:#e2e8f4;font-family:'Outfit',sans-serif;width:100%}
 .prod-card:hover{border-color:#1a5060;background:#091c22}
 .prod-card.sel{border-color:#0e7a8c;background:#071e25}
 .qty-btn{background:#081820;border:1px solid #0d2a40;color:#e2e8f4;width:36px;height:36px;border-radius:8px;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s}
@@ -502,6 +502,10 @@ const moneyIn = (salesList, ordersList, fromDate, toDate) => {
 
 const orderPaid    = o => (o.payments||[]).reduce((s,p)=>s+p.amount,0);
 const orderBalance = o => Math.max(0, (o.total||0) - orderPaid(o));
+
+// Umbral de reposicion por producto (configurable; 3 por defecto)
+const lowAt = p => p.minStock ?? 3;
+const isLow = p => !p.isService && getStock(p) <= lowAt(p);
 
 // ── Telefonos internacionales ─────────────────────────────────────────────────
 const CC_LIST = [
@@ -1085,11 +1089,11 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
   const isMobile = useIsMobile();
 
   const [searchQ, setSearchQ] = useState("");
-  const filteredInv = inventory.filter(p => {
+  const filteredInv = useMemo(() => inventory.filter(p => {
     if (p.isService ? false : getStock(p) < 1) return false;
     if (searchQ) return p.name.toLowerCase().includes(searchQ.toLowerCase());
     return catF === "Todos" || p.cat === catF;
-  });
+  }), [inventory, searchQ, catF]);
 
   // Payment methods breakdown for today
   const todayByMethod = METHODS.map(m => ({
@@ -1328,8 +1332,8 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
                       </div>
                       {!p.isService&&(
                         <div style={{textAlign:"right"}}>
-                          <div style={{fontSize:9,color:stock<3?"#f87171":stock<6?"#fbbf24":"#1a4a50",fontWeight:600}}>{stock} pz</div>
-                          {stock<3 && <div style={{fontSize:8,color:"#f87171"}}>⚠ bajo</div>}
+                          <div style={{fontSize:9,color:stock<=lowAt(p)?"#f87171":stock<=lowAt(p)*2?"#fbbf24":"#1a4a50",fontWeight:600}}>{stock} pz</div>
+                          {stock<=lowAt(p) && <div style={{fontSize:8,color:"#f87171"}}>⚠ por agotarse</div>}
                         </div>
                       )}
                     </div>
@@ -1737,7 +1741,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
   const weekProf      = weekSales.reduce((s,v)=>s+v.profit,0);
   const byDate        = filteredSales.reduce((a,s)=>{if(!a[s.date])a[s.date]=[];a[s.date].push(s);return a},{});
   const sortedDates   = Object.keys(byDate).sort((a,b)=>b.localeCompare(a));
-  const lowStock      = inventory.filter(p=>!p.isService&&getStock(p)<3);
+  const lowStock      = inventory.filter(isLow);
 
   // Comparativas vs periodo anterior (estilo panel profesional)
   const isoDaysAgo = n => { const d=new Date(today()+"T12:00"); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); };
@@ -2906,14 +2910,45 @@ function WeekTab({byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles}
 function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate}) {
   const [filter,setFilter]=useState("Todos");
   const [search,setSearch]=useState("");
+  const [copied,setCopied]=useState(false);
   const filtered=inventory.filter(p=>(filter==="Todos"||p.cat===filter)&&(search===""||p.name.toLowerCase().includes(search.toLowerCase())));
   const del=async id=>{if(!confirm("¿Eliminar?"))return;await saveInv(inventory.filter(p=>p.id!==id));};
+
+  // Control automatico de reposicion: productos en o bajo su umbral
+  const porAgotarse = inventory.filter(isLow).sort((a,b)=>getStock(a)-getStock(b));
+  const pedidoMsg = `📦 Pedido de reposición — OptiLatina\n${today()}\n\n` +
+    porAgotarse.map(p=>`• ${p.name} — quedan ${getStock(p)} (reponer)`).join("\n");
+  const copyPedido = async () => {
+    try { await navigator.clipboard.writeText(pedidoMsg); setCopied(true); setTimeout(()=>setCopied(false),2500); } catch {}
+  };
+
   return (
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Inventario</h1>
         <button className="btn-p" onClick={()=>setInvModal("new")}><IPlus/>Agregar</button>
       </div>
+
+      {/* Reposicion automatica */}
+      {porAgotarse.length>0 && (
+        <div className="card" style={{borderColor:"#4a3510"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:10}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#fbbf24"}}>⚠️ Por agotarse — {porAgotarse.length} producto(s) necesitan reposición</div>
+            <div style={{display:"flex",gap:7}}>
+              <button className="btn-g" style={{fontSize:12}} onClick={copyPedido}>{copied?"✓ Copiado":"Copiar pedido"}</button>
+              <a href={`https://api.whatsapp.com/send?text=${encodeURIComponent(pedidoMsg)}`} target="_blank" rel="noreferrer"
+                className="btn-p" style={{textDecoration:"none",fontSize:12,padding:"7px 13px"}}>Enviar a distribuidora</a>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+            {porAgotarse.map(p=>(
+              <span key={p.id} style={{background:"#2a1e08",border:"1px solid #4a3510",borderRadius:8,padding:"5px 11px",fontSize:11,color:"#fbbf24",cursor:"pointer"}} onClick={()=>setInvModal(p)} title="Editar / reponer">
+                {p.name} — <strong>{getStock(p)===0?"AGOTADO":`${getStock(p)} pz`}</strong>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11}}>
         <div className="card-sm" style={{textAlign:"center"}}>
           <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>PRODUCTOS</div>
@@ -4225,7 +4260,8 @@ function InvModal({item,inventory,saveInv,onClose,rate}) {
     name:item?.name??"", cat:item?.cat??CATS[0],
     cost:item?.cost??"", price:item?.price??"",
     isService:item?.isService??(item?.stock===999)??false,
-    newSerials:"", qty:"", photo:item?.photo??null, description:item?.description??"",
+    newSerials:"", qty:"", minStock:item?.minStock??3,
+    photo:item?.photo??null, description:item?.description??"",
   });
   const [fastItems, setFastItems] = useState([{id:uid(),name:"",cat:CATS[0],cost:"",price:"",serials:"",qty:"",photo:null}]);
   const [saving, setSaving] = useState(false);
@@ -4271,7 +4307,8 @@ function InvModal({item,inventory,saveInv,onClose,rate}) {
     if (dupInOthers.length) { setErr(`Estos códigos ya existen en otro producto: ${dupInOthers.join(", ")}`); return; }
     setSaving(true);
     const it={...(item||{}), id:item?.id??uid(),name:f.name.trim(),cat:f.cat,cost:Number(f.cost)||0,price:Number(f.price),
-      isService:f.isService,serials:f.isService?[]:[...allSerials,...genAutoCodes(qtyNew)],photo:f.photo,description:f.description};
+      isService:f.isService,serials:f.isService?[]:[...allSerials,...genAutoCodes(qtyNew)],photo:f.photo,description:f.description,
+      minStock:Math.max(0, parseInt(f.minStock) || 3)};
     await saveInv(item?inventory.map(p=>p.id===item.id?it:p):[...inventory,it]);
     setSaving(false); onClose();
   };
@@ -4406,6 +4443,12 @@ function InvModal({item,inventory,saveInv,onClose,rate}) {
                   <input type="number" min="0" step="1" placeholder="0" value={f.qty} onChange={e=>sf("qty",e.target.value)}/>
                   {qtyNew>0&&<div style={{fontSize:10,color:"#34d399",marginTop:3}}>✓ +{qtyNew} unidad(es)</div>}
                 </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8}}>
+                <span style={{fontSize:10,color:"#fbbf24"}}>⚠ Avisar reposición cuando queden</span>
+                <input type="number" min="0" step="1" value={f.minStock} onChange={e=>sf("minStock",e.target.value)}
+                  style={{width:60,background:"#050e10",border:"1px solid #0d2a30",borderRadius:6,padding:"4px 8px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:12,outline:"none"}}/>
+                <span style={{fontSize:10,color:"#1a4a50"}}>unidades o menos</span>
               </div>
               <div style={{fontSize:10,color:"#1a4a50",marginTop:6}}>Usa códigos para monturas con serial; usa cantidad para lentes de contacto, accesorios, etc.</div>
             </div>
