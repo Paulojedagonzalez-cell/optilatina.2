@@ -267,7 +267,7 @@ const IDeposit= () => <Svg d="M19 14l-7 7m0 0l-7-7m7 7V3"/>;
 
 
 const TEAL = "#0e7a8c";
-const CSS = `
+export const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 input,select{outline:none}button{cursor:pointer}
@@ -1919,7 +1919,11 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
   // ── Calculations for selected month ──
   const mSales    = sales.filter(s=>s.date.slice(0,7)===viewMonth);
   const mRevenue  = mSales.reduce((s,v)=>s+v.total,0);
-  const mCOGS     = mSales.reduce((s,v)=>s+v.cost*v.qty,0);
+  // El costo de laboratorio se le cobra al cliente (va dentro de "total") y se le
+  // paga al laboratorio: es un pasa-manos, no ganancia. Se resta junto al costo
+  // de mercancía para que la ganancia bruta cuadre con la ganancia que se guarda
+  // por venta (la misma que muestran Estadísticas y el Dashboard).
+  const mCOGS     = mSales.reduce((s,v)=>s+v.cost*v.qty+(v.labCost||0),0);
   const mGross    = mRevenue - mCOGS;
   const mExpenses = expenses.filter(e=>emonth(e)===viewMonth).reduce((s,e)=>s+e.amount,0);
   const mNet      = mGross - mExpenses;
@@ -2058,7 +2062,7 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
         </div>
         <div className="rg3" style={{marginBottom:16}}>
           <Card l="Ingresos brutos"  usd={mRevenue} c="#2dcfe8"/>
-          <Card l="Costo mercancía (base invertida)" usd={mCOGS} c="#fbbf24" sub="No es ganancia — es tu inversión de vuelta"/>
+          <Card l="Costo mercancía + laboratorio" usd={mCOGS} c="#fbbf24" sub="Base invertida + lab pagado — no es ganancia"/>
           <Card l="Ganancia bruta"   usd={mGross}   c="#34d399" sub="Ingresos − base invertida"/>
         </div>
         <div className="rg3" style={{marginBottom:16}}>
@@ -2292,7 +2296,7 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
 }
 
 // ── Stats Tab ─────────────────────────────────────────────────────────────────
-function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
+export function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
   // v2 — fixed buildData scope
   const [period, setPeriod] = useState("day");
   const [hover,  setHover]  = useState(null);
@@ -2353,9 +2357,13 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
       if (buckets[k]) buckets[k].rev += p.amount;
     }));
     // Falta por pagar: apartados creados en esa fecha que siguen sin entregarse hoy.
+    // Las ordenes guardan createdDate/createdAt (no "date"), asi que tomamos la
+    // fecha real con fallback — pasar undefined a keyOf romperia la vista.
     orders.forEach(o => {
       if (o.status==="entregado") return;
-      const k = keyOf(o.date);
+      const od = o.createdDate || o.date || o.createdAt?.slice(0,10);
+      if (!od) return;
+      const k = keyOf(od);
       if (buckets[k]) buckets[k].pending += orderBalance(o);
     });
     return keys.map(k => ({key:k, lbl:fmtLabel(k,period), ...buckets[k]}));
@@ -3180,12 +3188,21 @@ function CajaTab({ sales, deposits, saveDeposits, rate, payments, orders = [] })
   const flow = moneyIn(sales, orders, from, today());
   const porCobrar = orders.filter(o=>o.status!=="entregado").reduce((s,o)=>s+orderBalance(o),0);
 
+  const [depSaving, setDepSaving] = useState(false);
   const handleDeposit = async () => {
     const amt = parseFloat(depAmount);
-    if (!amt || amt<=0) return;
+    if (!amt || amt<=0 || depSaving) return;
+    setDepSaving(true);
     const d = [...deposits, {id:uid(), date:depDate, amount:amt, note:depNote}];
-    await saveDeposits(d);
-    setShowDeposit(false); setDepAmount(""); setDepNote(""); setDepDate(today());
+    try {
+      await saveDeposits(d);
+      setShowDeposit(false); setDepAmount(""); setDepNote(""); setDepDate(today());
+    } catch (e) {
+      console.error("Error registrando depósito:", e);
+      alert("No se pudo registrar el depósito. Revisa tu conexión e intenta de nuevo.");
+    } finally {
+      setDepSaving(false);
+    }
   };
 
   return (
@@ -3261,7 +3278,7 @@ function CajaTab({ sales, deposits, saveDeposits, rate, payments, orders = [] })
               <div className="field"><label>Nota (banco, referencia…)</label><input placeholder="Ej: Banco Venezuela Cuenta #1234" value={depNote} onChange={e=>setDepNote(e.target.value)}/></div>
               <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
                 <button className="btn-g" onClick={()=>setShowDeposit(false)}>Cancelar</button>
-                <button className="btn-p" onClick={handleDeposit}><ICheck/>Guardar</button>
+                <button className="btn-p" onClick={handleDeposit} disabled={depSaving} style={{opacity:depSaving?.7:1}}><ICheck/>{depSaving?"Guardando…":"Guardar"}</button>
               </div>
             </div>
           </div>
@@ -3718,6 +3735,7 @@ function ApartadosTab({ orders, saveOrders, rate, profile, isMobile }) {
   const [filter,   setFilter]   = useState("activos"); // activos | pagados | entregados | todos
   const [search,   setSearch]   = useState("");
   const [err,      setErr]      = useState("");
+  const [saving,   setSaving]   = useState(false); // evita crear/abonar 2 veces por doble toque
 
   const nextOrderNum = orders.reduce((m,o)=>Math.max(m, o.orderNumber||0), 0) + 1;
   const [no, setNo] = useState({customer:"", phone:"", product:"", total:"", orderNumber:"", firstAmt:"", firstMethod:"efectivo"});
@@ -3749,6 +3767,8 @@ function ApartadosTab({ orders, saveOrders, rate, profile, isMobile }) {
     if (orders.some(o=>o.orderNumber===num)) { setErr(`Ya existe la orden #${num}. Usa otro número.`); return; }
     const first = Number(no.firstAmt)||0;
     if (first > Number(no.total)) { setErr("El abono inicial no puede ser mayor que el total."); return; }
+    if (saving) return;
+    setSaving(true);
     const o = {
       id: uid(), orderNumber: num,
       customer: no.customer.trim(), phone: no.phone||"",
@@ -3758,9 +3778,16 @@ function ApartadosTab({ orders, saveOrders, rate, profile, isMobile }) {
       status: "pendiente",
       storeId: profile.id, createdAt: new Date().toISOString(), createdDate: today(),
     };
-    await saveOrders([...orders, o]);
-    setShowNew(false);
-    setNo({customer:"", phone:"", product:"", total:"", orderNumber:"", firstAmt:"", firstMethod:"efectivo"});
+    try {
+      await saveOrders([...orders, o]);
+      setShowNew(false);
+      setNo({customer:"", phone:"", product:"", total:"", orderNumber:"", firstAmt:"", firstMethod:"efectivo"});
+    } catch (e) {
+      console.error("Error creando apartado:", e);
+      setErr("No se pudo crear el apartado. Revisa tu conexión e intenta de nuevo.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const addPayment = async () => {
@@ -3769,11 +3796,20 @@ function ApartadosTab({ orders, saveOrders, rate, profile, isMobile }) {
     if (!amt || amt<=0) { setErr("Escribe el monto del abono."); return; }
     const bal = orderBalance(payFor);
     if (amt > bal + 0.001) { setErr(`El abono excede lo que falta (${fmtUSD(bal)}). Ajusta el monto.`); return; }
+    if (saving) return;
+    setSaving(true);
     const p = {id:uid(), date:ab.date, amount:amt, method:ab.method,
       amountBs: methodCur(ab.method)==="Bs" ? amt*rate : null, rate};
     const upd = orders.map(o => o.id===payFor.id ? {...o, payments:[...(o.payments||[]), p]} : o);
-    await saveOrders(upd);
-    setPayFor(null); setAb({amount:"", method:"efectivo", date:today()});
+    try {
+      await saveOrders(upd);
+      setPayFor(null); setAb({amount:"", method:"efectivo", date:today()});
+    } catch (e) {
+      console.error("Error registrando abono:", e);
+      setErr("No se pudo registrar el abono. Revisa tu conexión e intenta de nuevo.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const markDelivered = async o => {
@@ -3908,7 +3944,7 @@ function ApartadosTab({ orders, saveOrders, rate, profile, isMobile }) {
               {err&&<div style={{background:"#2a0c0c",border:"1px solid #5a1a1a",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#f87171"}}>⚠️ {err}</div>}
               <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
                 <button className="btn-g" onClick={()=>setShowNew(false)}>Cancelar</button>
-                <button className="btn-p" onClick={createOrder}><ICheck/>Crear apartado</button>
+                <button className="btn-p" onClick={createOrder} disabled={saving} style={{opacity:saving?.7:1}}><ICheck/>{saving?"Creando…":"Crear apartado"}</button>
               </div>
             </div>
           </div>
@@ -3936,7 +3972,7 @@ function ApartadosTab({ orders, saveOrders, rate, profile, isMobile }) {
               {err&&<div style={{background:"#2a0c0c",border:"1px solid #5a1a1a",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#f87171"}}>⚠️ {err}</div>}
               <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
                 <button className="btn-g" onClick={()=>setPayFor(null)}>Cancelar</button>
-                <button className="btn-p" onClick={addPayment}><ICheck/>Registrar abono</button>
+                <button className="btn-p" onClick={addPayment} disabled={saving} style={{opacity:saving?.7:1}}><ICheck/>{saving?"Registrando…":"Registrar abono"}</button>
               </div>
             </div>
           </div>
@@ -4461,6 +4497,8 @@ function InvModal({item,inventory,saveInv,onClose,rate,initialMode="normal"}) {
   const [scanInfo, setScanInfo] = useState(null);
   const [pmMode, setPmMode] = useState("x");   // precio rápido: x=multiplicar, +=sumar
   const [pmVal,  setPmVal]  = useState("2");
+  const [showImport, setShowImport] = useState(false);
+  const [importTxt, setImportTxt] = useState("");
 
   const sf=(k,v)=>setF(p=>({...p,[k]:v}));
   const sfi=(id,k,v)=>setFastItems(its=>its.map(it=>it.id===id?{...it,[k]:v}:it));
@@ -4538,6 +4576,21 @@ function InvModal({item,inventory,saveInv,onClose,rate,initialMode="normal"}) {
       const price = pmMode === "x" ? c * v : c + v;
       return { ...it, price: price > 0 ? String(Number(price.toFixed(2))) : it.price };
     }));
+  };
+
+  // Importar lista pegada: una línea por producto → "nombre | costo | cantidad | precio(opcional)"
+  const importList = () => {
+    setErr("");
+    const rows = importTxt.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith("#"));
+    const parsed = rows.map(l => {
+      const [name, cost, qty, price] = l.split("|").map(x => (x ?? "").trim());
+      return { id: uid(), name: name || "", cat: "Montura",
+        cost: cost || "", price: price || "", serials: "", qty: qty || "", photo: null };
+    }).filter(r => r.name);
+    if (!parsed.length) { setErr("No se reconoció ninguna línea. Usa el formato: nombre | costo | cantidad"); return; }
+    setFastItems(parsed);
+    setScanInfo({ distributor: "", receiptNumber: "", count: parsed.length, pages: 0, imported: true });
+    setShowImport(false); setImportTxt("");
   };
 
   const removeSer = ser => setExistingSerials(prev => prev.filter(x => x !== ser));
