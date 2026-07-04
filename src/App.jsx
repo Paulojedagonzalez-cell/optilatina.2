@@ -205,9 +205,6 @@ async function dbSaveInvestments(items) {
 
 async function dbSaveSetting(key, value) { await DB.setSetting(key, value); }
 
-// Legacy shims
-const KEYS = {};
-const load = async () => null;
 const useIsMobile = () => {
   const [m, setM] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
   useEffect(() => {
@@ -967,6 +964,7 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
   const [labCost,    setLabCost]   = useState("");
   const [lab,        setLab]       = useState(LAB_LIST[0]);
   const [camera,     setCamera]    = useState(false); // camera modal
+  const [submitting, setSubmitting]= useState(false); // evita registrar la venta 2 veces por doble toque
 
   const METHODS = [
     {id:"cash",          label:"Efectivo",      icon:"💵", currency:"USD", detail:null},
@@ -998,7 +996,8 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
   const changeQty = (id,v) => setLines(l=>l.map(r=>r.id===id?{...r,qty:Math.max(1,v)}:r));
 
   const handleSale = async () => {
-    if (!valid || stockWarn.length>0) return;
+    if (!valid || stockWarn.length>0 || submitting) return;
+    setSubmitting(true);
     const saleId=uid(), newSales=[...sales];
     const labC = Number(labCost)||0;
     const newInv = inventory.map(p=>({...p}));
@@ -1026,9 +1025,16 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
         rx: (r.product.cat==="Lente"||r.product.cat==="Lente de contacto") ? rx : null,
       });
     });
-    await saveSal(newSales); await saveInv(newInv);
-    setSuccess({total: total+labC, profit});
-    setTimeout(()=>{setSuccess(null);setLines([]);setNote("");setMethod("cash");setLabCost("");setRx({od:{sphere:"",cylinder:"",axis:""},oi:{sphere:"",cylinder:"",axis:""},add:""});},3000);
+    try {
+      await saveSal(newSales); await saveInv(newInv);
+      setSuccess({total: total+labC, profit});
+      setTimeout(()=>{setSuccess(null);setLines([]);setNote("");setMethod("cash");setLabCost("");setRx({od:{sphere:"",cylinder:"",axis:""},oi:{sphere:"",cylinder:"",axis:""},add:""});},3000);
+    } catch (e) {
+      console.error("Error registrando venta:", e);
+      alert("No se pudo registrar la venta. Revisa tu conexión e intenta de nuevo.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const isMobile = useIsMobile();
@@ -1461,9 +1467,9 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
                 Selecciona al menos un producto del catálogo para continuar.
               </div>
             )}
-            <button onClick={handleSale} disabled={!valid||stockWarn.length>0}
-              style={{width:"100%",background:stockWarn.length>0?"#1a0808":valid?"linear-gradient(135deg,#0a6070,#0e7a8c)":"#071418",border:stockWarn.length>0?"1px solid #4a1010":"none",borderRadius:13,padding:"15px",color:stockWarn.length>0?"#f87171":valid?"#fff":"#1a4a60",fontFamily:"'Outfit',sans-serif",fontSize:16,fontWeight:700,cursor:valid&&!stockWarn.length?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"all .2s"}}>
-              {stockWarn.length>0 ? "⚠️ Stock insuficiente" : <><ICheck/> Registrar venta</>}
+            <button onClick={handleSale} disabled={!valid||stockWarn.length>0||submitting}
+              style={{width:"100%",background:stockWarn.length>0?"#1a0808":valid?"linear-gradient(135deg,#0a6070,#0e7a8c)":"#071418",border:stockWarn.length>0?"1px solid #4a1010":"none",borderRadius:13,padding:"15px",color:stockWarn.length>0?"#f87171":valid?"#fff":"#1a4a60",fontFamily:"'Outfit',sans-serif",fontSize:16,fontWeight:700,cursor:valid&&!stockWarn.length&&!submitting?"pointer":"default",opacity:submitting?.7:1,display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"all .2s"}}>
+              {submitting ? "Registrando…" : stockWarn.length>0 ? "⚠️ Stock insuficiente" : <><ICheck/> Registrar venta</>}
             </button>
           </div>
         </div>
@@ -1904,6 +1910,7 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
   const [expSaved, setExpSaved] = useState(false);
   const [expSaving, setExpSaving] = useState(false);
   const [expError, setExpError] = useState("");
+  const [markingCat, setMarkingCat] = useState(null);
 
   // El mes al que pertenece un gasto: prioriza la fecha exacta si existe,
   // si no usa el campo month (registros viejos). Asi ambos se agrupan igual.
@@ -1974,6 +1981,49 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
     if (!confirm(`¿Eliminar el gasto de ${cat?.label||e.cat} (${fmtUSD(e.amount)})?`)) return;
     try { await saveExpenses(expenses.filter(x=>x.id!==e.id)); }
     catch (err) { console.error("Error eliminando gasto:", err); alert("No se pudo eliminar. Revisa tu conexión."); }
+  };
+
+  // ── Gastos fijos: monto sugerido, marcar pagado y progreso del mes ──────────
+  const scheduledCats = EXPENSE_CATS.filter(c=>c.schedule);
+  // Lo último que se pagó en esa categoría (busca en todo el historial).
+  const lastAmountFor = catId => {
+    const hist = expenses
+      .filter(e=>e.cat===catId && +e.amount>0)
+      .sort((a,b)=>(b.date||b.month||"").localeCompare(a.date||a.month||""));
+    return hist.length ? hist[0].amount : null;
+  };
+  // Monto que esperamos pagar por categoría (para calcular cuánto falta reunir).
+  const expectedFor = cat => cat.id==="nomina" ? 600 : (lastAmountFor(cat.id) ?? cat.defaultAmt ?? 0);
+  const targetFijos = scheduledCats.reduce((s,c)=>s+expectedFor(c),0);
+  const paidByCat   = catId => monthExpenses.filter(e=>e.cat===catId).reduce((s,e)=>s+e.amount,0);
+  const paidFijos   = monthExpenses.filter(e=>scheduledCats.some(c=>c.id===e.cat)).reduce((s,e)=>s+e.amount,0);
+  const remainFijos = Math.max(0, targetFijos - paidFijos);
+  const pctFijos    = targetFijos>0 ? Math.min(100, (paidFijos/targetFijos)*100) : 0;
+  // "Todos pagados" solo cuando cada categoría con monto conocido ya cubrió lo
+  // esperado (así nómina necesita sus $600 completos y no se canta victoria antes).
+  const trackFijos  = scheduledCats.filter(c=>expectedFor(c)>0);
+  const allFijosPaid= trackFijos.length>0 && trackFijos.every(c=>paidByCat(c.id) >= expectedFor(c)-0.01);
+
+  // Marcar un gasto fijo como pagado en un toque, con el monto sugerido.
+  // Si no sabemos el monto (primera vez), abre el formulario para escribirlo.
+  const quickPay = async cat => {
+    const suggested = lastAmountFor(cat.id) ?? cat.defaultAmt ?? null;
+    if (suggested == null) {
+      setEditingExpId(null); setExpError("");
+      setEf({cat:cat.id, amount:"", date:defDate(), note:""});
+      setShowExpForm(true);
+      return;
+    }
+    setMarkingCat(cat.id);
+    const d = defDate();
+    const rec = {id:uid(), cat:cat.id, amount:+suggested, month:d.slice(0,7), date:d, note:""};
+    try {
+      await saveExpenses([...expenses, rec]);
+      setExpSaved(true); setTimeout(()=>setExpSaved(false), 2500);
+    } catch (err) {
+      console.error("Error marcando pagado:", err);
+      alert("No se pudo marcar como pagado. Revisa tu conexión.");
+    } finally { setMarkingCat(null); }
   };
 
   const Card = ({l,usd,txt,c,sub}) => (
@@ -2083,37 +2133,83 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
 
         {/* Calendario de gastos recurrentes */}
         <div style={{background:"#040d10",border:"1px solid #0a2028",borderRadius:12,padding:"14px",marginBottom:16}}>
-          <div style={{fontSize:11,fontWeight:600,color:"#1a4050",textTransform:"uppercase",letterSpacing:".07em",marginBottom:10}}>Vencimientos del mes</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:6}}>
+            <div style={{fontSize:11,fontWeight:600,color:"#1a4050",textTransform:"uppercase",letterSpacing:".07em"}}>Vencimientos del mes</div>
+            {targetFijos>0 && (
+              <div style={{fontSize:11,fontFamily:"'JetBrains Mono',monospace",color:allFijosPaid?"#34d399":"#fbbf24",fontWeight:700}}>
+                {allFijosPaid ? "✓ Todos pagados" : `Faltan ${fmtUSD(remainFijos)}`}
+              </div>
+            )}
+          </div>
+
+          {/* Barra de progreso: cuánto llevamos pagado de los gastos fijos del mes */}
+          {targetFijos>0 && (
+            <div style={{marginBottom:12}}>
+              <div style={{height:8,background:"#0a1820",borderRadius:5,overflow:"hidden",marginBottom:5}}>
+                <div style={{height:"100%",width:`${pctFijos}%`,background:allFijosPaid?"#34d399":"linear-gradient(90deg,#f87171,#fbbf24)",borderRadius:5,transition:"width .5s"}}/>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#1a4050",fontFamily:"'JetBrains Mono',monospace"}}>
+                <span>Pagado <span style={{color:"#34d399"}}>{fmtUSD(paidFijos)}</span></span>
+                <span>Meta ~<span style={{color:"#9abac8"}}>{fmtUSD(targetFijos)}</span></span>
+              </div>
+            </div>
+          )}
+
+          {allFijosPaid && (
+            <div style={{background:"#0f2820",border:"1px solid #1a5a30",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#34d399",marginBottom:12,textAlign:"center"}}>
+              🎉 Ya reuniste y pagaste todos los gastos fijos de {viewMonth} — de aquí en adelante es ganancia
+            </div>
+          )}
+
           <div style={{display:"flex",flexDirection:"column",gap:7}}>
-            {EXPENSE_CATS.filter(c=>c.schedule).map(cat=>{
+            {scheduledCats.map(cat=>{
               const paid = monthExpenses.filter(e=>e.cat===cat.id);
-              const isPaid = paid.length > 0;
               const amtPaid = paid.reduce((s,e)=>s+e.amount,0);
-              const isNomina = cat.id === "nomina";
+              const exp = expectedFor(cat);   // lo que se espera pagar (nómina=$600, etc.)
+              // Cubierto = ya pagó lo esperado. Si no conocemos el monto, con un pago basta.
+              const covered = exp>0 ? amtPaid >= exp-0.01 : paid.length>0;
+              const partial = !covered && amtPaid>0;   // ej: nómina con solo 1 quincena
+              const suggested = lastAmountFor(cat.id) ?? cat.defaultAmt ?? null;
+              const stColor = covered ? "#34d399" : partial ? "#fbbf24" : "#9abac8";
               return (
-                <div key={cat.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:isPaid?"#071c12":"#071018",border:`1px solid ${isPaid?"#1a4a2a":"#0a1820"}`,borderRadius:8}}>
+                <div key={cat.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:covered?"#071c12":partial?"#1a1608":"#071018",border:`1px solid ${covered?"#1a4a2a":partial?"#3a3010":"#0a1820"}`,borderRadius:8,gap:8,flexWrap:"wrap"}}>
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
                     <span style={{fontSize:16}}>{cat.icon}</span>
                     <div>
-                      <div style={{fontSize:13,color:isPaid?"#34d399":"#9abac8",fontWeight:500}}>{cat.label}</div>
-                      <div style={{fontSize:11,color:isPaid?"#1a5a30":"#1a3a50"}}>{cat.schedule}</div>
+                      <div style={{fontSize:13,color:stColor,fontWeight:500}}>{cat.label}</div>
+                      <div style={{fontSize:11,color:covered?"#1a5a30":"#1a3a50"}}>{cat.schedule}</div>
                     </div>
                   </div>
-                  <div style={{display:"flex",alignItems:"center",gap:10}}>
-                    {isPaid
+                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                    {covered
                       ? <span style={{fontSize:12,color:"#34d399",fontFamily:"'JetBrains Mono',monospace"}}>✓ {fmtUSD(amtPaid)}</span>
-                      : <span style={{fontSize:11,color:"#f87171",background:"#2a0c0c",padding:"2px 8px",borderRadius:20,border:"1px solid #4a1010"}}>⏳ Pendiente</span>
+                      : partial
+                        ? <span style={{fontSize:11,color:"#fbbf24",background:"#2a1e08",padding:"2px 8px",borderRadius:20,border:"1px solid #4a3510",fontFamily:"'JetBrains Mono',monospace"}}>½ {fmtUSD(amtPaid)} / {fmtUSD(exp)}</span>
+                        : <span style={{fontSize:11,color:"#f87171",background:"#2a0c0c",padding:"2px 8px",borderRadius:20,border:"1px solid #4a1010"}}>⏳ Pendiente</span>
                     }
-                    {isPaid
-                      // Ya pagado: permitir CORREGIR (monto o fecha) — abre el 1er registro de esa categoria
+                    {covered
+                      // Cubierto: permitir CORREGIR (monto o fecha) — abre el 1er registro de esa categoria
                       ? <button onClick={()=>openEditExp(paid[0])}
                           style={{background:"#1a1408",border:"1px solid #4a3510",borderRadius:6,padding:"4px 10px",color:"#fbbf24",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
                           ✏️ Corregir
                         </button>
-                      : <button onClick={()=>{setEditingExpId(null); setExpError(""); setEf({cat:cat.id,amount:cat.defaultAmt?String(cat.defaultAmt):"",date:defDate(),note:""}); setShowExpForm(true);}}
-                          style={{background:"#0c2e35",border:"1px solid #1a5060",borderRadius:6,padding:"4px 10px",color:"#2dcfe8",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
-                          Registrar
-                        </button>
+                      // Pendiente o parcial: si sabemos el monto, un toque lo marca pagado; si no, abre el formulario
+                      : suggested != null
+                        ? <>
+                            <button onClick={()=>quickPay(cat)} disabled={markingCat===cat.id}
+                              style={{background:"#0f2820",border:"1px solid #1a5a30",borderRadius:6,padding:"4px 11px",color:"#34d399",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                              {markingCat===cat.id ? "Guardando…" : `✓ Marcar pagado ${fmtUSD(suggested)}`}
+                            </button>
+                            <button onClick={()=>{setEditingExpId(null); setExpError(""); setEf({cat:cat.id,amount:String(suggested),date:defDate(),note:""}); setShowExpForm(true);}}
+                              title="Pagar con otro monto"
+                              style={{background:"#0c2e35",border:"1px solid #1a5060",borderRadius:6,padding:"4px 9px",color:"#2dcfe8",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                              ✎
+                            </button>
+                          </>
+                        : <button onClick={()=>{setEditingExpId(null); setExpError(""); setEf({cat:cat.id,amount:"",date:defDate(),note:""}); setShowExpForm(true);}}
+                            style={{background:"#0c2e35",border:"1px solid #1a5060",borderRadius:6,padding:"4px 10px",color:"#2dcfe8",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                            Registrar
+                          </button>
                     }
                   </div>
                 </div>
