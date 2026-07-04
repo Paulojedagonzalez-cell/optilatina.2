@@ -1989,6 +1989,15 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
   const [expSaving, setExpSaving] = useState(false);
   const [expError, setExpError] = useState("");
   const [markingCat, setMarkingCat] = useState(null);
+  const formRef = useRef(null);
+
+  // En celular el formulario aparece debajo del calendario: al abrirlo lo
+  // llevamos a la vista para que no parezca que "no pasó nada" al tocar Corregir.
+  useEffect(() => {
+    if (showExpForm && formRef.current) {
+      formRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [showExpForm, editingExpId, ef.cat]);
 
   // El mes al que pertenece un gasto: prioriza la fecha exacta si existe,
   // si no usa el campo month (registros viejos). Asi ambos se agrupan igual.
@@ -2063,6 +2072,17 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
     if (!confirm(`¿Eliminar el gasto de ${cat?.label||e.cat} (${fmtUSD(e.amount)})?`)) return;
     try { await saveExpenses(expenses.filter(x=>x.id!==e.id)); }
     catch (err) { console.error("Error eliminando gasto:", err); alert("No se pudo eliminar. Revisa tu conexión."); }
+  };
+  // Revertir un gasto fijo marcado por error: quita TODOS los pagos de esa
+  // categoría en el mes visible y vuelve a quedar como pendiente.
+  const revertCat = async cat => {
+    const recs = monthExpenses.filter(e=>e.cat===cat.id);
+    if (!recs.length) return;
+    const total = recs.reduce((s,e)=>s+e.amount,0);
+    if (!confirm(`¿Quitar el pago de ${cat.label} (${fmtUSD(total)}) de ${viewMonth}? Volverá a quedar como PENDIENTE.`)) return;
+    const ids = new Set(recs.map(r=>r.id));
+    try { await saveExpenses(expenses.filter(e=>!ids.has(e.id))); }
+    catch (err) { console.error("Error revirtiendo gasto:", err); alert("No se pudo quitar. Revisa tu conexión."); }
   };
 
   // ── Gastos fijos: monto sugerido, marcar pagado y progreso del mes ──────────
@@ -2293,6 +2313,13 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
                             Registrar
                           </button>
                     }
+                    {/* Quitar/revertir: aparece en cuanto hay algo pagado, para deshacer un "pagado" por error */}
+                    {amtPaid>0 && (
+                      <button onClick={()=>revertCat(cat)} title="Quitar este pago (vuelve a pendiente)"
+                        style={{background:"#1a0808",border:"1px solid #4a1010",borderRadius:6,padding:"4px 9px",color:"#f87171",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                        🗑 Quitar
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -2301,7 +2328,7 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
         </div>
 
         {showExpForm && (
-          <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:12,padding:"16px",marginBottom:16,display:"flex",flexDirection:"column",gap:12}}>
+          <div ref={formRef} style={{background:"#050f12",border:`1px solid ${editingExpId?"#4a3510":"#0e3a44"}`,borderRadius:12,padding:"16px",marginBottom:16,display:"flex",flexDirection:"column",gap:12,boxShadow:"0 0 0 2px rgba(45,207,232,.08)"}}>
             <div style={{fontSize:12,fontWeight:600,color:editingExpId?"#fbbf24":"#2dcfe8"}}>{editingExpId?"✏️ Editando gasto":"➕ Nuevo gasto"}</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
               <div className="field"><label>Categoría</label>
@@ -2330,9 +2357,20 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
               <input placeholder="Ej: Alquiler local Chinita, mes pagado" value={ef.note} onChange={e=>setEf(f=>({...f,note:e.target.value}))}/>
             </div>
             {expError && <div style={{background:"#2a0c0c",border:"1px solid #4a1010",borderRadius:8,padding:"9px 14px",fontSize:12,color:"#f87171"}}>⚠️ {expError}</div>}
-            <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-              <button className="btn-g" onClick={()=>{setShowExpForm(false);setEditingExpId(null);setExpError("");}} disabled={expSaving}>Cancelar</button>
-              <button className="btn-p" onClick={saveExp} disabled={expSaving}><ICheck/>{expSaving?"Guardando…":editingExpId?"Guardar cambios":"Guardar"}</button>
+            <div style={{display:"flex",gap:8,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
+              {/* Al editar, permitir eliminar el gasto directamente desde aquí */}
+              {editingExpId
+                ? <button className="btn-d" disabled={expSaving} onClick={async()=>{
+                    const rec = expenses.find(x=>x.id===editingExpId);
+                    if (!rec) { setShowExpForm(false); setEditingExpId(null); return; }
+                    await delExp(rec);
+                    setShowExpForm(false); setEditingExpId(null); setExpError("");
+                  }}>🗑 Eliminar</button>
+                : <span/>}
+              <div style={{display:"flex",gap:8,marginLeft:"auto"}}>
+                <button className="btn-g" onClick={()=>{setShowExpForm(false);setEditingExpId(null);setExpError("");}} disabled={expSaving}>Cancelar</button>
+                <button className="btn-p" onClick={saveExp} disabled={expSaving}><ICheck/>{expSaving?"Guardando…":editingExpId?"Guardar cambios":"Guardar"}</button>
+              </div>
             </div>
           </div>
         )}
@@ -3173,10 +3211,15 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate}) 
           </div>
         </div>
       )}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:11}}>
         <div className="card-sm" style={{textAlign:"center"}}>
           <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>PRODUCTOS</div>
           <div style={{fontSize:22,fontWeight:700,color:"#60a5fa",fontFamily:"'Outfit',sans-serif"}}>{inventory.length}</div>
+        </div>
+        <div className="card-sm" style={{textAlign:"center",borderColor:"#2a1e4a"}}>
+          <div style={{fontSize:10,color:"#a78bfa",marginBottom:4}}>GANANCIA POTENCIAL</div>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,fontWeight:700,color:"#a78bfa"}}>{fmtUSD(totalRetail-totalInvested)}</div>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:1}}>{fmtBs(totalRetail-totalInvested,rate)}</div>
         </div>
         <div className="card-sm" style={{textAlign:"center"}}>
           <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>INVERTIDO</div>
@@ -3188,6 +3231,9 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate}) 
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,fontWeight:700,color:"#34d399"}}>{fmtUSD(totalRetail)}</div>
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:1}}>{fmtBs(totalRetail,rate)}</div>
         </div>
+      </div>
+      <div style={{fontSize:10.5,color:"#1a4a50",textAlign:"center",lineHeight:1.6,background:"#050f12",border:"1px solid #0a2028",borderRadius:8,padding:"8px 12px"}}>
+        💡 <strong style={{color:"#60a5fa"}}>Invertido</strong> = lo que pagaste; se recupera y se reinvierte, <u>no es tuyo</u>. &nbsp;<strong style={{color:"#a78bfa"}}>Ganancia</strong> = lo que ganas encima ({fmtUSD(totalRetail)} − {fmtUSD(totalInvested)} = <strong style={{color:"#a78bfa"}}>{fmtUSD(totalRetail-totalInvested)}</strong>).
       </div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
         <input placeholder="Buscar..." value={search} onChange={e=>setSearch(e.target.value)} style={{background:"#0c1220",border:"1px solid #141e30",borderRadius:8,padding:"8px 12px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:13,width:190}}/>
