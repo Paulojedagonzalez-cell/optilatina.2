@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 const today = () => new Date().toISOString().slice(0,10);
 const weekStart = () => { const d=new Date(); d.setDate(d.getDate()-d.getDay()); return d.toISOString().slice(0,10); };
+// Normaliza texto para comparar usuarios: minúsculas y SIN acentos, así
+// "René", "rene" y "RENE" se consideran el mismo usuario al iniciar sesión.
+const normText = s => (s||"").trim().toLowerCase().replace(/[áàäâã]/g,"a").replace(/[éèëê]/g,"e").replace(/[íìïî]/g,"i").replace(/[óòöôõ]/g,"o").replace(/[úùüû]/g,"u").replace(/ñ/g,"n");
 
 // ══════════════════════════════════════════════════════════════════════════════
 // FIREBASE DATABASE LAYER — Firestore (tiempo real + offline incluido)
@@ -741,6 +744,9 @@ export default function App() {
 
   if (!profile) return <LoginScreen onSelect={handleLogin} dynProfiles={dynProfiles} />;
   const p = dynProfiles.find(x => x.id === profile);
+  // Primer acceso por invitacion: la clave que recibio es temporal (de un solo
+  // uso). Antes de entrar a la app DEBE crear su propia contraseña.
+  if (p?.pwTemp) return <SetPasswordScreen profile={p} dynProfiles={dynProfiles} saveDynProfiles={saveDynProfiles} onLogout={handleLogout} />;
   // Cambio directo de perfil (solo owner, desde Gestion): entra de lleno al
   // otro perfil. La sesion recordada sigue siendo la suya — al recargar vuelve.
   const switchTo = id => { setViewAs(null); setProfile(id); };
@@ -771,6 +777,77 @@ export default function App() {
   return p?.role === "store"
     ? <StoreView  profile={p} {...shared} />
     : <AdminView  profile={p} {...shared} />;
+}
+
+// ── Primer acceso: el invitado crea SU propia contraseña (la temporal ya no vale) ──
+function SetPasswordScreen({ profile, dynProfiles, saveDynProfiles, onLogout }) {
+  const [pw,     setPw]     = useState("");
+  const [pw2,    setPw2]    = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [err,    setErr]    = useState("");
+  const [busy,   setBusy]   = useState(false);
+
+  const submit = async (e) => {
+    e?.preventDefault();
+    setErr("");
+    if (pw.length < 6)  { setErr("La contraseña debe tener al menos 6 caracteres."); return; }
+    if (pw !== pw2)     { setErr("Las contraseñas no coinciden."); return; }
+    setBusy(true);
+    try {
+      // Guarda su clave nueva y apaga la bandera temporal: al actualizarse el
+      // perfil, App re-renderiza y lo deja entrar de una vez.
+      await saveDynProfiles(dynProfiles.map(x => x.id === profile.id ? {...x, password: pw, pwTemp: false} : x));
+    } catch (e) {
+      console.error("Error guardando contraseña:", e);
+      setErr("No se pudo guardar. Revisa tu conexión e intenta de nuevo.");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:"#040d10",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24,fontFamily:"'Outfit',sans-serif"}}>
+      <style>{CSS}</style>
+      <div style={{width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:18}}>
+        <div style={{textAlign:"center",marginBottom:6}}>
+          <div style={{width:80,height:80,margin:"0 auto 14px",borderRadius:"50%",overflow:"hidden",boxShadow:"0 0 46px #c9a22745"}}><Logo s={80}/></div>
+          <div style={{fontSize:22,fontWeight:800,color:"#e8c96a"}}>¡Bienvenido{profile.name?`, ${profile.name}`:""}!</div>
+          <div style={{fontSize:13,color:"#7a94a8",marginTop:8,lineHeight:1.6}}>
+            Este es tu primer acceso. Crea tu propia contraseña —<br/>solo tú la conocerás.
+          </div>
+        </div>
+
+        <form onSubmit={submit} autoComplete="on">
+          <div className="field">
+            <label>Nueva contraseña</label>
+            <div style={{display:"flex",gap:6}}>
+              <input autoFocus type={showPw?"text":"password"} name="new-password" autoComplete="new-password" placeholder="Mínimo 6 caracteres" value={pw}
+                onChange={e=>setPw(e.target.value)}
+                style={{flex:1,minWidth:0,padding:"13px 15px",fontSize:15,borderRadius:12}}/>
+              <button type="button" onClick={()=>setShowPw(s=>!s)} title={showPw?"Ocultar":"Mostrar"}
+                style={{background:"#071418",border:"1px solid #0d2a30",borderRadius:12,padding:"0 15px",color:"#3a7a88",cursor:"pointer",display:"flex",alignItems:"center"}}>{showPw?<IEyeOff/>:<IEye/>}</button>
+            </div>
+          </div>
+          <div className="field" style={{marginTop:14}}>
+            <label>Repite la contraseña</label>
+            <input type={showPw?"text":"password"} name="confirm-password" autoComplete="new-password" placeholder="••••••••" value={pw2}
+              onChange={e=>setPw2(e.target.value)}
+              style={{padding:"13px 15px",fontSize:15,borderRadius:12}}/>
+          </div>
+
+          {err && <div style={{background:"#2a0c0c",border:"1px solid #5a1a1a",borderRadius:10,padding:"11px 14px",fontSize:13,color:"#f87171",marginTop:14}}>{err}</div>}
+
+          <button type="submit" className="btn-p" disabled={busy}
+            style={{justifyContent:"center",padding:"14px",fontSize:15,borderRadius:12,opacity:busy?.6:1,width:"100%",marginTop:16}}>
+            {busy?"Guardando…":"Crear mi contraseña y entrar"}
+          </button>
+        </form>
+
+        <button onClick={onLogout} style={{background:"transparent",border:"none",color:"#2a5a60",cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:12,textDecoration:"underline",textAlign:"center"}}>
+          Cancelar y volver al inicio
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // ── Login por invitación: usuario/correo + contraseña, sin perfiles visibles ──
@@ -804,15 +881,16 @@ function LoginScreen({ onSelect, dynProfiles }) {
   const tryLogin = (e) => {
     e?.preventDefault();
     setError("");
-    const u = user.trim().toLowerCase();
+    const u = normText(user);
     if (!u || !pw) { setError("Escribe tu usuario y contraseña."); return; }
     setBusy(true);
     // Si el perfil tiene correo, el usuario es SOLO el correo.
     // Si no tiene, se acepta el nombre (o la tienda) mientras tanto.
+    // Se compara sin acentos ni mayúsculas: "René", "rene" y "RENE" entran igual.
     const p = dynProfiles.find(x => {
-      if (x.email?.trim()) return x.email.trim().toLowerCase() === u;
-      return x.name?.trim().toLowerCase() === u ||
-        (x.role === "store" && (x.address?.trim().toLowerCase() === u || `${x.storeName||""} ${x.address||""}`.trim().toLowerCase() === u));
+      if (x.email?.trim()) return normText(x.email) === u;
+      return normText(x.name) === u ||
+        (x.role === "store" && (normText(x.address) === u || normText(`${x.storeName||""} ${x.address||""}`) === u));
     });
     const ok = p && (p.password ? pw === p.password : pw === (p.pin || "0000"));
     setTimeout(() => { // pequeña pausa para no delatar si el usuario existe
@@ -4221,7 +4299,8 @@ function GestionTab({ profilesData, savePD, payments, savePayments, dynProfiles,
   };
   const openInvite = async p => {
     const pw = genTempPw();
-    await saveDynProfiles(dynProfiles.map(x => x.id===p.id ? {...x, password:pw} : x));
+    // pwTemp: la clave es de un solo uso; al entrar la app le obliga a crear la suya.
+    await saveDynProfiles(dynProfiles.map(x => x.id===p.id ? {...x, password:pw, pwTemp:true} : x));
     setInvite({id:p.id, name:p.name, phone:p.phone, email:p.email, pw});
     setInviteCopied(false);
   };
@@ -4230,10 +4309,10 @@ function GestionTab({ profilesData, savePD, payments, savePayments, dynProfiles,
 
 Entra aquí: ${location.origin}
 Usuario: ${invite.name}${invite.email?` (o tu correo ${invite.email})`:""}
-Contraseña: ${invite.pw}
+Clave temporal (de un solo uso): ${invite.pw}
 
-Marca "Recordar mi sesión" para no volver a escribirla.
-Puedes cambiar tu contraseña cuando quieras en "Mi perfil".`) : "";
+Al entrar, la app te pedirá crear TU propia contraseña — solo tú la sabrás.
+Marca "Recordar mi sesión" para no volver a escribirla.`) : "";
   const copyInvite = async () => {
     try { await navigator.clipboard.writeText(inviteMsg); setInviteCopied(true); setTimeout(()=>setInviteCopied(false),2500); } catch {}
   };
