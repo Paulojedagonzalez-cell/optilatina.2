@@ -1829,7 +1829,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
           </div>
         )}
         {tab==="dash"     && <DashTab    {...{todayRev,todayProf,todayItems,weekRev,weekProf,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas}} />}
-        {tab==="stats"    && <StatsTab   {...{sales:filteredSales,expenses,rate,isMobile,profile}} />}
+        {tab==="stats"    && <StatsTab   {...{sales:filteredSales,orders,expenses,rate,isMobile,profile}} />}
         {tab==="week"     && <WeekTab    {...{byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles,isMobile}} />}
         {tab==="finanzas" && <FinanzasTab {...{sales:filteredSales,expenses,investments,inventory,rate,saveExpenses,saveInvestments,profile,isMobile}} />}
         {tab==="apart"    && <ApartadosTab {...{orders,saveOrders,rate,profile,isMobile}} />}
@@ -2093,7 +2093,7 @@ function FinanzasTab({ sales, expenses, investments, inventory, rate, saveExpens
 }
 
 // ── Stats Tab ─────────────────────────────────────────────────────────────────
-function StatsTab({ sales, expenses=[], rate, profile, isMobile }) {
+function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
   // v2 — fixed buildData scope
   const [period, setPeriod] = useState("day");
   const [hover,  setHover]  = useState(null);
@@ -2144,6 +2144,13 @@ function StatsTab({ sales, expenses=[], rate, profile, isMobile }) {
       const k = keyOf(s.date);
       if (buckets[k]) { buckets[k].rev+=s.total; buckets[k].profit+=s.profit; buckets[k].items+=s.qty; }
     });
+    // Abonos de apartados: el dinero que entra ese dia cuenta como ingreso,
+    // aunque la orden no este completa. Sin ganancia asociada (el apartado
+    // no tiene costo de producto registrado hasta que se entregue).
+    orders.forEach(o => (o.payments||[]).forEach(p => {
+      const k = keyOf(p.date);
+      if (buckets[k]) buckets[k].rev += p.amount;
+    }));
     return keys.map(k => ({key:k, lbl:fmtLabel(k,period), ...buckets[k]}));
   };
 
@@ -2237,7 +2244,7 @@ function StatsTab({ sales, expenses=[], rate, profile, isMobile }) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10}}>
         <div>
           <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Estadísticas</h1>
-          <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Ingresos · Ganancias · Tu parte</div>
+          <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Ingresos (incluye abonos de apartados) · Ganancias · Tu parte</div>
         </div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           {PERIODS.map(p=>(
