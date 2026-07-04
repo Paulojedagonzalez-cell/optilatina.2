@@ -787,7 +787,8 @@ function LoginScreen({ onSelect, dynProfiles }) {
     } catch { setRecSent("error"); }
   };
 
-  const tryLogin = () => {
+  const tryLogin = (e) => {
+    e?.preventDefault();
     setError("");
     const u = user.trim().toLowerCase();
     if (!u || !pw) { setError("Escribe tu usuario y contraseña."); return; }
@@ -818,34 +819,37 @@ function LoginScreen({ onSelect, dynProfiles }) {
           <div style={{fontSize:11,color:"#2a5a60",marginTop:8,lineHeight:1.5}}>Versión 1.0</div>
         </div>
 
+        {/* Formulario real (no solo botones sueltos): asi Safari/Chrome
+            reconocen el login y ofrecen guardarlo en el llavero (Face ID/
+            Touch ID) — con divs y onClick nunca se los ofrecen. */}
+        <form onSubmit={tryLogin} autoComplete="on">
         <div className="field">
           <label>Usuario o correo</label>
-          <input autoFocus placeholder="tu nombre o tu@correo.com" value={user}
+          <input autoFocus name="username" autoComplete="username" placeholder="tu nombre o tu@correo.com" value={user}
             onChange={e=>setUser(e.target.value)}
-            onKeyDown={e=>{if(e.key==="Enter")tryLogin();}}
             style={{padding:"13px 15px",fontSize:15,borderRadius:12}}/>
         </div>
-        <div className="field">
+        <div className="field" style={{marginTop:14}}>
           <label>Contraseña</label>
           <div style={{display:"flex",gap:6}}>
-            <input type={showPw?"text":"password"} placeholder="••••••••" value={pw}
+            <input type={showPw?"text":"password"} name="password" autoComplete="current-password" placeholder="••••••••" value={pw}
               onChange={e=>setPw(e.target.value)}
-              onKeyDown={e=>{if(e.key==="Enter")tryLogin();}}
               style={{flex:1,minWidth:0,padding:"13px 15px",fontSize:15,borderRadius:12}}/>
-            <button onClick={()=>setShowPw(s=>!s)} title={showPw?"Ocultar contraseña":"Mostrar contraseña"}
+            <button type="button" onClick={()=>setShowPw(s=>!s)} title={showPw?"Ocultar contraseña":"Mostrar contraseña"}
               style={{background:"#071418",border:"1px solid #0d2a30",borderRadius:12,padding:"0 15px",color:"#3a7a88",cursor:"pointer",display:"flex",alignItems:"center"}}>{showPw?<IEyeOff/>:<IEye/>}</button>
           </div>
           <div style={{textAlign:"right",marginTop:6}}>
-            <button onClick={()=>setForgot(true)} style={{background:"transparent",border:"none",color:"#2a5a60",cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:12,textDecoration:"underline"}}>¿Olvidaste tu contraseña?</button>
+            <button type="button" onClick={()=>setForgot(true)} style={{background:"transparent",border:"none",color:"#2a5a60",cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:12,textDecoration:"underline"}}>¿Olvidaste tu contraseña?</button>
           </div>
         </div>
 
-        {error&&<div style={{background:"#2a0c0c",border:"1px solid #5a1a1a",borderRadius:10,padding:"11px 14px",fontSize:13,color:"#f87171"}}>{error}</div>}
+        {error&&<div style={{background:"#2a0c0c",border:"1px solid #5a1a1a",borderRadius:10,padding:"11px 14px",fontSize:13,color:"#f87171",marginTop:14}}>{error}</div>}
 
-        <button className="btn-p" onClick={tryLogin} disabled={busy}
-          style={{justifyContent:"center",padding:"14px",fontSize:15,borderRadius:12,opacity:busy?.6:1}}>
+        <button type="submit" className="btn-p" disabled={busy}
+          style={{justifyContent:"center",padding:"14px",fontSize:15,borderRadius:12,opacity:busy?.6:1,width:"100%",marginTop:14}}>
           {busy?"Verificando…":"Entrar"}
         </button>
+        </form>
 
         <label style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,fontSize:13,color:"#2a5a60",cursor:"pointer",userSelect:"none"}}>
           <input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)} style={{accentColor:"#0e7a8c",width:16,height:16}}/>
