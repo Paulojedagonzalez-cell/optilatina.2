@@ -2159,6 +2159,9 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
   const totalRev  = data.reduce((s,d)=>s+d.rev,0);
   const totalProf = data.reduce((s,d)=>s+d.profit,0);
   const totalItems= data.reduce((s,d)=>s+d.items,0);
+  // Por cobrar: saldo de apartados aun no entregados — dinero que YA se
+  // vendio (facturado) pero que todavia no entro a la caja.
+  const porCobrar = orders.filter(o=>o.status!=="entregado").reduce((s,o)=>s+orderBalance(o),0);
 
   const PERIODS = [
     {id:"day",l:"Diario"},{id:"week",l:"Semanal"},
@@ -2244,7 +2247,7 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10}}>
         <div>
           <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Estadísticas</h1>
-          <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Ingresos (incluye abonos de apartados) · Ganancias · Tu parte</div>
+          <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Cobrado vs. Por cobrar · Ganancias · Tu parte</div>
         </div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           {PERIODS.map(p=>(
@@ -2256,7 +2259,7 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
       {/* Summary cards */}
       <div className="rg4">
         {[
-          {l:"Ingresos",    usd:totalRev,   c:"#2dcfe8"},
+          {l:"Cobrado",    usd:totalRev,   c:"#2dcfe8"},
           {l:"Ganancia bruta",usd:totalProf, c:"#34d399"},
           {l:"Margen prom.", txt:totalRev>0?`${((totalProf/totalRev)*100).toFixed(1)}%`:"—", c:"#a78bfa"},
           {l:"Artículos",   txt:`${totalItems} pz`, c:"#fbbf24"},
@@ -2272,6 +2275,18 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
         ))}
       </div>
 
+      {/* Por cobrar: dinero ya vendido (apartados activos) que aun no entra a caja */}
+      <div className="card" style={{background:"#2a1e08",borderColor:"#4a3510",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+        <div>
+          <div style={{fontSize:10,color:"#a08020",textTransform:"uppercase",letterSpacing:".07em",marginBottom:4}}>💰 Cobrado (arriba) vs 📋 Por cobrar</div>
+          <div style={{fontSize:12,color:"#c9a84a"}}>Saldo pendiente de apartados que aún no se entregan — ya está vendido, todavía no está en caja</div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:20,fontWeight:700,color:"#fbbf24"}}>{fmtUSD(porCobrar)}</div>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#a08020"}}>{fmtBs(porCobrar,rate)}</div>
+        </div>
+      </div>
+
       {/* Line chart */}
       <div style={{background:"#030b0e",border:"1px solid #0a2028",borderRadius:16,padding:"20px 16px 10px",position:"relative"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,paddingRight:4}}>
@@ -2280,7 +2295,7 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
             <span style={{fontSize:11,color:"#1a4a50"}}>{PERIODS.find(p=>p.id===period)?.l.toLowerCase()}</span>
           </div>
           <div style={{display:"flex",gap:18,fontSize:11}}>
-            <span style={{display:"flex",alignItems:"center",gap:5}}><span style={{display:"inline-block",width:24,height:2,background:"#2dcfe8",borderRadius:2}}/><span style={{color:"#2dcfe8"}}>Ingresos</span></span>
+            <span style={{display:"flex",alignItems:"center",gap:5}}><span style={{display:"inline-block",width:24,height:2,background:"#2dcfe8",borderRadius:2}}/><span style={{color:"#2dcfe8"}}>Cobrado</span></span>
             <span style={{display:"flex",alignItems:"center",gap:5}}><span style={{display:"inline-block",width:24,height:2,background:"#34d399",borderRadius:2,opacity:.8}}/><span style={{color:"#34d399"}}>Ganancia</span></span>
           </div>
         </div>
