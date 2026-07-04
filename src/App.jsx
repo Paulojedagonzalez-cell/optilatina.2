@@ -664,9 +664,26 @@ export default function App() {
     await Promise.all(removed.map(o => DB.delete("orders", o.id)));
   }, [orders]);
 
-  const saveDeposits    = useCallback(async d => { setDeposits(d);    await dbSaveDeposits(d);    }, []);
-  const saveExpenses    = useCallback(async d => { setExpenses(d);    await dbSaveExpenses(d);    }, []);
-  const saveInvestments = useCallback(async d => { setInvestments(d); await dbSaveInvestments(d); }, []);
+  const saveDeposits    = useCallback(async d => {
+    const removed = deposits.filter(x => !d.find(y => y.id === x.id));
+    setDeposits(d);
+    await dbSaveDeposits(d);
+    await Promise.all(removed.map(x => DB.delete("deposits", x.id)));
+  }, [deposits]);
+  const saveExpenses    = useCallback(async d => {
+    // OJO: sin esto, borrar/editar un gasto no se reflejaba en la nube —
+    // el registro viejo seguia en Firestore y volvia a aparecer.
+    const removed = expenses.filter(x => !d.find(y => y.id === x.id));
+    setExpenses(d);
+    await dbSaveExpenses(d);
+    await Promise.all(removed.map(x => DB.delete("expenses", x.id)));
+  }, [expenses]);
+  const saveInvestments = useCallback(async d => {
+    const removed = investments.filter(x => !d.find(y => y.id === x.id));
+    setInvestments(d);
+    await dbSaveInvestments(d);
+    await Promise.all(removed.map(x => DB.delete("investments", x.id)));
+  }, [investments]);
   const saveRate        = useCallback(async r => { setRateState(r);   await dbSaveSetting("rate", r); }, []);
   const savePayments    = useCallback(async d => { setPayments(d);    await dbSaveSetting("payments", d); }, []);
   const savePD          = useCallback(async d => { setProfilesData(d);await dbSaveSetting("profilesData", d); }, []);
@@ -1832,7 +1849,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
             <span style={{fontSize:12,color:"#e8c96a",textDecoration:"underline"}}>Resolver en Gestión →</span>
           </div>
         )}
-        {tab==="dash"     && <DashTab    {...{todayRev,todayProf,todayItems,weekRev,weekProf,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas}} />}
+        {tab==="dash"     && <DashTab    {...{todayRev,todayProf,todayItems,weekRev,weekProf,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders}} />}
         {tab==="stats"    && <StatsTab   {...{sales:filteredSales,orders,expenses,rate,isMobile,profile}} />}
         {tab==="week"     && <WeekTab    {...{byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles,isMobile}} />}
         {tab==="finanzas" && <FinanzasTab {...{sales:filteredSales,orders,expenses,investments,inventory,rate,saveExpenses,saveInvestments,profile,isMobile}} />}
@@ -1872,7 +1889,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
         </nav>
       )}
 
-      {invModal!==null  && <InvModal  item={invModal==="new"?null:invModal} inventory={inventory} saveInv={saveInv} onClose={()=>setInvModal(null)} rate={rate} />}
+      {invModal!==null  && <InvModal  item={(invModal==="new"||invModal==="scan")?null:invModal} initialMode={invModal==="scan"?"fast":"normal"} inventory={inventory} saveInv={saveInv} onClose={()=>setInvModal(null)} rate={rate} />}
       {detailDate       && <DayModal  date={detailDate} sales={byDate[detailDate]||[]} onClose={()=>setDD(null)} rate={rate} />}
     </div>
   );
@@ -1883,15 +1900,21 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
   const [viewMonth, setViewMonth] = useState(today().slice(0,7));
   const [showExpForm, setShowExpForm] = useState(false);
   const [editingExpId, setEditingExpId] = useState(null);
-  const [ef, setEf] = useState({cat:"alquiler", amount:"", month:today().slice(0,7), note:""});
+  const [ef, setEf] = useState({cat:"alquiler", amount:"", date:today(), note:""});
   const [expSaved, setExpSaved] = useState(false);
+  const [expSaving, setExpSaving] = useState(false);
+  const [expError, setExpError] = useState("");
+
+  // El mes al que pertenece un gasto: prioriza la fecha exacta si existe,
+  // si no usa el campo month (registros viejos). Asi ambos se agrupan igual.
+  const emonth = e => (e.date ? e.date.slice(0,7) : e.month) || "";
 
   // ── Calculations for selected month ──
   const mSales    = sales.filter(s=>s.date.slice(0,7)===viewMonth);
   const mRevenue  = mSales.reduce((s,v)=>s+v.total,0);
   const mCOGS     = mSales.reduce((s,v)=>s+v.cost*v.qty,0);
   const mGross    = mRevenue - mCOGS;
-  const mExpenses = expenses.filter(e=>e.month===viewMonth).reduce((s,e)=>s+e.amount,0);
+  const mExpenses = expenses.filter(e=>emonth(e)===viewMonth).reduce((s,e)=>s+e.amount,0);
   const mNet      = mGross - mExpenses;
   const ownerNet  = mNet * PROFIT_SPLIT.owner;
   const reneNet   = mNet * PROFIT_SPLIT.rene;
@@ -1906,25 +1929,52 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
   // ── Months list for selector ──
   const allMonths = [...new Set([
     ...sales.map(s=>s.date.slice(0,7)),
-    ...expenses.map(e=>e.month),
+    ...expenses.map(e=>emonth(e)),
     today().slice(0,7)
-  ])].sort((a,b)=>b.localeCompare(a));
+  ])].filter(Boolean).sort((a,b)=>b.localeCompare(a));
 
-  const monthExpenses = expenses.filter(e=>e.month===viewMonth);
+  const monthExpenses = expenses.filter(e=>emonth(e)===viewMonth);
 
-  const openNewExp  = () => { setEditingExpId(null); setEf({cat:"alquiler",amount:"",month:viewMonth,note:""}); setShowExpForm(true); };
-  const openEditExp = e => { setEditingExpId(e.id); setEf({cat:e.cat,amount:String(e.amount),month:e.month,note:e.note||""}); setShowExpForm(true); };
+  // Al abrir un gasto nuevo, la fecha por defecto es el día de hoy si estamos
+  // viendo el mes actual; si no, el día 1 del mes que se está viendo.
+  const defDate = () => viewMonth===today().slice(0,7) ? today() : `${viewMonth}-01`;
+  const openNewExp  = () => { setEditingExpId(null); setExpError(""); setEf({cat:"alquiler",amount:"",date:defDate(),note:""}); setShowExpForm(true); };
+  const openEditExp = e => {
+    // Normaliza a fecha completa YYYY-MM-DD. Registros viejos guardaban solo el mes
+    // ("2026-07"), que no sirve para el campo de fecha — lo llevamos al día 1.
+    const raw = e.date || e.month || viewMonth;
+    const full = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : `${raw.slice(0,7)}-01`;
+    setEditingExpId(e.id); setExpError("");
+    setEf({cat:e.cat,amount:String(e.amount),date:full,note:e.note||""});
+    setShowExpForm(true);
+  };
 
   const saveExp = async () => {
-    if (!ef.amount) return;
+    setExpError("");
+    if (!ef.amount || +ef.amount<=0) { setExpError("Escribe un monto mayor a 0"); return; }
+    if (!ef.date) { setExpError("Elige una fecha"); return; }
+    const month = ef.date.slice(0,7); // el mes se deriva de la fecha exacta
     const updated = editingExpId
-      ? expenses.map(e=>e.id===editingExpId ? {...e,cat:ef.cat,amount:+ef.amount,month:ef.month,note:ef.note} : e)
-      : [...expenses,{id:uid(),cat:ef.cat,amount:+ef.amount,month:ef.month,date:ef.date||ef.month,note:ef.note}];
-    await saveExpenses(updated);
-    setShowExpForm(false); setEditingExpId(null); setEf({cat:"alquiler",amount:"",month:today().slice(0,7),note:""});
-    setExpSaved(true); setTimeout(()=>setExpSaved(false), 2500);
+      ? expenses.map(e=>e.id===editingExpId ? {...e,cat:ef.cat,amount:+ef.amount,month,date:ef.date,note:ef.note} : e)
+      : [...expenses,{id:uid(),cat:ef.cat,amount:+ef.amount,month,date:ef.date,note:ef.note}];
+    setExpSaving(true);
+    try {
+      await saveExpenses(updated);
+      setShowExpForm(false); setEditingExpId(null); setEf({cat:"alquiler",amount:"",date:today(),note:""});
+      setExpSaved(true); setTimeout(()=>setExpSaved(false), 2500);
+    } catch (err) {
+      console.error("Error guardando gasto:", err);
+      setExpError("No se pudo guardar. Revisa tu conexión e intenta de nuevo.");
+    } finally {
+      setExpSaving(false);
+    }
   };
-  const delExp = async id => await saveExpenses(expenses.filter(e=>e.id!==id));
+  const delExp = async e => {
+    const cat = EXPENSE_CATS.find(c=>c.id===e.cat);
+    if (!confirm(`¿Eliminar el gasto de ${cat?.label||e.cat} (${fmtUSD(e.amount)})?`)) return;
+    try { await saveExpenses(expenses.filter(x=>x.id!==e.id)); }
+    catch (err) { console.error("Error eliminando gasto:", err); alert("No se pudo eliminar. Revisa tu conexión."); }
+  };
 
   const Card = ({l,usd,txt,c,sub}) => (
     <div className="card-sm" style={{borderLeft:`3px solid ${c}50`}}>
@@ -2054,12 +2104,17 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
                       ? <span style={{fontSize:12,color:"#34d399",fontFamily:"'JetBrains Mono',monospace"}}>✓ {fmtUSD(amtPaid)}</span>
                       : <span style={{fontSize:11,color:"#f87171",background:"#2a0c0c",padding:"2px 8px",borderRadius:20,border:"1px solid #4a1010"}}>⏳ Pendiente</span>
                     }
-                    {!isPaid && (
-                      <button onClick={()=>{setEditingExpId(null); setEf({cat:cat.id,amount:cat.defaultAmt||"",month:viewMonth,note:""}); setShowExpForm(true);}}
-                        style={{background:"#0c2e35",border:"1px solid #1a5060",borderRadius:6,padding:"4px 10px",color:"#2dcfe8",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
-                        Registrar
-                      </button>
-                    )}
+                    {isPaid
+                      // Ya pagado: permitir CORREGIR (monto o fecha) — abre el 1er registro de esa categoria
+                      ? <button onClick={()=>openEditExp(paid[0])}
+                          style={{background:"#1a1408",border:"1px solid #4a3510",borderRadius:6,padding:"4px 10px",color:"#fbbf24",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                          ✏️ Corregir
+                        </button>
+                      : <button onClick={()=>{setEditingExpId(null); setExpError(""); setEf({cat:cat.id,amount:cat.defaultAmt?String(cat.defaultAmt):"",date:defDate(),note:""}); setShowExpForm(true);}}
+                          style={{background:"#0c2e35",border:"1px solid #1a5060",borderRadius:6,padding:"4px 10px",color:"#2dcfe8",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                          Registrar
+                        </button>
+                    }
                   </div>
                 </div>
               );
@@ -2074,16 +2129,18 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
               <div className="field"><label>Categoría</label>
                 <select value={ef.cat} onChange={e=>{
                   const cat = EXPENSE_CATS.find(c=>c.id===e.target.value);
-                  setEf(f=>({...f,cat:e.target.value,amount:cat?.defaultAmt||f.amount}));
+                  // Solo sugiere el monto por defecto en gastos NUEVOS y si el campo está vacío,
+                  // para no pisar un monto que estás corrigiendo (ej: alquiler a $550).
+                  setEf(f=>({...f,cat:e.target.value,amount:(!editingExpId && !f.amount && cat?.defaultAmt)?String(cat.defaultAmt):f.amount}));
                 }}>
                   {EXPENSE_CATS.map(c=><option key={c.id} value={c.id}>{c.icon} {c.label} {c.schedule?`(${c.schedule})`:""}</option>)}
                 </select>
               </div>
-              <div className="field"><label>Mes</label>
-                <input type="month" value={ef.month} onChange={e=>setEf(f=>({...f,month:e.target.value}))}/>
+              <div className="field"><label>Fecha exacta</label>
+                <input type="date" value={ef.date} onChange={e=>setEf(f=>({...f,date:e.target.value}))}/>
               </div>
               <div className="field"><label>Monto (USD)</label>
-                <input type="number" min="0" placeholder="0.00" value={ef.amount} onChange={e=>setEf(f=>({...f,amount:e.target.value}))}/>
+                <input type="number" min="0" step="0.01" placeholder="0.00" value={ef.amount} onChange={e=>setEf(f=>({...f,amount:e.target.value}))}/>
               </div>
             </div>
             {EXPENSE_CATS.find(c=>c.id===ef.cat)?.schedule && (
@@ -2094,9 +2151,10 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
             <div className="field"><label>Nota (opcional)</label>
               <input placeholder="Ej: Alquiler local Chinita, mes pagado" value={ef.note} onChange={e=>setEf(f=>({...f,note:e.target.value}))}/>
             </div>
+            {expError && <div style={{background:"#2a0c0c",border:"1px solid #4a1010",borderRadius:8,padding:"9px 14px",fontSize:12,color:"#f87171"}}>⚠️ {expError}</div>}
             <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-              <button className="btn-g" onClick={()=>{setShowExpForm(false);setEditingExpId(null);}}>Cancelar</button>
-              <button className="btn-p" onClick={saveExp}><ICheck/>{editingExpId?"Guardar cambios":"Guardar"}</button>
+              <button className="btn-g" onClick={()=>{setShowExpForm(false);setEditingExpId(null);setExpError("");}} disabled={expSaving}>Cancelar</button>
+              <button className="btn-p" onClick={saveExp} disabled={expSaving}><ICheck/>{expSaving?"Guardando…":editingExpId?"Guardar cambios":"Guardar"}</button>
             </div>
           </div>
         )}
@@ -2117,7 +2175,7 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
                       <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#fbbf24"}}>{fmtBs(e.amount,rate)}</td>
                       <td><div style={{display:"flex",gap:5,justifyContent:"flex-end"}}>
                         <button className="btn-g" style={{padding:"3px 8px",fontSize:11}} onClick={()=>openEditExp(e)}><IEdit/></button>
-                        <button className="btn-d" style={{padding:"3px 8px",fontSize:11}} onClick={()=>delExp(e.id)}>✕</button>
+                        <button className="btn-d" style={{padding:"3px 8px",fontSize:11}} onClick={()=>delExp(e)}>✕</button>
                       </div></td>
                     </tr>
                   );
@@ -2142,6 +2200,8 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
   // v2 — fixed buildData scope
   const [period, setPeriod] = useState("day");
   const [hover,  setHover]  = useState(null);
+  const [visible, setVisible] = useState({cobrado:true, acumulado:true, ganancias:true, porpagar:true});
+  const toggleSeries = id => setVisible(v=>({...v, [id]: !v[id]}));
 
   const fmtLabel = (key, pd) => {
     if (pd === "day") {
@@ -2184,7 +2244,7 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
       const iso = d.toISOString().slice(0,10);
       keys.push(period==="month" ? iso.slice(0,7) : period==="year" ? iso.slice(0,4) : iso);
     }
-    const buckets = Object.fromEntries(keys.map(k=>[k,{rev:0,profit:0,items:0}]));
+    const buckets = Object.fromEntries(keys.map(k=>[k,{rev:0,profit:0,items:0,pending:0}]));
     sales.forEach(s => {
       const k = keyOf(s.date);
       if (buckets[k]) { buckets[k].rev+=s.total; buckets[k].profit+=s.profit; buckets[k].items+=s.qty; }
@@ -2196,6 +2256,12 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
       const k = keyOf(p.date);
       if (buckets[k]) buckets[k].rev += p.amount;
     }));
+    // Falta por pagar: apartados creados en esa fecha que siguen sin entregarse hoy.
+    orders.forEach(o => {
+      if (o.status==="entregado") return;
+      const k = keyOf(o.date);
+      if (buckets[k]) buckets[k].pending += orderBalance(o);
+    });
     return keys.map(k => ({key:k, lbl:fmtLabel(k,period), ...buckets[k]}));
   };
 
@@ -2213,8 +2279,9 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
     {id:"month",l:"Mensual"},{id:"year",l:"Anual"},
   ];
 
-  // Chart geometry
-  const chartW=800, chartH=240, padL=14, padR=62, padB=40, padT=14;
+  // Chart geometry — en celular usamos un viewBox mas angosto para que el
+  // texto (que esta en unidades del viewBox) no se vea diminuto al escalar.
+  const chartW=isMobile?380:800, chartH=isMobile?210:240, padL=isMobile?6:14, padR=isMobile?38:62, padB=isMobile?36:40, padT=14;
   const innerW=chartW-padL-padR, innerH=chartH-padT-padB;
   const xOf=(i,len)=>padL+(i/Math.max(len-1,1))*innerW;
   const yOf=(v,mx)=>padT+innerH-Math.max(0,v/mx)*innerH;
@@ -2237,9 +2304,17 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
     return `${lp} L ${xOf(len-1,len).toFixed(1)},${(padT+innerH)} L ${padL},${padT+innerH} Z`;
   };
 
-  const revPath  = smoothPath(data.map(d=>d.rev),  maxRev);
-  const profPath = smoothPath(data.map(d=>d.profit),maxRev);
-  const yTicks   = [0,0.25,0.5,0.75,1].map(pct=>({y:padT+innerH-pct*innerH,label:`$${(maxRev*pct).toFixed(0)}`}));
+  // ── Todas las lineas juntas — los cuadritos solo prenden/apagan cual se ve ──
+  const cumSeries  = (()=>{ let acc=0; return data.map(d=>(acc+=d.rev)); })();
+  const SERIES = [
+    {id:"cobrado",   l:"Cobrado",   c:"#2dcfe8", vals:data.map(d=>d.rev)},
+    {id:"acumulado", l:"Acumulado", c:"#34d399", vals:cumSeries},
+    {id:"ganancias", l:"Ganancias", c:"#a78bfa", vals:data.map(d=>d.profit)},
+    {id:"porpagar",  l:"Por pagar", c:"#fbbf24", vals:data.map(d=>d.pending||0)},
+  ];
+  const activeSeries = SERIES.filter(s=>visible[s.id]);
+  const maxAll = Math.max(1, ...activeSeries.flatMap(s=>s.vals));
+  const chartYTicks = [0,0.25,0.5,0.75,1].map(pct=>({y:padT+innerH-pct*innerH,label:`$${(maxAll*pct).toFixed(0)}`}));
 
   // NET profit split — expenses for the SAME period as the selected data
   const currentMonth = today().slice(0,7);
@@ -2332,25 +2407,50 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
         </div>
       </div>
 
-      {/* Line chart */}
-      <div style={{background:"#030b0e",border:"1px solid #0a2028",borderRadius:16,padding:"20px 16px 10px",position:"relative"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,paddingRight:4}}>
-          <div style={{display:"flex",alignItems:"baseline",gap:10}}>
-            <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:20,fontWeight:700,color:"#2dcfe8"}}>{fmtUSD(totalRev)}</span>
-            <span style={{fontSize:11,color:"#1a4a50"}}>{PERIODS.find(p=>p.id===period)?.l.toLowerCase()}</span>
-          </div>
-          <div style={{display:"flex",gap:18,fontSize:11}}>
-            <span style={{display:"flex",alignItems:"center",gap:5}}><span style={{display:"inline-block",width:24,height:2,background:"#2dcfe8",borderRadius:2}}/><span style={{color:"#2dcfe8"}}>Cobrado</span></span>
-            <span style={{display:"flex",alignItems:"center",gap:5}}><span style={{display:"inline-block",width:24,height:2,background:"#34d399",borderRadius:2,opacity:.8}}/><span style={{color:"#34d399"}}>Ganancia</span></span>
-          </div>
+      {/* Line chart — todas las lineas juntas, los cuadros solo identifican/prenden cada una */}
+      <div style={{background:"#030b0e",border:"1px solid #0a2028",borderRadius:16,padding:isMobile?"14px 10px 6px":"20px 16px 10px",position:"relative"}}>
+
+        {/* Leyenda-selector: toca un cuadro para resaltar/ocultar esa linea */}
+        <div style={{display:"flex",gap:isMobile?5:6,flexWrap:"wrap",marginBottom:isMobile?12:16}}>
+          {SERIES.map(s=>{
+            const on = visible[s.id];
+            return (
+              <button key={s.id} className="period-btn"
+                style={{display:"flex",alignItems:"center",gap:isMobile?5:7,
+                  padding:isMobile?"5px 11px":"5px 16px", fontSize:isMobile?11:12,
+                  borderColor: on ? s.c+"80" : "#0d2a30",
+                  color:       on ? s.c      : "#2a5060",
+                  background:  on ? s.c+"18" : "transparent",
+                  opacity: on ? 1 : .6}}
+                onClick={()=>toggleSeries(s.id)}>
+                <span style={{width:8,height:8,borderRadius:"50%",background:on?s.c:"#0d2a30",display:"inline-block",flexShrink:0,boxShadow:on?`0 0 6px ${s.c}`:"none"}}/>
+                {s.l}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Tooltip */}
-        {hover!==null && data[hover] && (
-          <div style={{position:"absolute",top:14,left:"50%",transform:"translateX(-50%)",background:"#071c22",border:"1px solid #0e7a8c",borderRadius:10,padding:"7px 16px",fontSize:12,zIndex:10,pointerEvents:"none",display:"flex",gap:16,whiteSpace:"nowrap"}}>
-            <span style={{color:"#1a4a50"}}>{data[hover].lbl}</span>
-            <span style={{color:"#2dcfe8",fontFamily:"'JetBrains Mono',monospace"}}>{fmtUSD(data[hover].rev)}</span>
-            <span style={{color:"#34d399",fontFamily:"'JetBrains Mono',monospace"}}>+{fmtUSD(data[hover].profit)}</span>
+        {/* Header: total de cada linea activa */}
+        <div style={{display:"flex",flexWrap:"wrap",gap:isMobile?"10px 16px":18,marginBottom:isMobile?12:16,paddingRight:4}}>
+          {activeSeries.map(s=>(
+            <div key={s.id} style={{minWidth:isMobile?"42%":"auto"}}>
+              <div style={{fontSize:isMobile?9:10,color:"#1a4a50",textTransform:"uppercase",letterSpacing:".06em",marginBottom:2,whiteSpace:"nowrap"}}>{s.l}</div>
+              <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:isMobile?14:17,fontWeight:800,color:s.c,whiteSpace:"nowrap"}}>
+                {fmtUSD(s.id==="acumulado" ? (s.vals[s.vals.length-1]||0) : s.vals.reduce((a,v)=>a+v,0))}
+              </div>
+            </div>
+          ))}
+          {activeSeries.length===0 && <div style={{fontSize:12,color:"#1a4a50"}}>Activa al menos una linea para verla</div>}
+        </div>
+
+        <div style={{position:"relative"}}>
+        {/* Tooltip — flota sobre el grafico, no sobre los chips/totales de arriba */}
+        {hover!==null && data[hover] && activeSeries.length>0 && (
+          <div style={{position:"absolute",top:4,left:"50%",transform:"translateX(-50%)",maxWidth:"94%",background:"#071c22",border:"1px solid #0e7a8c",borderRadius:10,padding:isMobile?"6px 10px":"7px 16px",fontSize:isMobile?10.5:12,zIndex:10,pointerEvents:"none",display:"flex",gap:isMobile?8:16,flexWrap:"wrap",justifyContent:"center",whiteSpace:isMobile?"normal":"nowrap"}}>
+            <span style={{color:"#1a4a50",width:isMobile?"100%":"auto",textAlign:"center"}}>{data[hover].lbl}</span>
+            {activeSeries.map(s=>(
+              <span key={s.id} style={{color:s.c,fontFamily:"'JetBrains Mono',monospace",fontWeight:700}}>{fmtUSD(s.vals[hover])}</span>
+            ))}
           </div>
         )}
 
@@ -2359,52 +2459,44 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
           : <svg viewBox={`0 0 ${chartW} ${chartH}`} style={{width:"100%",height:chartH,display:"block",overflow:"visible"}}
               onMouseLeave={()=>setHover(null)}>
               <defs>
-                <filter id="gR"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                <filter id="gP"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                <linearGradient id="fillRev" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#2dcfe8" stopOpacity=".2"/>
-                  <stop offset="100%" stopColor="#2dcfe8" stopOpacity="0"/>
-                </linearGradient>
-                <linearGradient id="fillProf" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#34d399" stopOpacity=".15"/>
-                  <stop offset="100%" stopColor="#34d399" stopOpacity="0"/>
-                </linearGradient>
+                <filter id="gMulti"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
               </defs>
 
               {/* Grid + Y labels */}
-              {yTicks.map(({y,label},i)=>(
+              {chartYTicks.map(({y,label},i)=>(
                 <g key={i}>
                   <line x1={padL} x2={chartW-padR} y1={y} y2={y} stroke={i===0?"#0e2530":"#081820"} strokeWidth={i===0?1:.7} strokeDasharray={i===0?"0":"4,5"}/>
                   <text x={chartW-padR+8} y={y+4} fontSize="9" fill="#1a4055" fontFamily="'JetBrains Mono',monospace" textAnchor="start">{label}</text>
                 </g>
               ))}
 
-              {/* Barras: ingreso (cian) con la ganancia encima (verde) */}
+              {/* Una linea suave por serie activa — sin relleno para que no se tapen entre si */}
+              {activeSeries.map(s=>{
+                const p = smoothPath(s.vals, maxAll);
+                return p ? <path key={s.id} d={p} fill="none" stroke={s.c} strokeWidth="2.2" filter="url(#gMulti)"/> : null;
+              })}
+
+              {/* Columnas invisibles para hover/tap (touch en celular) */}
               {data.map((d,i)=>{
                 const slot = innerW/data.length;
-                const bw   = Math.min(46, slot*0.62);
-                const x    = padL + slot*i + (slot-bw)/2;
-                const ry   = yOf(d.rev,maxRev),  rh = padT+innerH-ry;
-                const py   = yOf(d.profit,maxRev), ph = padT+innerH-py;
-                const hov  = hover===i;
-                return (
-                  <g key={i} onMouseEnter={()=>setHover(i)} style={{cursor:"crosshair"}}>
-                    <rect x={padL+slot*i} y={padT} width={slot} height={innerH} fill={hov?"#0a202808":"transparent"}/>
-                    {d.rev>0 && <rect x={x} y={ry} width={bw} height={Math.max(rh,2)} rx="4" fill={hov?"#3addf5":"#1a9ab5"} opacity={hov?1:.85}/>}
-                    {d.profit>0 && <rect x={x+bw*0.2} y={py} width={bw*0.6} height={Math.max(ph,2)} rx="3" fill={hov?"#4ef0b0":"#22a874"}/>}
-                    {d.rev===0 && <rect x={x} y={padT+innerH-2} width={bw} height="2" rx="1" fill="#0d2530"/>}
-                    {hov && d.rev>0 && (
-                      <text x={x+bw/2} y={ry-6} textAnchor="middle" fontSize="10" fill="#3addf5" fontFamily="'JetBrains Mono',monospace" fontWeight="700">${d.rev.toFixed(0)}</text>
-                    )}
-                  </g>
-                );
+                return <rect key={i} x={padL+slot*i} y={padT} width={slot} height={innerH} fill="transparent" onMouseEnter={()=>setHover(i)} onClick={()=>setHover(i)} style={{cursor:"crosshair"}}/>;
               })}
+
+              {/* Crosshair + punto por serie activa en hover */}
+              {hover!==null && data[hover] && (
+                <g>
+                  <line x1={xOf(hover,data.length)} x2={xOf(hover,data.length)} y1={padT} y2={padT+innerH} stroke="#2a5060" strokeWidth="1" strokeDasharray="3,4" opacity=".5"/>
+                  {activeSeries.map(s=>(
+                    <circle key={s.id} cx={xOf(hover,data.length)} cy={yOf(s.vals[hover],maxAll)} r="4" fill={s.c} stroke="#030b0e" strokeWidth="2"/>
+                  ))}
+                </g>
+              )}
 
               {/* Etiquetas del eje X */}
               {data.map((d,i)=>{
                 const slot = innerW/data.length;
                 const x = padL + slot*i + slot/2;
-                const step = data.length>12 ? 2 : 1;
+                const step = data.length > (isMobile?7:12) ? (isMobile?3:2) : 1;
                 const show = i%step===0 || i===data.length-1;
                 const parts = period==="day" ? d.lbl.split(" ") : [d.lbl];
                 return show ? (
@@ -2422,6 +2514,7 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
               <line x1={padL} x2={chartW-padR} y1={padT+innerH} y2={padT+innerH} stroke="#0e2530" strokeWidth="1"/>
             </svg>
         }
+        </div>
       </div>
 
       {/* ── Profit split NET ── */}
@@ -2560,8 +2653,10 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
   );
 }
 
-function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas}) {
+function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders=[]}) {
   const last7=sortedDates.slice(0,7).reverse();
+  const pendientes = orders.filter(o=>o.status!=="entregado" && orderBalance(o)>0);
+  const porPagar    = pendientes.reduce((s,o)=>s+orderBalance(o),0);
   const maxR=Math.max(1,...last7.map(d=>byDate[d].reduce((s,v)=>s+v.total,0)));
   const storeLabel = storeFilter==="all" ? "Todas las tiendas" : (storeProfiles?.find(s=>s.id===storeFilter)?.address || storeFilter);
   // Delta vs periodo anterior, estilo panel profesional: ↑ verde / ↓ rojo
@@ -2606,6 +2701,21 @@ function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,totalInvested,t
           </div>
         ))}
       </div>
+
+      {/* Falta por pagar: gente con apartados/creditos que aun no completan su pago */}
+      <div className="card" style={{background:"#2a1e08",borderColor:"#4a3510",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+        <div>
+          <div style={{fontSize:10,color:"#a08020",textTransform:"uppercase",letterSpacing:".07em",marginBottom:4}}>📋 Falta por pagar</div>
+          <div style={{fontSize:12,color:"#c9a84a"}}>
+            {pendientes.length===0 ? "Nadie debe nada — todos los apartados están al día" : `${pendientes.length} ${pendientes.length===1?"cliente debe":"clientes deben"} saldo de su apartado`}
+          </div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:22,fontWeight:800,color:"#fbbf24"}}>{fmtUSD(porPagar)}</div>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#a08020"}}>{fmtBs(porPagar,rate)}</div>
+        </div>
+      </div>
+
       <div className="rg2">
         <div className="card" style={{background:"#030b0e",borderColor:"#0a2028"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -2855,7 +2965,10 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate}) 
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Inventario</h1>
-        <button className="btn-p" onClick={()=>setInvModal("new")}><IPlus/>Agregar</button>
+        <div style={{display:"flex",gap:8}}>
+          <button className="btn-g" onClick={()=>setInvModal("scan")} style={{background:"linear-gradient(135deg,#3a2c08,#6b5010)",borderColor:"#4a3510",color:"#fbbf24"}}>📸 Escanear recibo</button>
+          <button className="btn-p" onClick={()=>setInvModal("new")}><IPlus/>Agregar</button>
+        </div>
       </div>
 
       {/* Reposicion automatica */}
@@ -4232,9 +4345,10 @@ function HistTab({byDate,sortedDates,setDD}) {
 }
 
 // ── Modals ────────────────────────────────────────────────────────────────────
-function InvModal({item,inventory,saveInv,onClose,rate}) {
+function InvModal({item,inventory,saveInv,onClose,rate,initialMode="normal"}) {
   const photoRef   = useRef(null);
-  const [mode, setMode] = useState("normal");
+  const scanRef    = useRef(null);
+  const [mode, setMode] = useState(initialMode);
   // Serials existentes como estado local: quitar uno no cierra el modal
   const [existingSerials, setExistingSerials] = useState(item?.serials || []);
   const [f,setF]=useState({
@@ -4247,6 +4361,10 @@ function InvModal({item,inventory,saveInv,onClose,rate}) {
   const [fastItems, setFastItems] = useState([{id:uid(),name:"",cat:CATS[0],cost:"",price:"",serials:"",qty:"",photo:null}]);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [scanInfo, setScanInfo] = useState(null);
+  const [pmMode, setPmMode] = useState("x");   // precio rápido: x=multiplicar, +=sumar
+  const [pmVal,  setPmVal]  = useState("2");
 
   const sf=(k,v)=>setF(p=>({...p,[k]:v}));
   const sfi=(id,k,v)=>setFastItems(its=>its.map(it=>it.id===id?{...it,[k]:v}:it));
@@ -4269,6 +4387,61 @@ function InvModal({item,inventory,saveInv,onClose,rate}) {
     compressImage(file).then(data => {
       if(target==="main") sf("photo",data); else sfi(target,"photo",data);
     }).catch(()=>{});
+  };
+
+  // Escanear recibo del distribuidor con IA (varias fotos = varias páginas).
+  // La clave de IA vive en el servidor, nunca en el navegador.
+  const scanReceipt = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (!files.length) return;
+    setErr(""); setScanInfo(null); setScanning(true);
+    try {
+      const images = [];
+      for (const file of files.slice(0, 6)) images.push(await compressImage(file, 1600, 0.8));
+      const res = await fetch("/api/scan-inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.status === 503 || json.error === "not_configured") {
+        setErr("El escáner todavía no está activado. Pídeselo al administrador (falta conectar la clave de IA en el servidor)."); return;
+      }
+      if (!res.ok || !json.ok) {
+        setErr(json.message || "No se pudo leer el recibo. Intenta con mejor luz/enfoque o carga los productos a mano."); return;
+      }
+      const items = Array.isArray(json.data?.items) ? json.data.items : [];
+      if (!items.length) {
+        setErr("No se reconocieron productos en la foto. Prueba con mejor luz/enfoque, o cárgalos a mano abajo."); return;
+      }
+      setScanInfo({ distributor: json.data.distributor || "", receiptNumber: json.data.receiptNumber || "", count: items.length, pages: json.pages || 1 });
+      setFastItems(items.map(d => ({
+        id: uid(),
+        name: String(d.name || d.codigo || "").trim(),
+        cat: "Montura",
+        cost: (d.unitCost != null && d.unitCost !== "" && Number(d.unitCost) > 0) ? String(d.unitCost) : "",
+        price: "",
+        serials: "",
+        qty: (d.qty != null && d.qty !== "" && Number(d.qty) > 0) ? String(d.qty) : "",
+        photo: null,
+      })));
+    } catch {
+      setErr("No se pudo procesar la imagen. Revisa tu conexión e intenta de nuevo.");
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  // Precio rápido: calcula el precio de venta de TODAS las filas a partir del costo.
+  const applyPricing = () => {
+    const v = Number(pmVal) || 0;
+    setFastItems(its => its.map(it => {
+      const c = Number(it.cost) || 0;
+      if (!c || v <= 0) return it;
+      const price = pmMode === "x" ? c * v : c + v;
+      return { ...it, price: price > 0 ? String(Number(price.toFixed(2))) : it.price };
+    }));
   };
 
   const removeSer = ser => setExistingSerials(prev => prev.filter(x => x !== ser));
@@ -4444,7 +4617,37 @@ function InvModal({item,inventory,saveInv,onClose,rate}) {
         </>)}
 
         {mode==="fast"&&!item&&(<>
-          <div style={{fontSize:11,color:"#1a4a50",marginBottom:12,lineHeight:1.5}}>Agrega varios productos de una sola vez. Foto + nombre + categoría + precios + códigos.</div>
+          <div style={{fontSize:11,color:"#1a4a50",marginBottom:12,lineHeight:1.5}}>Toma foto del recibo del distribuidor y el sistema carga la mercancía, o agrégala a mano.</div>
+
+          {/* Escanear recibo del distribuidor */}
+          <input ref={scanRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={scanReceipt}/>
+          <button className="btn-p" onClick={()=>scanRef.current?.click()} disabled={scanning}
+            style={{width:"100%",justifyContent:"center",marginBottom:10,background:scanning?"#0a2028":"linear-gradient(135deg,#7a5a0a,#b8860b)",opacity:scanning?.7:1}}>
+            {scanning ? "📸 Leyendo recibo…" : "📸 Escanear recibo del distribuidor"}
+          </button>
+          <div style={{fontSize:10,color:"#1a4a50",textAlign:"center",marginBottom:12}}>Si el recibo tiene varias páginas, selecciona todas las fotos a la vez.</div>
+
+          {scanInfo && (
+            <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:10,padding:"9px 13px",fontSize:12,color:"#34d399",marginBottom:12}}>
+              ✓ Detecté <strong>{scanInfo.count}</strong> producto(s){scanInfo.pages>1?` en ${scanInfo.pages} páginas`:""}
+              {scanInfo.distributor?` · ${scanInfo.distributor}`:""}{scanInfo.receiptNumber?` · Nota ${scanInfo.receiptNumber}`:""}.
+              <div style={{color:"#fbbf24",marginTop:3}}>Revisa y corrige lo que haga falta, ponle precio de venta y guarda.</div>
+            </div>
+          )}
+
+          {/* Precio rápido: fija el precio de venta de todas las filas desde el costo */}
+          <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:10,padding:"9px 12px",marginBottom:12,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+            <span style={{fontSize:11,color:"#2dcfe8",fontWeight:600}}>💲 Precio de venta rápido:</span>
+            <span style={{fontSize:11,color:"#1a4a50"}}>costo</span>
+            <select value={pmMode} onChange={e=>setPmMode(e.target.value)}
+              style={{background:"#050e10",border:"1px solid #0d2a30",borderRadius:6,padding:"4px 6px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:12,outline:"none"}}>
+              <option value="x">× (multiplicar)</option>
+              <option value="+">+ (sumar USD)</option>
+            </select>
+            <input type="number" min="0" step="0.1" value={pmVal} onChange={e=>setPmVal(e.target.value)}
+              style={{width:70,background:"#050e10",border:"1px solid #0d2a30",borderRadius:6,padding:"4px 8px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:12,outline:"none"}}/>
+            <button className="btn-g" style={{fontSize:11,padding:"5px 10px"}} onClick={applyPricing}>Aplicar a todos</button>
+          </div>
           <div style={{display:"flex",flexDirection:"column",gap:10,maxHeight:"55vh",overflowY:"auto",paddingRight:2}}>
             {fastItems.map((it)=>{
               const touched = it.name.trim()||it.price!==""||it.serials.trim()||it.qty!=="";
