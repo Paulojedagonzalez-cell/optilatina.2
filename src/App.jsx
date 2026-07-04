@@ -1831,7 +1831,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
         {tab==="dash"     && <DashTab    {...{todayRev,todayProf,todayItems,weekRev,weekProf,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas}} />}
         {tab==="stats"    && <StatsTab   {...{sales:filteredSales,orders,expenses,rate,isMobile,profile}} />}
         {tab==="week"     && <WeekTab    {...{byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles,isMobile}} />}
-        {tab==="finanzas" && <FinanzasTab {...{sales:filteredSales,expenses,investments,inventory,rate,saveExpenses,saveInvestments,profile,isMobile}} />}
+        {tab==="finanzas" && <FinanzasTab {...{sales:filteredSales,orders,expenses,investments,inventory,rate,saveExpenses,saveInvestments,profile,isMobile}} />}
         {tab==="apart"    && <ApartadosTab {...{orders,saveOrders,rate,profile,isMobile}} />}
         {tab==="caja"     && <CajaTab    {...{sales:filteredSales,deposits,saveDeposits,rate,payments,isMobile,orders}} />}
         {tab==="cierre"   && profile.id==="owner" && <CierreTab {...{sales,expenses,orders,rate,dynProfiles,profile}} />}
@@ -1875,10 +1875,12 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
 }
 
 // ── Finanzas Tab ──────────────────────────────────────────────────────────────
-function FinanzasTab({ sales, expenses, investments, inventory, rate, saveExpenses, saveInvestments, profile }) {
+function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate, saveExpenses, saveInvestments, profile }) {
   const [viewMonth, setViewMonth] = useState(today().slice(0,7));
   const [showExpForm, setShowExpForm] = useState(false);
+  const [editingExpId, setEditingExpId] = useState(null);
   const [ef, setEf] = useState({cat:"alquiler", amount:"", month:today().slice(0,7), note:""});
+  const [expSaved, setExpSaved] = useState(false);
 
   // ── Calculations for selected month ──
   const mSales    = sales.filter(s=>s.date.slice(0,7)===viewMonth);
@@ -1890,6 +1892,13 @@ function FinanzasTab({ sales, expenses, investments, inventory, rate, saveExpens
   const ownerNet  = mNet * PROFIT_SPLIT.owner;
   const reneNet   = mNet * PROFIT_SPLIT.rene;
 
+  // Dinero REAL que entro este mes (ventas + abonos de apartados) menos
+  // TODOS los gastos — el numero de control total que pidio el usuario:
+  // cada gasto que se suba resta de lo que va entrando, sin excepcion.
+  const mAbonos      = orders.flatMap(o=>o.payments||[]).filter(p=>p.date?.slice(0,7)===viewMonth).reduce((s,p)=>s+p.amount,0);
+  const mCobradoTotal= mRevenue + mAbonos;
+  const mEfectivoNeto= mCobradoTotal - mExpenses;
+
   // ── Months list for selector ──
   const allMonths = [...new Set([
     ...sales.map(s=>s.date.slice(0,7)),
@@ -1899,10 +1908,17 @@ function FinanzasTab({ sales, expenses, investments, inventory, rate, saveExpens
 
   const monthExpenses = expenses.filter(e=>e.month===viewMonth);
 
+  const openNewExp  = () => { setEditingExpId(null); setEf({cat:"alquiler",amount:"",month:viewMonth,note:""}); setShowExpForm(true); };
+  const openEditExp = e => { setEditingExpId(e.id); setEf({cat:e.cat,amount:String(e.amount),month:e.month,note:e.note||""}); setShowExpForm(true); };
+
   const saveExp = async () => {
     if (!ef.amount) return;
-    await saveExpenses([...expenses,{id:uid(),cat:ef.cat,amount:+ef.amount,month:ef.month,date:ef.date||ef.month,note:ef.note}]);
-    setShowExpForm(false); setEf({cat:"alquiler",amount:"",month:today().slice(0,7),note:""});
+    const updated = editingExpId
+      ? expenses.map(e=>e.id===editingExpId ? {...e,cat:ef.cat,amount:+ef.amount,month:ef.month,note:ef.note} : e)
+      : [...expenses,{id:uid(),cat:ef.cat,amount:+ef.amount,month:ef.month,date:ef.date||ef.month,note:ef.note}];
+    await saveExpenses(updated);
+    setShowExpForm(false); setEditingExpId(null); setEf({cat:"alquiler",amount:"",month:today().slice(0,7),note:""});
+    setExpSaved(true); setTimeout(()=>setExpSaved(false), 2500);
   };
   const delExp = async id => await saveExpenses(expenses.filter(e=>e.id!==id));
 
@@ -1980,15 +1996,36 @@ function FinanzasTab({ sales, expenses, investments, inventory, rate, saveExpens
         )}
       </div>
 
+      {/* ── Control de efectivo real: todo lo que entro menos todos los gastos ── */}
+      <div className="card" style={{background:mEfectivoNeto>=0?"#06231a":"#1a0808",borderColor:mEfectivoNeto>=0?"#14503a":"#4a1010"}}>
+        <div style={{fontSize:11,color:mEfectivoNeto>=0?"#3a9a70":"#f87171",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>💵 Control de efectivo — {viewMonth}</div>
+        <div className="rg3">
+          <div className="card-sm" style={{background:"#040d10"}}>
+            <div style={{fontSize:10,color:"#1a4a50",marginBottom:4,textTransform:"uppercase"}}>Cobrado total</div>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:18,fontWeight:700,color:"#2dcfe8"}}>{fmtUSD(mCobradoTotal)}</div>
+            <div style={{fontSize:10,color:"#1a4a50",marginTop:3}}>Ventas + abonos de apartados</div>
+          </div>
+          <div className="card-sm" style={{background:"#040d10"}}>
+            <div style={{fontSize:10,color:"#1a4a50",marginBottom:4,textTransform:"uppercase"}}>Todos los gastos</div>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:18,fontWeight:700,color:"#f87171"}}>−{fmtUSD(mExpenses)}</div>
+          </div>
+          <div className="card-sm" style={{background:"#040d10"}}>
+            <div style={{fontSize:10,color:"#1a4a50",marginBottom:4,textTransform:"uppercase"}}>Efectivo neto</div>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:18,fontWeight:700,color:mEfectivoNeto>=0?"#34d399":"#f87171"}}>{fmtUSD(mEfectivoNeto)}</div>
+          </div>
+        </div>
+      </div>
+
       {/* ── Gastos fijos ── */}
       <div className="card">
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
           <div>
             <div style={{fontSize:13,fontWeight:700,color:"#f87171"}}>📋 Gastos fijos — {viewMonth}</div>
-            <div style={{fontSize:11,color:"#1a4a50",marginTop:2}}>Calendario de vencimientos del mes</div>
+            <div style={{fontSize:11,color:"#1a4a50",marginTop:2}}>Calendario de vencimientos del mes — editables por ti o René</div>
           </div>
-          <button className="btn-p" style={{fontSize:12,padding:"7px 14px"}} onClick={()=>setShowExpForm(true)}><IPlus/>Registrar pago</button>
+          <button className="btn-p" style={{fontSize:12,padding:"7px 14px"}} onClick={openNewExp}><IPlus/>Registrar gasto</button>
         </div>
+        {expSaved && <div style={{background:"#0f2820",border:"1px solid #1a4a30",borderRadius:10,padding:"9px 14px",fontSize:13,color:"#34d399",textAlign:"center",marginBottom:14}}>✓ Guardado correctamente</div>}
 
         {/* Calendario de gastos recurrentes */}
         <div style={{background:"#040d10",border:"1px solid #0a2028",borderRadius:12,padding:"14px",marginBottom:16}}>
@@ -2014,7 +2051,7 @@ function FinanzasTab({ sales, expenses, investments, inventory, rate, saveExpens
                       : <span style={{fontSize:11,color:"#f87171",background:"#2a0c0c",padding:"2px 8px",borderRadius:20,border:"1px solid #4a1010"}}>⏳ Pendiente</span>
                     }
                     {!isPaid && (
-                      <button onClick={()=>setEf(f=>({...f,cat:cat.id,amount:cat.defaultAmt||""}))||setShowExpForm(true)}
+                      <button onClick={()=>{setEditingExpId(null); setEf({cat:cat.id,amount:cat.defaultAmt||"",month:viewMonth,note:""}); setShowExpForm(true);}}
                         style={{background:"#0c2e35",border:"1px solid #1a5060",borderRadius:6,padding:"4px 10px",color:"#2dcfe8",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
                         Registrar
                       </button>
@@ -2028,6 +2065,7 @@ function FinanzasTab({ sales, expenses, investments, inventory, rate, saveExpens
 
         {showExpForm && (
           <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:12,padding:"16px",marginBottom:16,display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{fontSize:12,fontWeight:600,color:editingExpId?"#fbbf24":"#2dcfe8"}}>{editingExpId?"✏️ Editando gasto":"➕ Nuevo gasto"}</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
               <div className="field"><label>Categoría</label>
                 <select value={ef.cat} onChange={e=>{
@@ -2053,8 +2091,8 @@ function FinanzasTab({ sales, expenses, investments, inventory, rate, saveExpens
               <input placeholder="Ej: Alquiler local Chinita, mes pagado" value={ef.note} onChange={e=>setEf(f=>({...f,note:e.target.value}))}/>
             </div>
             <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-              <button className="btn-g" onClick={()=>setShowExpForm(false)}>Cancelar</button>
-              <button className="btn-p" onClick={saveExp}><ICheck/>Guardar</button>
+              <button className="btn-g" onClick={()=>{setShowExpForm(false);setEditingExpId(null);}}>Cancelar</button>
+              <button className="btn-p" onClick={saveExp}><ICheck/>{editingExpId?"Guardar cambios":"Guardar"}</button>
             </div>
           </div>
         )}
@@ -2073,7 +2111,10 @@ function FinanzasTab({ sales, expenses, investments, inventory, rate, saveExpens
                       <td style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#1a4a50"}}>{e.date||e.month||"—"}</td>
                       <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:13,color:"#f87171"}}>{fmtUSD(e.amount)}</td>
                       <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#fbbf24"}}>{fmtBs(e.amount,rate)}</td>
-                      <td><button className="btn-d" style={{padding:"3px 8px",fontSize:11}} onClick={()=>delExp(e.id)}>✕</button></td>
+                      <td><div style={{display:"flex",gap:5,justifyContent:"flex-end"}}>
+                        <button className="btn-g" style={{padding:"3px 8px",fontSize:11}} onClick={()=>openEditExp(e)}><IEdit/></button>
+                        <button className="btn-d" style={{padding:"3px 8px",fontSize:11}} onClick={()=>delExp(e.id)}>✕</button>
+                      </div></td>
                     </tr>
                   );
                 })}
@@ -3128,7 +3169,6 @@ function ProfileSettingsTab({ profile, dynProfiles, saveDynProfiles }) {
     storeLogo:   live.storeLogo || null,   // logo personalizado de la tienda
   });
   const [saved,    setSaved]    = useState(false);
-  const [copied,   setCopied]   = useState(false);
   const [pinErr,   setPinErr]   = useState("");
   const [saving,   setSaving]   = useState(false);
   const fileRef      = useRef(null);
@@ -3194,6 +3234,11 @@ function ProfileSettingsTab({ profile, dynProfiles, saveDynProfiles }) {
 
   return (
     <div style={{display:"flex",flexDirection:"column",gap:20,maxWidth:600}}>
+      {saved && (
+        <div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",zIndex:500,background:"#0f2820",border:"1px solid #1a4a30",borderRadius:12,padding:"12px 20px",fontSize:13,color:"#34d399",boxShadow:"0 10px 40px rgba(0,0,0,.5)",whiteSpace:"nowrap"}}>
+          ✓ Guardado correctamente
+        </div>
+      )}
       <div>
         <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>{isStore ? `Tienda — ${live.address||live.name}` : "Mi perfil"}</h1>
         <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Configura tu información {isStore?"de la tienda":"personal"}</div>
@@ -3272,31 +3317,6 @@ function ProfileSettingsTab({ profile, dynProfiles, saveDynProfiles }) {
           {pinErr && <div style={{color:"#f87171",fontSize:12,marginTop:6}}>⚠ {pinErr}</div>}
         </div>
 
-        {saved && <div style={{background:"#0f2820",border:"1px solid #1a4a30",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#34d399",textAlign:"center"}}>✓ Guardado correctamente</div>}
-
-      {/* Invite link */}
-      <div className="card" style={{background:"#050f12"}}>
-        <div style={{fontSize:13,fontWeight:700,color:"#2dcfe8",marginBottom:12}}>🔗 Enlace de invitación</div>
-        <div style={{fontSize:12,color:"#1a4a50",marginBottom:10,lineHeight:1.6}}>
-          Comparte este enlace para que puedan acceder a la app con su PIN
-        </div>
-        <div style={{background:"#040d10",border:"1px solid #0a2028",borderRadius:10,padding:"12px 14px",display:"flex",gap:10,alignItems:"center",marginBottom:10}}>
-          <div style={{flex:1,fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#2dcfe8",wordBreak:"break-all"}}>
-            {window.location.origin}
-          </div>
-          <button onClick={()=>{
-            navigator.clipboard.writeText(window.location.origin);
-            setCopied(true);
-            setTimeout(()=>setCopied(false),2000);
-          }} style={{background:"#0c2e35",border:"1px solid #0e7a8c",borderRadius:8,padding:"6px 14px",color:"#2dcfe8",cursor:"pointer",fontSize:12,fontFamily:"'Outfit',sans-serif",whiteSpace:"nowrap",flexShrink:0}}>
-            {copied?"✓ Copiado":"Copiar"}
-          </button>
-        </div>
-        <div style={{background:"#071418",border:"1px solid #0a2028",borderRadius:10,padding:"10px 14px",fontSize:11,color:"#1a4050"}}>
-          PIN de <strong style={{color:"#e2e8f4"}}>{live.name}</strong>: <strong style={{color:"#fbbf24",fontFamily:"'JetBrains Mono',monospace",letterSpacing:"0.2em"}}>{"•".repeat(4)}</strong>
-          <div style={{marginTop:4,color:"#1a3a40"}}>Recuerda compartir el PIN de forma privada, no por aquí</div>
-        </div>
-      </div>
         <div style={{display:"flex",justifyContent:"flex-end"}}>
           <button className="btn-p" style={{minWidth:150}} onClick={handleSave} disabled={saving}>
             <ICheck/>{saving ? "Guardando…" : "Guardar cambios"}
@@ -3895,6 +3915,8 @@ function GestionTab({ profilesData, savePD, payments, savePayments, dynProfiles,
   const [savingPay, setSavingPay] = useState(false);
   const [editProf, setEditProf] = useState(null);
   const [pf, setPf] = useState({});
+  const [profSaving, setProfSaving] = useState(false);
+  const [toast, setToast] = useState("");
   const [showNewStore, setShowNewStore] = useState(false);
   const [showNewAdmin, setShowNewAdmin] = useState(false);
   const [newStore, setNewStore] = useState({name:"OptiLatina",address:"",pin:"0000",color:"#8b5cf6",description:"",phone:""});
@@ -3904,12 +3926,23 @@ function GestionTab({ profilesData, savePD, payments, savePayments, dynProfiles,
   const sn = (k,v) => setNewStore(p=>({...p,[k]:v}));
   const na = (k,v) => setNewAdmin(p=>({...p,[k]:v}));
 
-  const handleSavePay = async () => { setSavingPay(true); await savePayments(pay); setSavingPay(false); };
+  const handleSavePay = async () => {
+    setSavingPay(true);
+    try { await savePayments(pay); setToast("✓ Métodos de pago guardados correctamente"); setTimeout(()=>setToast(""),3000); }
+    finally { setSavingPay(false); }
+  };
 
   const openEditProf = p => { setPf({...p}); setEditProf(p.id); };
   const saveProf = async () => {
-    await saveDynProfiles(dynProfiles.map(p=>p.id===editProf?pf:p));
-    setEditProf(null);
+    setProfSaving(true);
+    try {
+      await saveDynProfiles(dynProfiles.map(p=>p.id===editProf?pf:p));
+      setEditProf(null);
+      setToast(`✓ Perfil de ${pf.name||"usuario"} guardado correctamente`);
+      setTimeout(()=>setToast(""), 3000);
+    } finally {
+      setProfSaving(false);
+    }
   };
   const deleteProf = async id => {
     if (!confirm("¿Eliminar este perfil?")) return;
@@ -3958,6 +3991,11 @@ Puedes cambiar tu contraseña cuando quieras en "Mi perfil".`) : "";
 
   return (
     <div style={{display:"flex",flexDirection:"column",gap:22}}>
+      {toast && (
+        <div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",zIndex:500,background:"#0f2820",border:"1px solid #1a4a30",borderRadius:12,padding:"12px 20px",fontSize:13,color:"#34d399",boxShadow:"0 10px 40px rgba(0,0,0,.5)",whiteSpace:"nowrap"}}>
+          {toast}
+        </div>
+      )}
       <div>
         <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Gestión</h1>
         <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Perfiles, tiendas y métodos de cobro</div>
@@ -4084,8 +4122,10 @@ Puedes cambiar tu contraseña cuando quieras en "Mi perfil".`) : "";
                   <div style={{fontSize:10,color:"#1a4a50",marginTop:3}}>Si el usuario olvidó su acceso, escribe aquí una contraseña nueva y compártesela.</div>
                 </div>
                 <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-                  <button className="btn-g" onClick={()=>setEditProf(null)}>Cancelar</button>
-                  <button className="btn-p" onClick={saveProf}><ICheck/>Guardar</button>
+                  <button className="btn-g" onClick={()=>setEditProf(null)} disabled={profSaving}>Cancelar</button>
+                  <button className="btn-p" onClick={saveProf} disabled={profSaving} style={{minWidth:110,opacity:profSaving?.7:1}}>
+                    <ICheck/>{profSaving?"Guardando…":"Guardar"}
+                  </button>
                 </div>
               </div>
             </div>
