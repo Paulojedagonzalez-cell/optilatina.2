@@ -267,7 +267,7 @@ const IDeposit= () => <Svg d="M19 14l-7 7m0 0l-7-7m7 7V3"/>;
 
 
 const TEAL = "#0e7a8c";
-export const CSS = `
+const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 input,select{outline:none}button{cursor:pointer}
@@ -2296,7 +2296,7 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
 }
 
 // ── Stats Tab ─────────────────────────────────────────────────────────────────
-export function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
+function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
   // v2 — fixed buildData scope
   const [period, setPeriod] = useState("day");
   const [hover,  setHover]  = useState(null);
@@ -4775,6 +4775,22 @@ function InvModal({item,inventory,saveInv,onClose,rate,initialMode="normal"}) {
             {scanning ? "📸 Leyendo recibo…" : "📸 Escanear recibo del distribuidor"}
           </button>
           <div style={{fontSize:10,color:"#1a4a50",textAlign:"center",marginBottom:12}}>Si el recibo tiene varias páginas, selecciona todas las fotos a la vez.</div>
+
+          {/* Importar lista pegada */}
+          <button className="btn-g" onClick={()=>setShowImport(v=>!v)} style={{width:"100%",justifyContent:"center",fontSize:12,marginBottom:showImport?8:12}}>
+            {showImport?"▲ Ocultar":"📋 Pegar / importar lista"}
+          </button>
+          {showImport && (
+            <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
+              <div style={{fontSize:10,color:"#1a4a50",marginBottom:6,lineHeight:1.5}}>Una línea por producto, con este formato:<br/><span style={{fontFamily:"'JetBrains Mono',monospace",color:"#4a9ab0"}}>nombre | costo | cantidad | precio</span><br/>El precio es opcional (lo puedes poner después con "precio rápido").</div>
+              <textarea value={importTxt} onChange={e=>setImportTxt(e.target.value)} rows={6}
+                placeholder={"SEEY6703C2 54-18 | 30 | 1\nMontura Acetato | 22 | 44\nZIBA variadas | 20 | 59"}
+                style={{background:"#050e10",border:"1px solid #0d2a30",borderRadius:8,padding:"9px 12px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:11,resize:"vertical",outline:"none",width:"100%"}}/>
+              <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}>
+                <button className="btn-p" onClick={importList} style={{fontSize:12}}>Cargar lista ↓</button>
+              </div>
+            </div>
+          )}
 
           {scanInfo && (
             <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:10,padding:"9px 13px",fontSize:12,color:"#34d399",marginBottom:12}}>
