@@ -285,7 +285,7 @@ const IDeposit= () => <Svg d="M19 14l-7 7m0 0l-7-7m7 7V3"/>;
 
 
 const TEAL = "#0e7a8c";
-export const CSS = `
+const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 input,select{outline:none}button{cursor:pointer}
@@ -2033,7 +2033,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
 }
 
 // ── Finanzas Tab ──────────────────────────────────────────────────────────────
-export function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate, saveExpenses, saveInvestments, profile, isMobile, fixedExpenses=DEFAULT_FIXED, saveFixedExpenses }) {
+function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate, saveExpenses, saveInvestments, profile, isMobile, fixedExpenses=DEFAULT_FIXED, saveFixedExpenses }) {
   const [viewMonth, setViewMonth] = useState(today().slice(0,7));
   const [showExpForm, setShowExpForm] = useState(false);
   const [editingExpId, setEditingExpId] = useState(null);
@@ -2044,7 +2044,10 @@ export function FinanzasTab({ sales, orders=[], expenses, investments, inventory
   const [expError, setExpError] = useState("");
   const [markingCat, setMarkingCat] = useState(null);
   const [showFixEditor, setShowFixEditor] = useState(false);   // editor de la LISTA de gastos fijos
+  const [fixDraft, setFixDraft] = useState(null);   // borrador local mientras se edita la lista (null = usar el guardado)
   const formRef = useRef(null);
+  // Lista de gastos fijos a MOSTRAR: el borrador si estás editando, si no el guardado.
+  const fixList = fixDraft ?? fixedExpenses;
 
   // En celular el formulario aparece más abajo: al abrirlo lo llevamos a la
   // vista para que no parezca que "no pasó nada" al tocar Corregir/Registrar.
@@ -2054,9 +2057,9 @@ export function FinanzasTab({ sales, orders=[], expenses, investments, inventory
 
   const emonth = e => (e.date ? e.date.slice(0,7) : e.month) || "";
   // ¿Gasto FIJO? Nuevo: por type. Viejo: si su cat coincide con una plantilla fija.
-  const isFijo   = e => e.type ? e.type==="fijo" : fixedExpenses.some(f=>f.id===e.cat);
-  const recTitle = e => e.title || fixedExpenses.find(f=>f.id===e.cat)?.title || EXPENSE_CATS.find(c=>c.id===e.cat)?.label || "Gasto";
-  const recIcon  = e => fixedExpenses.find(f=>f.id===e.cat)?.icon || (isFijo(e) ? "🔒" : "🛒");
+  const isFijo   = e => e.type ? e.type==="fijo" : fixList.some(f=>f.id===e.cat);
+  const recTitle = e => e.title || fixList.find(f=>f.id===e.cat)?.title || EXPENSE_CATS.find(c=>c.id===e.cat)?.label || "Gasto";
+  const recIcon  = e => fixList.find(f=>f.id===e.cat)?.icon || (isFijo(e) ? "🔒" : "🛒");
 
   // ── Cálculos del mes ──
   const mSales    = sales.filter(s=>s.date.slice(0,7)===viewMonth);
@@ -2091,11 +2094,11 @@ export function FinanzasTab({ sales, orders=[], expenses, investments, inventory
   };
   const paidByFix   = fid => monthExpenses.filter(e=>e.cat===fid).reduce((s,e)=>s+e.amount,0);
   const expectedFor = f => f.amount>0 ? f.amount : (lastAmountFor(f.id) ?? 0);
-  const targetFijos = fixedExpenses.reduce((s,f)=>s+expectedFor(f),0);
+  const targetFijos = fixList.reduce((s,f)=>s+expectedFor(f),0);
   const paidFijos   = monthExpenses.filter(e=>isFijo(e)).reduce((s,e)=>s+e.amount,0);
   const remainFijos = Math.max(0, targetFijos - paidFijos);
   const pctFijos    = targetFijos>0 ? Math.min(100, (paidFijos/targetFijos)*100) : 0;
-  const trackFijos  = fixedExpenses.filter(f=>expectedFor(f)>0);
+  const trackFijos  = fixList.filter(f=>expectedFor(f)>0);
   const allFijosPaid= trackFijos.length>0 && trackFijos.every(f=>paidByFix(f.id) >= expectedFor(f)-0.01);
   const tiendaRecs  = monthExpenses.filter(e=>!isFijo(e));   // gastos de tienda del mes
 
@@ -2118,7 +2121,7 @@ export function FinanzasTab({ sales, orders=[], expenses, investments, inventory
     if (ef.type==="tienda" && !ef.title.trim()) { setExpError("Ponle un título al gasto de tienda"); return; }
     const month = ef.date.slice(0,7);
     const base = ef.type==="fijo"
-      ? {type:"fijo",   cat:ef.fixedId, title:(fixedExpenses.find(f=>f.id===ef.fixedId)?.title)||ef.title||"", amount:+ef.amount, month, date:ef.date, note:ef.note}
+      ? {type:"fijo",   cat:ef.fixedId, title:(fixList.find(f=>f.id===ef.fixedId)?.title)||ef.title||"", amount:+ef.amount, month, date:ef.date, note:ef.note}
       : {type:"tienda", cat:"tienda",   title:ef.title.trim(), amount:+ef.amount, month, date:ef.date, note:ef.note};
     const updated = editingExpId
       ? expenses.map(e=>e.id===editingExpId ? {...e, ...base} : e)
@@ -2162,10 +2165,21 @@ export function FinanzasTab({ sales, orders=[], expenses, investments, inventory
   };
 
   // ── Editar la LISTA de gastos fijos (plantillas que se repiten cada mes) ──
-  const saveFix   = async next => { if (!saveFixedExpenses) return; try { await saveFixedExpenses(next); } catch (err) { console.error(err); alert("No se pudo guardar la lista. Revisa tu conexión."); } };
-  const addFix    = () => saveFix([...fixedExpenses, {id:uid(), title:"Nuevo gasto fijo", icon:"📌", amount:0, dueFrom:1, dueTo:5}]);
-  const updateFix = (id, patch) => saveFix(fixedExpenses.map(f=>f.id===id?{...f,...patch}:f));
-  const removeFix = async f => { if (!confirm(`¿Quitar "${f.title}" de tus gastos fijos? (los pagos ya registrados no se borran)`)) return; saveFix(fixedExpenses.filter(x=>x.id!==f.id)); };
+  // Se edita un BORRADOR local (setState funcional = sin condiciones de carrera
+  // aunque cambies varios campos rápido) y se guarda al tocar "✓ Listo".
+  const editFix   = fn => setFixDraft(prev => fn(prev ?? fixedExpenses));
+  const updateFix = (id, patch) => editFix(list => list.map(f=>f.id===id?{...f,...patch}:f));
+  const addFix    = () => editFix(list => [...list, {id:uid(), title:"Nuevo gasto fijo", icon:"📌", amount:0, dueFrom:1, dueTo:5}]);
+  const removeFix = f => { if (!confirm(`¿Quitar "${f.title}" de tus gastos fijos? (los pagos ya registrados no se borran)`)) return; editFix(list => list.filter(x=>x.id!==f.id)); };
+  // Abrir/cerrar el editor. Al cerrar, persiste el borrador en la nube.
+  const toggleFixEditor = async () => {
+    if (!showFixEditor) { setShowFixEditor(true); return; }
+    if (fixDraft && saveFixedExpenses) {
+      try { await saveFixedExpenses(fixDraft.filter(f=>f.title?.trim())); }
+      catch (err) { console.error(err); alert("No se pudo guardar la lista. Revisa tu conexión."); return; }
+    }
+    setFixDraft(null); setShowFixEditor(false);
+  };
 
   const Card = ({l,usd,txt,c,sub}) => (
     <div className="card-sm" style={{borderLeft:`3px solid ${c}50`}}>
@@ -2269,7 +2283,7 @@ export function FinanzasTab({ sales, orders=[], expenses, investments, inventory
             <div style={{fontSize:11,color:"#1a4a50",marginTop:2,lineHeight:1.5}}>🔒 <b style={{color:"#8aa0b8"}}>Fijos</b> se repiten cada mes · 🛒 <b style={{color:"#8aa0b8"}}>De tienda</b> son compras/pagos sueltos</div>
           </div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            <button className="btn-g" style={{fontSize:12,padding:"7px 12px"}} onClick={()=>setShowFixEditor(v=>!v)}>{showFixEditor?"✓ Listo":"⚙️ Editar fijos"}</button>
+            <button className="btn-g" style={{fontSize:12,padding:"7px 12px"}} onClick={toggleFixEditor}>{showFixEditor?"✓ Listo":"⚙️ Editar fijos"}</button>
             <button className="btn-p" style={{fontSize:12,padding:"7px 12px"}} onClick={openNewTienda}><IPlus/>Gasto de tienda</button>
           </div>
         </div>
@@ -2279,9 +2293,9 @@ export function FinanzasTab({ sales, orders=[], expenses, investments, inventory
         {showFixEditor && (
           <div style={{background:"#071418",border:"1px solid #12303a",borderRadius:12,padding:isMobile?"12px":"14px",marginBottom:16}}>
             <div style={{fontSize:11,fontWeight:700,color:"#2dcfe8",textTransform:"uppercase",letterSpacing:".07em",marginBottom:4}}>Tus gastos fijos</div>
-            <div style={{fontSize:11,color:"#1a4a50",marginBottom:12}}>Cambia el título, el monto esperado y del día __ al __ que vence. Se repiten cada mes.</div>
+            <div style={{fontSize:11,color:"#1a4a50",marginBottom:12}}>Cambia el título, el monto esperado y del día __ al __ que vence. Se repiten cada mes. Toca <b style={{color:"#34d399"}}>✓ Listo</b> para guardar.</div>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              {fixedExpenses.map(f=>(
+              {fixList.map(f=>(
                 <div key={f.id} style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center",background:"#040d10",border:"1px solid #0d2a30",borderRadius:10,padding:"10px"}}>
                   <input value={f.title} onChange={e=>updateFix(f.id,{title:e.target.value})} placeholder="Título"
                     style={{flex:"2 1 140px",minWidth:0,background:"#050f12",border:"1px solid #12303a",borderRadius:6,padding:"7px 9px",color:"#e2e8f4",fontSize:13,fontFamily:"'Outfit',sans-serif"}}/>
@@ -2334,7 +2348,7 @@ export function FinanzasTab({ sales, orders=[], expenses, investments, inventory
         {/* Lista unificada: cada gasto con su etiqueta (🔒 Fijo / 🛒 Tienda) */}
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
           {/* Gastos fijos (plantillas que se repiten) */}
-          {fixedExpenses.map(f=>{
+          {fixList.map(f=>{
             const recs = monthExpenses.filter(e=>e.cat===f.id);
             const amtPaid = recs.reduce((s,e)=>s+e.amount,0);
             const exp = expectedFor(f);
@@ -2412,7 +2426,7 @@ export function FinanzasTab({ sales, orders=[], expenses, investments, inventory
             </div>
           ))}
 
-          {fixedExpenses.length===0 && tiendaRecs.length===0 && (
+          {fixList.length===0 && tiendaRecs.length===0 && (
             <div style={{color:"#0d2a30",textAlign:"center",padding:"18px 0",fontSize:13}}>Sin gastos aún. Agrega tus gastos fijos con "⚙️ Editar fijos".</div>
           )}
         </div>
@@ -2435,7 +2449,7 @@ export function FinanzasTab({ sales, orders=[], expenses, investments, inventory
             {/* Tipo */}
             <div style={{display:"flex",gap:8}}>
               {[{id:"fijo",l:"🔒 Fijo"},{id:"tienda",l:"🛒 De tienda"}].map(t=>(
-                <button key={t.id} onClick={()=>setEf(f=>({...f,type:t.id, fixedId:t.id==="fijo"?(f.fixedId||fixedExpenses[0]?.id||""):""}))}
+                <button key={t.id} onClick={()=>setEf(f=>({...f,type:t.id, fixedId:t.id==="fijo"?(f.fixedId||fixList[0]?.id||""):""}))}
                   style={{flex:1,padding:"8px",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'Outfit',sans-serif",
                     border:`1px solid ${ef.type===t.id?(t.id==="fijo"?"#1a5060":"#4a3510"):"#0d2a30"}`,
                     background:ef.type===t.id?(t.id==="fijo"?"#0c2e35":"#241a06"):"transparent",
@@ -2446,7 +2460,7 @@ export function FinanzasTab({ sales, orders=[], expenses, investments, inventory
               ? <div className="field"><label>¿Cuál gasto fijo?</label>
                   <select value={ef.fixedId} onChange={e=>setEf(f=>({...f,fixedId:e.target.value}))}>
                     <option value="">— Elige —</option>
-                    {fixedExpenses.map(f=><option key={f.id} value={f.id}>{f.icon} {f.title}</option>)}
+                    {fixList.map(f=><option key={f.id} value={f.id}>{f.icon} {f.title}</option>)}
                   </select>
                 </div>
               : <div className="field"><label>Título del gasto</label>
