@@ -130,21 +130,23 @@ async function dbLoadAll() {
     // Timeout de 5s: si Firebase no responde, la app arranca con datos locales
     const _timeout = new Promise((_, reject) =>
       setTimeout(() => reject(new Error("Firebase timeout")), 5000));
-    const [inventory, sales, expenses, deposits, investments, orders,
-           rate, payments, profilesData, dynProfiles] = await Promise.race([Promise.all([
+    const [inventory, sales, expenses, deposits, investments, orders, purchases,
+           rate, payments, profilesData, dynProfiles, fixedExpenses] = await Promise.race([Promise.all([
       DB.getAll("inventory", "name"),
       DB.getAll("sales",     "date"),
       DB.getAll("expenses",  "createdAt"),
       DB.getAll("deposits",  "date"),
       DB.getAll("investments","date"),
       DB.getAll("orders",    "createdAt"),
+      DB.getAll("purchases", "date"),
       DB.getSetting("rate"),
       DB.getSetting("payments"),
       DB.getSetting("profilesData"),
       DB.getSetting("dynProfiles"),
+      DB.getSetting("fixedExpenses"),
     ]), _timeout]);
-    return { inventory, sales, expenses, deposits, investments, orders,
-             rate, payments, profilesData, dynProfiles };
+    return { inventory, sales, expenses, deposits, investments, orders, purchases,
+             rate, payments, profilesData, dynProfiles, fixedExpenses };
   } catch (e) {
     console.error("Firebase load error:", e);
     return null;
@@ -203,6 +205,19 @@ async function dbSaveInvestments(items) {
     id: i.id, date: i.date, amount: i.amount,
     description: i.description ?? "", note: i.note ?? "",
     createdAt: i.createdAt ?? new Date().toISOString(),
+  })));
+}
+
+// Historial de compras a distribuidores (cada recibo cargado al inventario)
+async function dbSavePurchases(items) {
+  await DB.upsertMany("purchases", items.map(p => ({
+    id: p.id, date: p.date,
+    distributor: p.distributor ?? "", receiptNumber: p.receiptNumber ?? "",
+    source: p.source ?? "manual",       // "scan" | "import" | "manual"
+    itemsCount: p.itemsCount ?? 0, unitsCount: p.unitsCount ?? 0,
+    totalInvested: p.totalInvested ?? 0,
+    note: p.note ?? "", storeId: p.storeId ?? null,
+    createdAt: p.createdAt ?? new Date().toISOString(),
   })));
 }
 
@@ -270,7 +285,7 @@ const IDeposit= () => <Svg d="M19 14l-7 7m0 0l-7-7m7 7V3"/>;
 
 
 const TEAL = "#0e7a8c";
-const CSS = `
+export const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 input,select{outline:none}button{cursor:pointer}
@@ -502,6 +517,24 @@ const EXPENSE_CATS = [
   {id:"wifi",       label:"WiFi",            icon:"📶", dueDay:-1, schedule:"Último día del mes",    defaultAmt:null},
   {id:"otro",       label:"Otro",            icon:"📋", dueDay:null, schedule:null,                  defaultAmt:null},
 ];
+
+// Gastos fijos EDITABLES por el usuario (se guardan en la nube como setting).
+// Cada uno: título, monto/meta mensual, y ventana de vencimiento (del día X al Y).
+// Se siembran con los de siempre; el usuario los edita, agrega o borra.
+const DEFAULT_FIXED = [
+  {id:"alquiler",   title:"Alquiler",       icon:"🏠", amount:0,   dueFrom:1,  dueTo:5},
+  {id:"nomina",     title:"Nómina",         icon:"👥", amount:600, dueFrom:1,  dueTo:15},
+  {id:"redes",      title:"Redes sociales", icon:"📲", amount:0,   dueFrom:15, dueTo:15},
+  {id:"condominio", title:"Condominio",     icon:"🏢", amount:0,   dueFrom:28, dueTo:31},
+  {id:"wifi",       title:"WiFi",           icon:"📶", amount:0,   dueFrom:28, dueTo:31},
+];
+// Texto legible del vencimiento: "del 1 al 5" o "el día 15".
+const dueLabel = f => {
+  if (f.dueFrom==null && f.dueTo==null) return "";
+  if (f.dueFrom!=null && f.dueTo!=null && f.dueFrom!==f.dueTo) return `Vence del ${f.dueFrom} al ${f.dueTo}`;
+  const d = f.dueFrom ?? f.dueTo;
+  return `Vence el día ${d}`;
+};
 const IMoney = () => <Svg d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>;
 const ITag   = () => <Svg d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" s={16}/>;
 const IBarcode=() => <Svg d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" s={16}/>;
@@ -536,11 +569,13 @@ export default function App() {
   const [deposits,     setDeposits]     = useState([]);
   const [expenses,     setExpenses]     = useState([]);
   const [investments,  setInvestments]  = useState([]);
+  const [purchases,    setPurchases]    = useState([]); // historial de compras a distribuidores
   const [orders,       setOrders]       = useState([]); // apartados con abonos
   const [rate,         setRateState]    = useState(36.5);
   const [payments,     setPayments]     = useState(DEFAULT_PAYMENTS);
   const [profilesData, setProfilesData] = useState(DEFAULT_PROFILES_DATA);
   const [dynProfiles,  setDynProfiles]  = useState(DEFAULT_DYN_PROFILES);
+  const [fixedExpenses, setFixedExpenses] = useState(DEFAULT_FIXED);
   const [storeFilter,  setStoreFilter]  = useState("all"); // "all" | storeId
   const [viewAs,       setViewAs]       = useState(null);  // owner viendo la app como otro perfil
   const [recovery,     setRecovery]     = useState([]);    // solicitudes de recuperacion de acceso
@@ -566,6 +601,7 @@ export default function App() {
           if (b.payments     != null) setPayments(b.payments);
           if (b.profilesData != null) setProfilesData(b.profilesData);
           if (b.dynProfiles?.length)  setDynProfiles(b.dynProfiles);
+          if (b.fixedExpenses?.length) setFixedExpenses(b.fixedExpenses);
         }
       } catch {}
       if (hadBackup) setLoading(false);
@@ -582,11 +618,14 @@ export default function App() {
         setDeposits(data.deposits ?? []);
         setExpenses(data.expenses ?? []);
         setInvestments(data.investments ?? []);
+        setPurchases(data.purchases ?? []);
         setOrders(data.orders ?? []);
         if (data.rate         !== null) setRateState(data.rate);
         if (data.payments     !== null) setPayments(data.payments);
         if (data.profilesData !== null) setProfilesData(data.profilesData);
         if (data.dynProfiles  !== null) setDynProfiles(data.dynProfiles);
+        // Solo si el usuario ya guardó su lista; si no, se queda la sembrada.
+        if (data.fixedExpenses?.length) setFixedExpenses(data.fixedExpenses);
       }
       setLoading(false);
     })();
@@ -604,13 +643,13 @@ export default function App() {
         localStorage.setItem("ol_backup", JSON.stringify({
           inventory: inventory.map(({photo, ...rest}) => rest),
           sales, deposits, expenses, investments, orders,
-          rate, payments, profilesData,
+          rate, payments, profilesData, fixedExpenses,
           dynProfiles: dynProfiles.map(({photo, storeLogo, ...rest}) => rest),
         }));
       } catch {}
     }, 1500);
     return () => clearTimeout(t);
-  }, [loading, inventory, sales, deposits, expenses, investments, orders, rate, payments, profilesData, dynProfiles]);
+  }, [loading, inventory, sales, deposits, expenses, investments, orders, rate, payments, profilesData, dynProfiles, fixedExpenses]);
 
   // Sesion recordada: si el usuario marco "Recordar mi sesion", entrar directo
   useEffect(() => {
@@ -633,12 +672,14 @@ export default function App() {
       DB.listen("expenses",    d => setExpenses(d)),
       DB.listen("deposits",    d => setDeposits(d)),
       DB.listen("investments", d => setInvestments(d)),
+      DB.listen("purchases",   d => setPurchases(d)),
       DB.listen("orders",      d => setOrders(d)),
       DB.listen("recovery",    d => setRecovery(d)),
       DB.listenSetting("rate",          v => setRateState(v)),
       DB.listenSetting("payments",      v => setPayments(v)),
       DB.listenSetting("profilesData",  v => setProfilesData(v)),
       DB.listenSetting("dynProfiles",   v => setDynProfiles(v)),
+      DB.listenSetting("fixedExpenses", v => { if (v?.length) setFixedExpenses(v); }),
     ];
     return () => unsubs.forEach(u => u());
   }, [profile]);
@@ -684,10 +725,17 @@ export default function App() {
     await dbSaveInvestments(d);
     await Promise.all(removed.map(x => DB.delete("investments", x.id)));
   }, [investments]);
+  const savePurchases   = useCallback(async d => {
+    const removed = purchases.filter(x => !d.find(y => y.id === x.id));
+    setPurchases(d);
+    await dbSavePurchases(d);
+    await Promise.all(removed.map(x => DB.delete("purchases", x.id)));
+  }, [purchases]);
   const saveRate        = useCallback(async r => { setRateState(r);   await dbSaveSetting("rate", r); }, []);
   const savePayments    = useCallback(async d => { setPayments(d);    await dbSaveSetting("payments", d); }, []);
   const savePD          = useCallback(async d => { setProfilesData(d);await dbSaveSetting("profilesData", d); }, []);
   const saveDynProfiles = useCallback(async d => { setDynProfiles(d); await dbSaveSetting("dynProfiles", d); }, []);
+  const saveFixedExpenses = useCallback(async d => { setFixedExpenses(d); await dbSaveSetting("fixedExpenses", d); }, []);
 
   // Actualizar: recarga todos los datos de Firestore y busca app nueva
   const refreshData = useCallback(async () => {
@@ -699,11 +747,13 @@ export default function App() {
     setDeposits(data.deposits ?? []);
     setExpenses(data.expenses ?? []);
     setInvestments(data.investments ?? []);
+    setPurchases(data.purchases ?? []);
     setOrders(data.orders ?? []);
     if (data.rate         !== null) setRateState(data.rate);
     if (data.payments     !== null) setPayments(data.payments);
     if (data.profilesData !== null) setProfilesData(data.profilesData);
     if (data.dynProfiles  !== null) setDynProfiles(data.dynProfiles);
+    if (data.fixedExpenses?.length) setFixedExpenses(data.fixedExpenses);
     return true;
   }, []);
 
@@ -750,7 +800,7 @@ export default function App() {
   // Cambio directo de perfil (solo owner, desde Gestion): entra de lleno al
   // otro perfil. La sesion recordada sigue siendo la suya — al recargar vuelve.
   const switchTo = id => { setViewAs(null); setProfile(id); };
-  const shared = { inventory, sales, rate, deposits, expenses, investments, orders, recovery, payments, profilesData, dynProfiles, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, saveOrders, saveDynProfiles, setViewAs, switchTo, refreshData, onLogout:handleLogout };
+  const shared = { inventory, sales, rate, deposits, expenses, investments, purchases, orders, recovery, payments, profilesData, dynProfiles, fixedExpenses, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, savePurchases, saveOrders, saveDynProfiles, saveFixedExpenses, setViewAs, switchTo, refreshData, onLogout:handleLogout };
 
   // "Ver como": el propietario puede ver la app tal cual la ve otro perfil
   if (viewAs && p?.id === "owner") {
@@ -1728,7 +1778,7 @@ function CameraModal({ onClose, onDetect }) {
 }
 
 // ── Admin View ────────────────────────────────────────────────────────────────
-function AdminView({ profile, inventory, sales, rate, deposits, expenses, investments, orders, recovery = [], payments, profilesData, dynProfiles, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, saveOrders, saveDynProfiles, setViewAs, switchTo, refreshData, onLogout }) {
+function AdminView({ profile, inventory, sales, rate, deposits, expenses, investments, purchases = [], orders, recovery = [], payments, profilesData, dynProfiles, fixedExpenses = DEFAULT_FIXED, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, savePurchases, saveOrders, saveDynProfiles, saveFixedExpenses, setViewAs, switchTo, refreshData, onLogout }) {
   const [tab,       setTab]      = useState("dash");
   const [invModal,  setInvModal] = useState(null);
   const [detailDate,setDD]       = useState(null);
@@ -1798,6 +1848,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
     {id:"stats",   I:IStats,  l:"Stats"},
     {id:"caja",    I:ICash,   l:"Caja"},
     {id:"inv",     I:IBox,    l:"Inventario"},
+    {id:"compras", I:IDeposit,l:"Compras"},
     {id:"history", I:IChart,  l:"Historial"},
   ];
   const SIDE_EXTRA = [
@@ -1879,6 +1930,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
             {id:"finanzas",I:IMoney,  l:"Finanzas"},
             {id:"caja",    I:ICash,   l:"Caja"},
             {id:"inv",     I:IBox,    l:"Inventario"},
+            {id:"compras", I:IDeposit,l:"Compras"},
             {id:"history", I:IChart,  l:"Historial"},
             {id:"miperfil",I:IGear,   l:"Mi perfil"},
             ...(profile.id==="owner" ? [{id:"ajustes",I:IUsers,l:"Gestión"},{id:"cierre",I:IChart,l:"Cierre de caja"}] : []),
@@ -1934,13 +1986,14 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
           </div>
         )}
         {tab==="dash"     && <DashTab    {...{todayRev,todayProf,todayItems,weekRev,weekProf,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders}} />}
-        {tab==="stats"    && <StatsTab   {...{sales:filteredSales,orders,expenses,rate,isMobile,profile}} />}
+        {tab==="stats"    && <StatsTab   {...{sales:filteredSales,orders,expenses,rate,isMobile,profile,fixedExpenses}} />}
         {tab==="week"     && <WeekTab    {...{byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles,isMobile}} />}
-        {tab==="finanzas" && <FinanzasTab {...{sales:filteredSales,orders,expenses,investments,inventory,rate,saveExpenses,saveInvestments,profile,isMobile}} />}
+        {tab==="finanzas" && <FinanzasTab {...{sales:filteredSales,orders,expenses,investments,inventory,rate,saveExpenses,saveInvestments,profile,isMobile,fixedExpenses,saveFixedExpenses}} />}
         {tab==="apart"    && <ApartadosTab {...{orders,saveOrders,rate,profile,isMobile}} />}
         {tab==="caja"     && <CajaTab    {...{sales:filteredSales,deposits,saveDeposits,rate,payments,isMobile,orders}} />}
         {tab==="cierre"   && profile.id==="owner" && <CierreTab {...{sales,expenses,orders,rate,dynProfiles,profile}} />}
         {tab==="inv"      && <InvTab     {...{inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,isMobile}} />}
+        {tab==="compras"  && <ComprasTab {...{purchases,savePurchases,rate,isMobile}} />}
         {tab==="history"  && <HistTab    {...{byDate,sortedDates,setDD,storeFilter}} />}
         {tab==="miperfil" && <ProfileSettingsTab profile={profile} dynProfiles={dynProfiles} saveDynProfiles={saveDynProfiles}/>}
         {tab==="ajustes"  && profile.id==="owner" && <GestionTab {...{profilesData,savePD,payments,savePayments,dynProfiles,saveDynProfiles,setViewAs,switchTo,recovery}} />}
@@ -1973,77 +2026,87 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
         </nav>
       )}
 
-      {invModal!==null  && <InvModal  item={(invModal==="new"||invModal==="scan")?null:invModal} initialMode={invModal==="scan"?"fast":"normal"} inventory={inventory} saveInv={saveInv} onClose={()=>setInvModal(null)} rate={rate} />}
+      {invModal!==null  && <InvModal  item={(invModal==="new"||invModal==="scan")?null:invModal} initialMode={invModal==="scan"?"fast":"normal"} inventory={inventory} saveInv={saveInv} purchases={purchases} savePurchases={savePurchases} storeId={profile?.id} onClose={()=>setInvModal(null)} rate={rate} />}
       {detailDate       && <DayModal  date={detailDate} sales={byDate[detailDate]||[]} onClose={()=>setDD(null)} rate={rate} />}
     </div>
   );
 }
 
 // ── Finanzas Tab ──────────────────────────────────────────────────────────────
-function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate, saveExpenses, saveInvestments, profile }) {
+export function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate, saveExpenses, saveInvestments, profile, isMobile, fixedExpenses=DEFAULT_FIXED, saveFixedExpenses }) {
   const [viewMonth, setViewMonth] = useState(today().slice(0,7));
   const [showExpForm, setShowExpForm] = useState(false);
   const [editingExpId, setEditingExpId] = useState(null);
-  const [ef, setEf] = useState({cat:"alquiler", amount:"", date:today(), note:""});
+  // ef.type: "fijo" | "tienda". Para fijo se guarda fixedId; para tienda, título libre.
+  const [ef, setEf] = useState({type:"fijo", fixedId:"", title:"", amount:"", date:today(), note:""});
   const [expSaved, setExpSaved] = useState(false);
   const [expSaving, setExpSaving] = useState(false);
   const [expError, setExpError] = useState("");
   const [markingCat, setMarkingCat] = useState(null);
+  const [showFixEditor, setShowFixEditor] = useState(false);   // editor de la LISTA de gastos fijos
   const formRef = useRef(null);
 
-  // En celular el formulario aparece debajo del calendario: al abrirlo lo
-  // llevamos a la vista para que no parezca que "no pasó nada" al tocar Corregir.
+  // En celular el formulario aparece más abajo: al abrirlo lo llevamos a la
+  // vista para que no parezca que "no pasó nada" al tocar Corregir/Registrar.
   useEffect(() => {
-    if (showExpForm && formRef.current) {
-      formRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, [showExpForm, editingExpId, ef.cat]);
+    if (showExpForm && formRef.current) formRef.current.scrollIntoView({ behavior:"smooth", block:"center" });
+  }, [showExpForm, editingExpId, ef.type]);
 
-  // El mes al que pertenece un gasto: prioriza la fecha exacta si existe,
-  // si no usa el campo month (registros viejos). Asi ambos se agrupan igual.
   const emonth = e => (e.date ? e.date.slice(0,7) : e.month) || "";
+  // ¿Gasto FIJO? Nuevo: por type. Viejo: si su cat coincide con una plantilla fija.
+  const isFijo   = e => e.type ? e.type==="fijo" : fixedExpenses.some(f=>f.id===e.cat);
+  const recTitle = e => e.title || fixedExpenses.find(f=>f.id===e.cat)?.title || EXPENSE_CATS.find(c=>c.id===e.cat)?.label || "Gasto";
+  const recIcon  = e => fixedExpenses.find(f=>f.id===e.cat)?.icon || (isFijo(e) ? "🔒" : "🛒");
 
-  // ── Calculations for selected month ──
+  // ── Cálculos del mes ──
   const mSales    = sales.filter(s=>s.date.slice(0,7)===viewMonth);
   const mRevenue  = mSales.reduce((s,v)=>s+v.total,0);
-  // El costo de laboratorio se le cobra al cliente (va dentro de "total") y se le
-  // paga al laboratorio: es un pasa-manos, no ganancia. Se resta junto al costo
-  // de mercancía para que la ganancia bruta cuadre con la ganancia que se guarda
-  // por venta (la misma que muestran Estadísticas y el Dashboard).
+  // El costo de laboratorio se le cobra al cliente (va en "total") y se le paga
+  // al laboratorio: pasa-manos, no ganancia. Se resta junto al costo de mercancía.
   const mCOGS     = mSales.reduce((s,v)=>s+v.cost*v.qty+(v.labCost||0),0);
   const mGross    = mRevenue - mCOGS;
-  const mExpenses = expenses.filter(e=>emonth(e)===viewMonth).reduce((s,e)=>s+e.amount,0);
+  const monthExpenses = expenses.filter(e=>emonth(e)===viewMonth);
+  const mExpenses = monthExpenses.reduce((s,e)=>s+e.amount,0);
   const mNet      = mGross - mExpenses;
   const ownerNet  = mNet * PROFIT_SPLIT.owner;
   const reneNet   = mNet * PROFIT_SPLIT.rene;
 
-  // Dinero REAL que entro este mes (ventas + abonos de apartados) menos
-  // TODOS los gastos — el numero de control total que pidio el usuario:
-  // cada gasto que se suba resta de lo que va entrando, sin excepcion.
   const mAbonos      = orders.flatMap(o=>o.payments||[]).filter(p=>p.date?.slice(0,7)===viewMonth).reduce((s,p)=>s+p.amount,0);
   const mCobradoTotal= mRevenue + mAbonos;
   const mEfectivoNeto= mCobradoTotal - mExpenses;
 
-  // ── Months list for selector ──
   const allMonths = [...new Set([
     ...sales.map(s=>s.date.slice(0,7)),
     ...expenses.map(e=>emonth(e)),
     today().slice(0,7)
   ])].filter(Boolean).sort((a,b)=>b.localeCompare(a));
 
-  const monthExpenses = expenses.filter(e=>emonth(e)===viewMonth);
-
-  // Al abrir un gasto nuevo, la fecha por defecto es el día de hoy si estamos
-  // viendo el mes actual; si no, el día 1 del mes que se está viendo.
   const defDate = () => viewMonth===today().slice(0,7) ? today() : `${viewMonth}-01`;
-  const openNewExp  = () => { setEditingExpId(null); setExpError(""); setEf({cat:"alquiler",amount:"",date:defDate(),note:""}); setShowExpForm(true); };
-  const openEditExp = e => {
-    // Normaliza a fecha completa YYYY-MM-DD. Registros viejos guardaban solo el mes
-    // ("2026-07"), que no sirve para el campo de fecha — lo llevamos al día 1.
+
+  // ── Gastos fijos (plantillas): meta, pagado y progreso ──
+  const lastAmountFor = fid => {
+    const hist = expenses.filter(e=>e.cat===fid && +e.amount>0)
+      .sort((a,b)=>(b.date||b.month||"").localeCompare(a.date||a.month||""));
+    return hist.length ? hist[0].amount : null;
+  };
+  const paidByFix   = fid => monthExpenses.filter(e=>e.cat===fid).reduce((s,e)=>s+e.amount,0);
+  const expectedFor = f => f.amount>0 ? f.amount : (lastAmountFor(f.id) ?? 0);
+  const targetFijos = fixedExpenses.reduce((s,f)=>s+expectedFor(f),0);
+  const paidFijos   = monthExpenses.filter(e=>isFijo(e)).reduce((s,e)=>s+e.amount,0);
+  const remainFijos = Math.max(0, targetFijos - paidFijos);
+  const pctFijos    = targetFijos>0 ? Math.min(100, (paidFijos/targetFijos)*100) : 0;
+  const trackFijos  = fixedExpenses.filter(f=>expectedFor(f)>0);
+  const allFijosPaid= trackFijos.length>0 && trackFijos.every(f=>paidByFix(f.id) >= expectedFor(f)-0.01);
+  const tiendaRecs  = monthExpenses.filter(e=>!isFijo(e));   // gastos de tienda del mes
+
+  // ── Abrir formulario de pago ──
+  const openNewFijo   = f => { setEditingExpId(null); setExpError(""); setEf({type:"fijo", fixedId:f.id, title:f.title, amount:"", date:defDate(), note:""}); setShowExpForm(true); };
+  const openNewTienda = () => { setEditingExpId(null); setExpError(""); setEf({type:"tienda", fixedId:"", title:"", amount:"", date:defDate(), note:""}); setShowExpForm(true); };
+  const openEditExp   = e => {
     const raw = e.date || e.month || viewMonth;
     const full = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : `${raw.slice(0,7)}-01`;
     setEditingExpId(e.id); setExpError("");
-    setEf({cat:e.cat,amount:String(e.amount),date:full,note:e.note||""});
+    setEf({type: isFijo(e)?"fijo":"tienda", fixedId: isFijo(e)?e.cat:"", title: recTitle(e), amount:String(e.amount), date:full, note:e.note||""});
     setShowExpForm(true);
   };
 
@@ -2051,82 +2114,58 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
     setExpError("");
     if (!ef.amount || +ef.amount<=0) { setExpError("Escribe un monto mayor a 0"); return; }
     if (!ef.date) { setExpError("Elige una fecha"); return; }
-    const month = ef.date.slice(0,7); // el mes se deriva de la fecha exacta
+    if (ef.type==="fijo"   && !ef.fixedId) { setExpError("Elige cuál gasto fijo es"); return; }
+    if (ef.type==="tienda" && !ef.title.trim()) { setExpError("Ponle un título al gasto de tienda"); return; }
+    const month = ef.date.slice(0,7);
+    const base = ef.type==="fijo"
+      ? {type:"fijo",   cat:ef.fixedId, title:(fixedExpenses.find(f=>f.id===ef.fixedId)?.title)||ef.title||"", amount:+ef.amount, month, date:ef.date, note:ef.note}
+      : {type:"tienda", cat:"tienda",   title:ef.title.trim(), amount:+ef.amount, month, date:ef.date, note:ef.note};
     const updated = editingExpId
-      ? expenses.map(e=>e.id===editingExpId ? {...e,cat:ef.cat,amount:+ef.amount,month,date:ef.date,note:ef.note} : e)
-      : [...expenses,{id:uid(),cat:ef.cat,amount:+ef.amount,month,date:ef.date,note:ef.note}];
+      ? expenses.map(e=>e.id===editingExpId ? {...e, ...base} : e)
+      : [...expenses, {id:uid(), ...base}];
     setExpSaving(true);
     try {
       await saveExpenses(updated);
-      setShowExpForm(false); setEditingExpId(null); setEf({cat:"alquiler",amount:"",date:today(),note:""});
+      setShowExpForm(false); setEditingExpId(null);
+      setEf({type:"fijo", fixedId:"", title:"", amount:"", date:today(), note:""});
       setExpSaved(true); setTimeout(()=>setExpSaved(false), 2500);
     } catch (err) {
       console.error("Error guardando gasto:", err);
       setExpError("No se pudo guardar. Revisa tu conexión e intenta de nuevo.");
-    } finally {
-      setExpSaving(false);
-    }
+    } finally { setExpSaving(false); }
   };
   const delExp = async e => {
-    const cat = EXPENSE_CATS.find(c=>c.id===e.cat);
-    if (!confirm(`¿Eliminar el gasto de ${cat?.label||e.cat} (${fmtUSD(e.amount)})?`)) return;
+    if (!confirm(`¿Eliminar el gasto de ${recTitle(e)} (${fmtUSD(e.amount)})?`)) return;
     try { await saveExpenses(expenses.filter(x=>x.id!==e.id)); }
     catch (err) { console.error("Error eliminando gasto:", err); alert("No se pudo eliminar. Revisa tu conexión."); }
   };
-  // Revertir un gasto fijo marcado por error: quita TODOS los pagos de esa
-  // categoría en el mes visible y vuelve a quedar como pendiente.
-  const revertCat = async cat => {
-    const recs = monthExpenses.filter(e=>e.cat===cat.id);
+  // Revertir un gasto fijo marcado por error: quita TODOS sus pagos del mes.
+  const revertFix = async f => {
+    const recs = monthExpenses.filter(e=>e.cat===f.id);
     if (!recs.length) return;
     const total = recs.reduce((s,e)=>s+e.amount,0);
-    if (!confirm(`¿Quitar el pago de ${cat.label} (${fmtUSD(total)}) de ${viewMonth}? Volverá a quedar como PENDIENTE.`)) return;
+    if (!confirm(`¿Quitar el pago de ${f.title} (${fmtUSD(total)}) de ${viewMonth}? Volverá a quedar como PENDIENTE.`)) return;
     const ids = new Set(recs.map(r=>r.id));
     try { await saveExpenses(expenses.filter(e=>!ids.has(e.id))); }
     catch (err) { console.error("Error revirtiendo gasto:", err); alert("No se pudo quitar. Revisa tu conexión."); }
   };
-
-  // ── Gastos fijos: monto sugerido, marcar pagado y progreso del mes ──────────
-  const scheduledCats = EXPENSE_CATS.filter(c=>c.schedule);
-  // Lo último que se pagó en esa categoría (busca en todo el historial).
-  const lastAmountFor = catId => {
-    const hist = expenses
-      .filter(e=>e.cat===catId && +e.amount>0)
-      .sort((a,b)=>(b.date||b.month||"").localeCompare(a.date||a.month||""));
-    return hist.length ? hist[0].amount : null;
-  };
-  // Monto que esperamos pagar por categoría (para calcular cuánto falta reunir).
-  const expectedFor = cat => cat.id==="nomina" ? 600 : (lastAmountFor(cat.id) ?? cat.defaultAmt ?? 0);
-  const targetFijos = scheduledCats.reduce((s,c)=>s+expectedFor(c),0);
-  const paidByCat   = catId => monthExpenses.filter(e=>e.cat===catId).reduce((s,e)=>s+e.amount,0);
-  const paidFijos   = monthExpenses.filter(e=>scheduledCats.some(c=>c.id===e.cat)).reduce((s,e)=>s+e.amount,0);
-  const remainFijos = Math.max(0, targetFijos - paidFijos);
-  const pctFijos    = targetFijos>0 ? Math.min(100, (paidFijos/targetFijos)*100) : 0;
-  // "Todos pagados" solo cuando cada categoría con monto conocido ya cubrió lo
-  // esperado (así nómina necesita sus $600 completos y no se canta victoria antes).
-  const trackFijos  = scheduledCats.filter(c=>expectedFor(c)>0);
-  const allFijosPaid= trackFijos.length>0 && trackFijos.every(c=>paidByCat(c.id) >= expectedFor(c)-0.01);
-
-  // Marcar un gasto fijo como pagado en un toque, con el monto sugerido.
-  // Si no sabemos el monto (primera vez), abre el formulario para escribirlo.
-  const quickPay = async cat => {
-    const suggested = lastAmountFor(cat.id) ?? cat.defaultAmt ?? null;
-    if (suggested == null) {
-      setEditingExpId(null); setExpError("");
-      setEf({cat:cat.id, amount:"", date:defDate(), note:""});
-      setShowExpForm(true);
-      return;
-    }
-    setMarkingCat(cat.id);
+  // Marcar un gasto fijo como pagado en un toque, con su meta o lo último pagado.
+  const quickPay = async f => {
+    const suggested = f.amount>0 ? f.amount : (lastAmountFor(f.id) ?? null);
+    if (suggested == null) { openNewFijo(f); return; }
+    setMarkingCat(f.id);
     const d = defDate();
-    const rec = {id:uid(), cat:cat.id, amount:+suggested, month:d.slice(0,7), date:d, note:""};
-    try {
-      await saveExpenses([...expenses, rec]);
-      setExpSaved(true); setTimeout(()=>setExpSaved(false), 2500);
-    } catch (err) {
-      console.error("Error marcando pagado:", err);
-      alert("No se pudo marcar como pagado. Revisa tu conexión.");
-    } finally { setMarkingCat(null); }
+    const rec = {id:uid(), type:"fijo", cat:f.id, title:f.title, amount:+suggested, month:d.slice(0,7), date:d, note:""};
+    try { await saveExpenses([...expenses, rec]); setExpSaved(true); setTimeout(()=>setExpSaved(false), 2500); }
+    catch (err) { console.error("Error marcando pagado:", err); alert("No se pudo marcar como pagado. Revisa tu conexión."); }
+    finally { setMarkingCat(null); }
   };
+
+  // ── Editar la LISTA de gastos fijos (plantillas que se repiten cada mes) ──
+  const saveFix   = async next => { if (!saveFixedExpenses) return; try { await saveFixedExpenses(next); } catch (err) { console.error(err); alert("No se pudo guardar la lista. Revisa tu conexión."); } };
+  const addFix    = () => saveFix([...fixedExpenses, {id:uid(), title:"Nuevo gasto fijo", icon:"📌", amount:0, dueFrom:1, dueTo:5}]);
+  const updateFix = (id, patch) => saveFix(fixedExpenses.map(f=>f.id===id?{...f,...patch}:f));
+  const removeFix = async f => { if (!confirm(`¿Quitar "${f.title}" de tus gastos fijos? (los pagos ya registrados no se borran)`)) return; saveFix(fixedExpenses.filter(x=>x.id!==f.id)); };
 
   const Card = ({l,usd,txt,c,sub}) => (
     <div className="card-sm" style={{borderLeft:`3px solid ${c}50`}}>
@@ -2222,143 +2261,211 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
         </div>
       </div>
 
-      {/* ── Gastos fijos ── */}
+      {/* ── Gastos del mes (fijos + tienda) ── */}
       <div className="card">
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14,flexWrap:"wrap",gap:10}}>
           <div>
-            <div style={{fontSize:13,fontWeight:700,color:"#f87171"}}>📋 Gastos fijos — {viewMonth}</div>
-            <div style={{fontSize:11,color:"#1a4a50",marginTop:2}}>Calendario de vencimientos del mes — editables por ti o René</div>
+            <div style={{fontSize:14,fontWeight:800,color:"#e2e8f4"}}>💸 Gastos del mes — {viewMonth}</div>
+            <div style={{fontSize:11,color:"#1a4a50",marginTop:2,lineHeight:1.5}}>🔒 <b style={{color:"#8aa0b8"}}>Fijos</b> se repiten cada mes · 🛒 <b style={{color:"#8aa0b8"}}>De tienda</b> son compras/pagos sueltos</div>
           </div>
-          <button className="btn-p" style={{fontSize:12,padding:"7px 14px"}} onClick={openNewExp}><IPlus/>Registrar gasto</button>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <button className="btn-g" style={{fontSize:12,padding:"7px 12px"}} onClick={()=>setShowFixEditor(v=>!v)}>{showFixEditor?"✓ Listo":"⚙️ Editar fijos"}</button>
+            <button className="btn-p" style={{fontSize:12,padding:"7px 12px"}} onClick={openNewTienda}><IPlus/>Gasto de tienda</button>
+          </div>
         </div>
         {expSaved && <div style={{background:"#0f2820",border:"1px solid #1a4a30",borderRadius:10,padding:"9px 14px",fontSize:13,color:"#34d399",textAlign:"center",marginBottom:14}}>✓ Guardado correctamente</div>}
 
-        {/* Calendario de gastos recurrentes */}
-        <div style={{background:"#040d10",border:"1px solid #0a2028",borderRadius:12,padding:"14px",marginBottom:16}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:6}}>
-            <div style={{fontSize:11,fontWeight:600,color:"#1a4050",textTransform:"uppercase",letterSpacing:".07em"}}>Vencimientos del mes</div>
-            {targetFijos>0 && (
-              <div style={{fontSize:11,fontFamily:"'JetBrains Mono',monospace",color:allFijosPaid?"#34d399":"#fbbf24",fontWeight:700}}>
+        {/* Editor de la LISTA de gastos fijos: título, monto/meta y vencimiento */}
+        {showFixEditor && (
+          <div style={{background:"#071418",border:"1px solid #12303a",borderRadius:12,padding:isMobile?"12px":"14px",marginBottom:16}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#2dcfe8",textTransform:"uppercase",letterSpacing:".07em",marginBottom:4}}>Tus gastos fijos</div>
+            <div style={{fontSize:11,color:"#1a4a50",marginBottom:12}}>Cambia el título, el monto esperado y del día __ al __ que vence. Se repiten cada mes.</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {fixedExpenses.map(f=>(
+                <div key={f.id} style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center",background:"#040d10",border:"1px solid #0d2a30",borderRadius:10,padding:"10px"}}>
+                  <input value={f.title} onChange={e=>updateFix(f.id,{title:e.target.value})} placeholder="Título"
+                    style={{flex:"2 1 140px",minWidth:0,background:"#050f12",border:"1px solid #12303a",borderRadius:6,padding:"7px 9px",color:"#e2e8f4",fontSize:13,fontFamily:"'Outfit',sans-serif"}}/>
+                  <div style={{display:"flex",alignItems:"center",gap:4,flex:"1 1 100px"}}>
+                    <span style={{color:"#1a5060",fontSize:12}}>$</span>
+                    <input type="number" min="0" step="0.01" value={f.amount||""} onChange={e=>updateFix(f.id,{amount:+e.target.value||0})} placeholder="Monto"
+                      style={{width:"100%",background:"#050f12",border:"1px solid #12303a",borderRadius:6,padding:"7px 9px",color:"#fbbf24",fontSize:13,fontFamily:"'JetBrains Mono',monospace"}}/>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:5,flex:"1 1 130px",fontSize:12,color:"#1a5060"}}>
+                    <span>del</span>
+                    <input type="number" min="1" max="31" value={f.dueFrom??""} onChange={e=>updateFix(f.id,{dueFrom:e.target.value===""?null:+e.target.value})}
+                      style={{width:44,background:"#050f12",border:"1px solid #12303a",borderRadius:6,padding:"7px 6px",color:"#e2e8f4",fontSize:13,fontFamily:"'JetBrains Mono',monospace",textAlign:"center"}}/>
+                    <span>al</span>
+                    <input type="number" min="1" max="31" value={f.dueTo??""} onChange={e=>updateFix(f.id,{dueTo:e.target.value===""?null:+e.target.value})}
+                      style={{width:44,background:"#050f12",border:"1px solid #12303a",borderRadius:6,padding:"7px 6px",color:"#e2e8f4",fontSize:13,fontFamily:"'JetBrains Mono',monospace",textAlign:"center"}}/>
+                  </div>
+                  <button onClick={()=>removeFix(f)} title="Quitar de la lista"
+                    style={{background:"#1a0808",border:"1px solid #4a1010",borderRadius:6,padding:"6px 9px",color:"#f87171",fontSize:12,cursor:"pointer"}}>🗑</button>
+                </div>
+              ))}
+            </div>
+            <button className="btn-g" style={{marginTop:12,fontSize:12,width:"100%",justifyContent:"center"}} onClick={addFix}><IPlus/>Agregar gasto fijo</button>
+          </div>
+        )}
+
+        {/* Progreso de gastos fijos: cuánto llevo y cuánto falta para completarlos */}
+        {targetFijos>0 && (
+          <div style={{background:"#040d10",border:"1px solid #0a2028",borderRadius:12,padding:isMobile?"12px":"14px",marginBottom:14}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:8,flexWrap:"wrap",gap:6}}>
+              <span style={{fontSize:11,fontWeight:700,color:"#8aa0b8",textTransform:"uppercase",letterSpacing:".06em"}}>🔒 Gastos fijos del mes</span>
+              <span style={{fontSize:12,fontFamily:"'JetBrains Mono',monospace",color:allFijosPaid?"#34d399":"#fbbf24",fontWeight:700}}>
                 {allFijosPaid ? "✓ Todos pagados" : `Faltan ${fmtUSD(remainFijos)}`}
+              </span>
+            </div>
+            <div style={{height:9,background:"#0a1820",borderRadius:5,overflow:"hidden",marginBottom:6}}>
+              <div style={{height:"100%",width:`${pctFijos}%`,background:allFijosPaid?"#34d399":"linear-gradient(90deg,#f87171,#fbbf24)",borderRadius:5,transition:"width .5s"}}/>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#1a4050",fontFamily:"'JetBrains Mono',monospace"}}>
+              <span>Pagado <span style={{color:"#34d399"}}>{fmtUSD(paidFijos)}</span></span>
+              <span>Meta <span style={{color:"#9abac8"}}>{fmtUSD(targetFijos)}</span></span>
+            </div>
+            {allFijosPaid && (
+              <div style={{background:"#0f2820",border:"1px solid #1a5a30",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#34d399",marginTop:10,textAlign:"center"}}>
+                🎉 Ya cubriste todos los gastos fijos de {viewMonth} — de aquí en adelante es ganancia
               </div>
             )}
           </div>
+        )}
 
-          {/* Barra de progreso: cuánto llevamos pagado de los gastos fijos del mes */}
-          {targetFijos>0 && (
-            <div style={{marginBottom:12}}>
-              <div style={{height:8,background:"#0a1820",borderRadius:5,overflow:"hidden",marginBottom:5}}>
-                <div style={{height:"100%",width:`${pctFijos}%`,background:allFijosPaid?"#34d399":"linear-gradient(90deg,#f87171,#fbbf24)",borderRadius:5,transition:"width .5s"}}/>
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#1a4050",fontFamily:"'JetBrains Mono',monospace"}}>
-                <span>Pagado <span style={{color:"#34d399"}}>{fmtUSD(paidFijos)}</span></span>
-                <span>Meta ~<span style={{color:"#9abac8"}}>{fmtUSD(targetFijos)}</span></span>
-              </div>
-            </div>
-          )}
-
-          {allFijosPaid && (
-            <div style={{background:"#0f2820",border:"1px solid #1a5a30",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#34d399",marginBottom:12,textAlign:"center"}}>
-              🎉 Ya reuniste y pagaste todos los gastos fijos de {viewMonth} — de aquí en adelante es ganancia
-            </div>
-          )}
-
-          <div style={{display:"flex",flexDirection:"column",gap:7}}>
-            {scheduledCats.map(cat=>{
-              const paid = monthExpenses.filter(e=>e.cat===cat.id);
-              const amtPaid = paid.reduce((s,e)=>s+e.amount,0);
-              const exp = expectedFor(cat);   // lo que se espera pagar (nómina=$600, etc.)
-              // Cubierto = ya pagó lo esperado. Si no conocemos el monto, con un pago basta.
-              const covered = exp>0 ? amtPaid >= exp-0.01 : paid.length>0;
-              const partial = !covered && amtPaid>0;   // ej: nómina con solo 1 quincena
-              const suggested = lastAmountFor(cat.id) ?? cat.defaultAmt ?? null;
-              const stColor = covered ? "#34d399" : partial ? "#fbbf24" : "#9abac8";
-              return (
-                <div key={cat.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:covered?"#071c12":partial?"#1a1608":"#071018",border:`1px solid ${covered?"#1a4a2a":partial?"#3a3010":"#0a1820"}`,borderRadius:8,gap:8,flexWrap:"wrap"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:10}}>
-                    <span style={{fontSize:16}}>{cat.icon}</span>
-                    <div>
-                      <div style={{fontSize:13,color:stColor,fontWeight:500}}>{cat.label}</div>
-                      <div style={{fontSize:11,color:covered?"#1a5a30":"#1a3a50"}}>{cat.schedule}</div>
+        {/* Lista unificada: cada gasto con su etiqueta (🔒 Fijo / 🛒 Tienda) */}
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {/* Gastos fijos (plantillas que se repiten) */}
+          {fixedExpenses.map(f=>{
+            const recs = monthExpenses.filter(e=>e.cat===f.id);
+            const amtPaid = recs.reduce((s,e)=>s+e.amount,0);
+            const exp = expectedFor(f);
+            const covered = exp>0 ? amtPaid >= exp-0.01 : amtPaid>0;
+            const partial = !covered && amtPaid>0;
+            const suggested = f.amount>0 ? f.amount : (lastAmountFor(f.id) ?? null);
+            const stColor = covered ? "#34d399" : partial ? "#fbbf24" : "#e2e8f4";
+            return (
+              <div key={f.id} style={{background:covered?"#071c12":partial?"#1a1608":"#071018",border:`1px solid ${covered?"#1a4a2a":partial?"#3a3010":"#0d2230"}`,borderRadius:10,padding:isMobile?"10px 11px":"11px 13px",display:"flex",flexWrap:"wrap",gap:9,justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0}}>
+                  <span style={{fontSize:18}}>{f.icon||"🔒"}</span>
+                  <div style={{minWidth:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                      <span style={{fontSize:9,fontWeight:700,color:"#2dcfe8",background:"#07222b",border:"1px solid #123a44",borderRadius:20,padding:"1px 7px",letterSpacing:".03em"}}>🔒 FIJO</span>
+                      <span style={{fontSize:13.5,color:stColor,fontWeight:600}}>{f.title}</span>
+                    </div>
+                    <div style={{fontSize:11,color:"#1a4a50",marginTop:2}}>
+                      {dueLabel(f)}{exp>0 ? ` · meta ${fmtUSD(exp)}` : ""}
                     </div>
                   </div>
-                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}>
-                    {covered
-                      ? <span style={{fontSize:12,color:"#34d399",fontFamily:"'JetBrains Mono',monospace"}}>✓ {fmtUSD(amtPaid)}</span>
-                      : partial
-                        ? <span style={{fontSize:11,color:"#fbbf24",background:"#2a1e08",padding:"2px 8px",borderRadius:20,border:"1px solid #4a3510",fontFamily:"'JetBrains Mono',monospace"}}>½ {fmtUSD(amtPaid)} / {fmtUSD(exp)}</span>
-                        : <span style={{fontSize:11,color:"#f87171",background:"#2a0c0c",padding:"2px 8px",borderRadius:20,border:"1px solid #4a1010"}}>⏳ Pendiente</span>
-                    }
-                    {covered
-                      // Cubierto: permitir CORREGIR (monto o fecha) — abre el 1er registro de esa categoria
-                      ? <button onClick={()=>openEditExp(paid[0])}
-                          style={{background:"#1a1408",border:"1px solid #4a3510",borderRadius:6,padding:"4px 10px",color:"#fbbf24",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
-                          ✏️ Corregir
-                        </button>
-                      // Pendiente o parcial: si sabemos el monto, un toque lo marca pagado; si no, abre el formulario
-                      : suggested != null
-                        ? <>
-                            <button onClick={()=>quickPay(cat)} disabled={markingCat===cat.id}
-                              style={{background:"#0f2820",border:"1px solid #1a5a30",borderRadius:6,padding:"4px 11px",color:"#34d399",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
-                              {markingCat===cat.id ? "Guardando…" : `✓ Marcar pagado ${fmtUSD(suggested)}`}
-                            </button>
-                            <button onClick={()=>{setEditingExpId(null); setExpError(""); setEf({cat:cat.id,amount:String(suggested),date:defDate(),note:""}); setShowExpForm(true);}}
-                              title="Pagar con otro monto"
-                              style={{background:"#0c2e35",border:"1px solid #1a5060",borderRadius:6,padding:"4px 9px",color:"#2dcfe8",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
-                              ✎
-                            </button>
-                          </>
-                        : <button onClick={()=>{setEditingExpId(null); setExpError(""); setEf({cat:cat.id,amount:"",date:defDate(),note:""}); setShowExpForm(true);}}
-                            style={{background:"#0c2e35",border:"1px solid #1a5060",borderRadius:6,padding:"4px 10px",color:"#2dcfe8",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
-                            Registrar
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                  {covered
+                    ? <span style={{fontSize:12,color:"#34d399",fontFamily:"'JetBrains Mono',monospace"}}>✓ {fmtUSD(amtPaid)}</span>
+                    : partial
+                      ? <span style={{fontSize:11,color:"#fbbf24",background:"#2a1e08",padding:"2px 8px",borderRadius:20,border:"1px solid #4a3510",fontFamily:"'JetBrains Mono',monospace"}}>½ {fmtUSD(amtPaid)} / {fmtUSD(exp)}</span>
+                      : <span style={{fontSize:11,color:"#f87171",background:"#2a0c0c",padding:"2px 8px",borderRadius:20,border:"1px solid #4a1010"}}>⏳ Pendiente</span>
+                  }
+                  {covered
+                    ? <button onClick={()=>openEditExp(recs[0])} style={{background:"#1a1408",border:"1px solid #4a3510",borderRadius:6,padding:"5px 10px",color:"#fbbf24",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>✏️ Corregir</button>
+                    : suggested != null
+                      ? <>
+                          <button onClick={()=>quickPay(f)} disabled={markingCat===f.id}
+                            style={{background:"#0f2820",border:"1px solid #1a5a30",borderRadius:6,padding:"5px 11px",color:"#34d399",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+                            {markingCat===f.id ? "Guardando…" : `✓ Pagar ${fmtUSD(suggested)}`}
                           </button>
-                    }
-                    {/* Quitar/revertir: aparece en cuanto hay algo pagado, para deshacer un "pagado" por error */}
-                    {amtPaid>0 && (
-                      <button onClick={()=>revertCat(cat)} title="Quitar este pago (vuelve a pendiente)"
-                        style={{background:"#1a0808",border:"1px solid #4a1010",borderRadius:6,padding:"4px 9px",color:"#f87171",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
-                        🗑 Quitar
-                      </button>
-                    )}
+                          <button onClick={()=>openNewFijo(f)} title="Pagar con otro monto"
+                            style={{background:"#0c2e35",border:"1px solid #1a5060",borderRadius:6,padding:"5px 9px",color:"#2dcfe8",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>✎</button>
+                        </>
+                      : <button onClick={()=>openNewFijo(f)}
+                          style={{background:"#0c2e35",border:"1px solid #1a5060",borderRadius:6,padding:"5px 10px",color:"#2dcfe8",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>Registrar</button>
+                  }
+                  {amtPaid>0 && (
+                    <button onClick={()=>revertFix(f)} title="Quitar este pago (vuelve a pendiente)"
+                      style={{background:"#1a0808",border:"1px solid #4a1010",borderRadius:6,padding:"5px 9px",color:"#f87171",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>🗑</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Gastos de tienda del mes */}
+          {tiendaRecs.map(e=>(
+            <div key={e.id} style={{background:"#0d0f07",border:"1px solid #2a2810",borderRadius:10,padding:isMobile?"10px 11px":"11px 13px",display:"flex",flexWrap:"wrap",gap:9,justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0}}>
+                <span style={{fontSize:18}}>🛒</span>
+                <div style={{minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                    <span style={{fontSize:9,fontWeight:700,color:"#e0a63a",background:"#241a06",border:"1px solid #4a3510",borderRadius:20,padding:"1px 7px",letterSpacing:".03em"}}>🛒 TIENDA</span>
+                    <span style={{fontSize:13.5,color:"#e2e8f4",fontWeight:600}}>{recTitle(e)}</span>
+                  </div>
+                  <div style={{fontSize:11,color:"#1a4a50",marginTop:2}}>
+                    {e.date||e.month||"—"}{e.note ? ` · ${e.note}` : ""}
                   </div>
                 </div>
-              );
-            })}
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:7}}>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,color:"#f87171",fontWeight:700}}>{fmtUSD(e.amount)}</div>
+                  <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:"#fbbf24"}}>{fmtBs(e.amount,rate)}</div>
+                </div>
+                <button className="btn-g" style={{padding:"5px 8px",fontSize:11}} onClick={()=>openEditExp(e)}><IEdit/></button>
+                <button className="btn-d" style={{padding:"5px 8px",fontSize:11}} onClick={()=>delExp(e)}>✕</button>
+              </div>
+            </div>
+          ))}
+
+          {fixedExpenses.length===0 && tiendaRecs.length===0 && (
+            <div style={{color:"#0d2a30",textAlign:"center",padding:"18px 0",fontSize:13}}>Sin gastos aún. Agrega tus gastos fijos con "⚙️ Editar fijos".</div>
+          )}
+        </div>
+
+        {/* Total del mes */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:14,paddingTop:12,borderTop:"1px solid #0d2230"}}>
+          <span style={{fontSize:12,fontWeight:700,color:"#8aa0b8"}}>Total gastos del mes</span>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:800,color:"#f87171"}}>{fmtUSD(mExpenses)}</div>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24"}}>{fmtBs(mExpenses,rate)}</div>
           </div>
         </div>
 
+        {/* Formulario de pago (fijo o de tienda) */}
         {showExpForm && (
-          <div ref={formRef} style={{background:"#050f12",border:`1px solid ${editingExpId?"#4a3510":"#0e3a44"}`,borderRadius:12,padding:"16px",marginBottom:16,display:"flex",flexDirection:"column",gap:12,boxShadow:"0 0 0 2px rgba(45,207,232,.08)"}}>
-            <div style={{fontSize:12,fontWeight:600,color:editingExpId?"#fbbf24":"#2dcfe8"}}>{editingExpId?"✏️ Editando gasto":"➕ Nuevo gasto"}</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-              <div className="field"><label>Categoría</label>
-                <select value={ef.cat} onChange={e=>{
-                  const cat = EXPENSE_CATS.find(c=>c.id===e.target.value);
-                  // Solo sugiere el monto por defecto en gastos NUEVOS y si el campo está vacío,
-                  // para no pisar un monto que estás corrigiendo (ej: alquiler a $550).
-                  setEf(f=>({...f,cat:e.target.value,amount:(!editingExpId && !f.amount && cat?.defaultAmt)?String(cat.defaultAmt):f.amount}));
-                }}>
-                  {EXPENSE_CATS.map(c=><option key={c.id} value={c.id}>{c.icon} {c.label} {c.schedule?`(${c.schedule})`:""}</option>)}
-                </select>
-              </div>
-              <div className="field"><label>Fecha exacta</label>
+          <div ref={formRef} style={{background:"#050f12",border:`1px solid ${editingExpId?"#4a3510":"#0e3a44"}`,borderRadius:12,padding:isMobile?"13px":"16px",marginTop:16,display:"flex",flexDirection:"column",gap:12,boxShadow:"0 0 0 2px rgba(45,207,232,.08)"}}>
+            <div style={{fontSize:12,fontWeight:700,color:editingExpId?"#fbbf24":"#2dcfe8"}}>
+              {editingExpId ? "✏️ Editando gasto" : ef.type==="fijo" ? "➕ Registrar pago de gasto fijo" : "➕ Nuevo gasto de tienda"}
+            </div>
+            {/* Tipo */}
+            <div style={{display:"flex",gap:8}}>
+              {[{id:"fijo",l:"🔒 Fijo"},{id:"tienda",l:"🛒 De tienda"}].map(t=>(
+                <button key={t.id} onClick={()=>setEf(f=>({...f,type:t.id, fixedId:t.id==="fijo"?(f.fixedId||fixedExpenses[0]?.id||""):""}))}
+                  style={{flex:1,padding:"8px",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'Outfit',sans-serif",
+                    border:`1px solid ${ef.type===t.id?(t.id==="fijo"?"#1a5060":"#4a3510"):"#0d2a30"}`,
+                    background:ef.type===t.id?(t.id==="fijo"?"#0c2e35":"#241a06"):"transparent",
+                    color:ef.type===t.id?(t.id==="fijo"?"#2dcfe8":"#e0a63a"):"#2a5060"}}>{t.l}</button>
+              ))}
+            </div>
+            {ef.type==="fijo"
+              ? <div className="field"><label>¿Cuál gasto fijo?</label>
+                  <select value={ef.fixedId} onChange={e=>setEf(f=>({...f,fixedId:e.target.value}))}>
+                    <option value="">— Elige —</option>
+                    {fixedExpenses.map(f=><option key={f.id} value={f.id}>{f.icon} {f.title}</option>)}
+                  </select>
+                </div>
+              : <div className="field"><label>Título del gasto</label>
+                  <input placeholder="Ej: Bolsas, limpieza, repuesto…" value={ef.title} onChange={e=>setEf(f=>({...f,title:e.target.value}))}/>
+                </div>
+            }
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr",gap:10}}>
+              <div className="field"><label>Fecha</label>
                 <input type="date" value={ef.date} onChange={e=>setEf(f=>({...f,date:e.target.value}))}/>
               </div>
               <div className="field"><label>Monto (USD)</label>
                 <input type="number" min="0" step="0.01" placeholder="0.00" value={ef.amount} onChange={e=>setEf(f=>({...f,amount:e.target.value}))}/>
               </div>
             </div>
-            {EXPENSE_CATS.find(c=>c.id===ef.cat)?.schedule && (
-              <div style={{background:"#071c22",border:"1px solid #0a2028",borderRadius:8,padding:"8px 12px",fontSize:11,color:"#1a5060"}}>
-                📅 {EXPENSE_CATS.find(c=>c.id===ef.cat)?.label} vence el: <strong style={{color:"#2dcfe8"}}>{EXPENSE_CATS.find(c=>c.id===ef.cat)?.schedule}</strong>
-              </div>
-            )}
-            <div className="field"><label>Nota (opcional)</label>
-              <input placeholder="Ej: Alquiler local Chinita, mes pagado" value={ef.note} onChange={e=>setEf(f=>({...f,note:e.target.value}))}/>
+            <div className="field"><label>Nota — ¿para qué? (opcional)</label>
+              <input placeholder="Ej: compra de bolsas para entregas" value={ef.note} onChange={e=>setEf(f=>({...f,note:e.target.value}))}/>
             </div>
             {expError && <div style={{background:"#2a0c0c",border:"1px solid #4a1010",borderRadius:8,padding:"9px 14px",fontSize:12,color:"#f87171"}}>⚠️ {expError}</div>}
             <div style={{display:"flex",gap:8,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap"}}>
-              {/* Al editar, permitir eliminar el gasto directamente desde aquí */}
               {editingExpId
                 ? <button className="btn-d" disabled={expSaving} onClick={async()=>{
                     const rec = expenses.find(x=>x.id===editingExpId);
@@ -2374,37 +2481,6 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
             </div>
           </div>
         )}
-
-        {monthExpenses.length===0
-          ? <div style={{color:"#0d2a30",textAlign:"center",padding:"12px 0",fontSize:13}}>Sin pagos registrados para {viewMonth}</div>
-          : <table>
-              <thead><tr><th>Categoría</th><th>Nota</th><th>Fecha</th><th style={{textAlign:"right"}}>USD</th><th style={{textAlign:"right"}}>Bs</th><th></th></tr></thead>
-              <tbody>
-                {monthExpenses.map(e=>{
-                  const cat=EXPENSE_CATS.find(c=>c.id===e.cat);
-                  return (
-                    <tr key={e.id}>
-                      <td><span style={{fontSize:15}}>{cat?.icon}</span> <span style={{color:"#a0c8c0"}}>{cat?.label}</span></td>
-                      <td style={{color:"#1a4a50",fontSize:12}}>{e.note||"—"}</td>
-                      <td style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#1a4a50"}}>{e.date||e.month||"—"}</td>
-                      <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:13,color:"#f87171"}}>{fmtUSD(e.amount)}</td>
-                      <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#fbbf24"}}>{fmtBs(e.amount,rate)}</td>
-                      <td><div style={{display:"flex",gap:5,justifyContent:"flex-end"}}>
-                        <button className="btn-g" style={{padding:"3px 8px",fontSize:11}} onClick={()=>openEditExp(e)}><IEdit/></button>
-                        <button className="btn-d" style={{padding:"3px 8px",fontSize:11}} onClick={()=>delExp(e)}>✕</button>
-                      </div></td>
-                    </tr>
-                  );
-                })}
-                <tr style={{background:"#040d10"}}>
-                  <td colSpan={3} style={{fontWeight:700,color:"#f87171",fontSize:13}}>Total gastos</td>
-                  <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:14,fontWeight:700,color:"#f87171"}}>{fmtUSD(mExpenses)}</td>
-                  <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#fbbf24"}}>{fmtBs(mExpenses,rate)}</td>
-                  <td/>
-                </tr>
-              </tbody>
-            </table>
-        }
       </div>
 
     </div>
@@ -2412,7 +2488,7 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
 }
 
 // ── Stats Tab ─────────────────────────────────────────────────────────────────
-function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
+function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile, fixedExpenses=DEFAULT_FIXED }) {
   // v2 — fixed buildData scope
   const [period, setPeriod] = useState("day");
   const [hover,  setHover]  = useState(null);
@@ -2561,25 +2637,15 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
   const ownerCut      = netProfit * PROFIT_SPLIT.owner;
   const reneCut       = netProfit * PROFIT_SPLIT.rene;
 
-  // Expense coverage = how many fixed expense CATEGORIES are registered as paid this month
-  // vs total categories that should be paid (those with a schedule)
-  const scheduledCats = EXPENSE_CATS.filter(c => c.schedule);
-  const paidCatIds    = new Set(
-    expenses
-      .filter(e => (e.month || e.date?.slice(0,7)) === currentMonth)
-      .map(e => e.cat)
-  );
-  const paidCount    = scheduledCats.filter(c => paidCatIds.has(c.id)).length;
-  // Nómina counts twice (día 1 y día 15) — check if registered ≥ 2 times
-  const nominaPayments = expenses.filter(e => e.cat==="nomina" && (e.month||e.date?.slice(0,7))===currentMonth);
-  const nominaTotal    = nominaPayments.reduce((s,e)=>s+e.amount,0);
-  const nominaTarget   = 2; // 2 pagos de $300
-  // Count: each $300 = 1 pago; $600 in one shot = 2 pagos
-  const nominaDone     = Math.min(nominaTarget, nominaTotal >= 600 ? 2 : nominaPayments.length);
-  const totalUnits     = scheduledCats.length - 1 + nominaTarget;
-  const paidUnits      = (paidCount - (paidCatIds.has("nomina")?1:0)) + nominaDone;
-  const expCoverage    = totalUnits > 0 ? Math.min(100, (paidUnits / totalUnits) * 100) : 0;
-  const expPaidTotal   = expenses.filter(e=>(e.month||e.date?.slice(0,7))===currentMonth).reduce((s,e)=>s+e.amount,0);
+  // Cobertura de gastos fijos del mes actual — usa la lista EDITABLE del usuario.
+  // Cubierto = pagó lo esperado (su meta, o si no hay meta, lo último pagado).
+  const fxPaid     = f => expenses.filter(e=>e.cat===f.id && (e.month||e.date?.slice(0,7))===currentMonth).reduce((s,e)=>s+e.amount,0);
+  const fxLast     = fid => { const h = expenses.filter(e=>e.cat===fid && +e.amount>0).sort((a,b)=>(b.date||b.month||"").localeCompare(a.date||a.month||"")); return h.length?h[0].amount:null; };
+  const fxExpected = f => f.amount>0 ? f.amount : (fxLast(f.id) ?? 0);
+  const totalUnits   = fixedExpenses.length;
+  const paidUnits    = fixedExpenses.filter(f=>{ const p=fxPaid(f), e=fxExpected(f); return e>0 ? p>=e-0.01 : p>0; }).length;
+  const expCoverage  = totalUnits > 0 ? Math.min(100, (paidUnits / totalUnits) * 100) : 0;
+  const expPaidTotal = expenses.filter(e=>(e.month||e.date?.slice(0,7))===currentMonth).reduce((s,e)=>s+e.amount,0);
 
   return (
     <div style={{display:"flex",flexDirection:"column",gap:20}}>
@@ -2753,18 +2819,15 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile }) {
           </div>
           {/* Per-category pills */}
           <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
-            {scheduledCats.map(cat=>{
-              const catPaid = paidCatIds.has(cat.id);
-              const catCount = expenses.filter(e=>e.cat===cat.id&&(e.month||e.date?.slice(0,7))===currentMonth).length;
-              const catTotal = expenses.filter(e=>e.cat===cat.id&&(e.month||e.date?.slice(0,7))===currentMonth).reduce((s,e)=>s+e.amount,0);
-              const isNomina = cat.id==="nomina";
-              const done = isNomina ? nominaDone >= 2 : catPaid;
-              const partial = isNomina && nominaDone===1;
+            {fixedExpenses.map(f=>{
+              const paid = fxPaid(f), exp = fxExpected(f);
+              const done = exp>0 ? paid>=exp-0.01 : paid>0;
+              const partial = !done && paid>0;
               return (
-                <div key={cat.id} style={{background:done?"#0f2820":partial?"#1a1a08":"#1a0808",border:`1px solid ${done?"#1a5a30":partial?"#3a3010":"#3a1010"}`,borderRadius:8,padding:"4px 10px",fontSize:11,color:done?"#34d399":partial?"#fbbf24":"#f87171",display:"flex",alignItems:"center",gap:5}}>
-                  <span>{cat.icon}</span>
-                  <span>{cat.label}</span>
-                  {isNomina && <span style={{fontSize:9,opacity:.8}}>(${catTotal}/600)</span>}
+                <div key={f.id} style={{background:done?"#0f2820":partial?"#1a1a08":"#1a0808",border:`1px solid ${done?"#1a5a30":partial?"#3a3010":"#3a1010"}`,borderRadius:8,padding:"4px 10px",fontSize:11,color:done?"#34d399":partial?"#fbbf24":"#f87171",display:"flex",alignItems:"center",gap:5}}>
+                  <span>{f.icon||"🔒"}</span>
+                  <span>{f.title}</span>
+                  {exp>0 && <span style={{fontSize:9,opacity:.8}}>(${paid.toFixed(0)}/{exp.toFixed(0)})</span>}
                   <span>{done?"✓":partial?"½":"✗"}</span>
                 </div>
               );
@@ -4135,10 +4198,18 @@ function CierreTab({ sales, expenses, orders, rate, dynProfiles, profile }) {
 
   const mExpenses  = expenses.filter(e => (e.month || e.date?.slice(0,7)) === month);
   const gastosTotal= mExpenses.reduce((s,e)=>s+e.amount,0);
-  const byCat = EXPENSE_CATS.map(c => ({
-    ...c, items: mExpenses.filter(e=>e.cat===c.id),
-    total: mExpenses.filter(e=>e.cat===c.id).reduce((s,e)=>s+e.amount,0),
-  })).filter(c=>c.total>0);
+  // Agrupa los gastos del mes: fijos por su categoría, de tienda por su título.
+  // Funciona con la lista editable y con registros viejos (que traen cat/label).
+  const isFj = e => e.type ? e.type==="fijo" : EXPENSE_CATS.some(c=>c.id===e.cat);
+  const byCat = Object.values(mExpenses.reduce((acc,e)=>{
+    const fj = isFj(e);
+    const key = fj ? (e.cat||"fijo") : ("tienda:"+(e.title||e.note||"otro"));
+    const label = e.title || EXPENSE_CATS.find(c=>c.id===e.cat)?.label || e.cat || "Gasto";
+    const icon = fj ? (EXPENSE_CATS.find(c=>c.id===e.cat)?.icon || "🔒") : "🛒";
+    if (!acc[key]) acc[key] = {id:key, icon, label, total:0, items:[]};
+    acc[key].items.push(e); acc[key].total += e.amount;
+    return acc;
+  }, {})).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
 
   const utilidad  = cobrado - gastosTotal;
   const margen    = cobrado>0 ? (utilidad/cobrado*100) : 0;
@@ -4566,6 +4637,63 @@ Marca "Recordar mi sesión" para no volver a escribirla.`) : "";
   );
 }
 
+// ── Compras (historial de compras a distribuidores) ──────────────────────────
+function ComprasTab({purchases=[], savePurchases, rate}) {
+  const list = [...purchases].sort((a,b)=>(b.createdAt||b.date||"").localeCompare(a.createdAt||a.date||""));
+  const totalHist  = purchases.reduce((s,p)=>s+(p.totalInvested||0),0);
+  const ym = today().slice(0,7);
+  const totalMes   = purchases.filter(p=>(p.date||"").slice(0,7)===ym).reduce((s,p)=>s+(p.totalInvested||0),0);
+  const totalUnits = purchases.reduce((s,p)=>s+(p.unitsCount||0),0);
+  const srcLabel = s => s==="scan" ? "📸 Escaneado" : s==="import" ? "📋 Importado" : "✍️ Manual";
+  const del = async id => {
+    if(!confirm("¿Borrar este registro de compra? Solo borra el historial, NO afecta el inventario.")) return;
+    await savePurchases(purchases.filter(p=>p.id!==id));
+  };
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Compras</h1>
+      <div style={{fontSize:11.5,color:"#1a4a50",marginTop:-8,lineHeight:1.5}}>Cada recibo que cargas al inventario queda aquí. Esto es <strong style={{color:"#60a5fa"}}>capital invertido</strong> que se recupera con las ventas y se reinvierte — <u>no es ganancia</u>.</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11}}>
+        <div className="card-sm" style={{textAlign:"center"}}>
+          <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>INVERTIDO ESTE MES</div>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,fontWeight:700,color:"#60a5fa"}}>{fmtUSD(totalMes)}</div>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:1}}>{fmtBs(totalMes,rate)}</div>
+        </div>
+        <div className="card-sm" style={{textAlign:"center"}}>
+          <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>INVERTIDO TOTAL</div>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,fontWeight:700,color:"#60a5fa"}}>{fmtUSD(totalHist)}</div>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:1}}>{fmtBs(totalHist,rate)}</div>
+        </div>
+        <div className="card-sm" style={{textAlign:"center"}}>
+          <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>UNIDADES</div>
+          <div style={{fontSize:22,fontWeight:700,color:"#34d399",fontFamily:"'Outfit',sans-serif"}}>{totalUnits}</div>
+        </div>
+      </div>
+      {list.length===0
+        ? <div className="card" style={{textAlign:"center",color:"#141e2e",padding:"56px 0"}}>Sin compras registradas todavía.<div style={{fontSize:12,marginTop:6}}>Carga un recibo desde <strong>Inventario → 📸 Escanear recibo</strong> y aparecerá aquí.</div></div>
+        : list.map(p=>(
+            <div key={p.id} className="card">
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                <div style={{minWidth:0}}>
+                  <div style={{fontSize:15,fontWeight:600,color:"#b0c0d8"}}>{p.distributor||"Distribuidor sin nombre"}{p.receiptNumber?` · Nota ${p.receiptNumber}`:""}</div>
+                  <div style={{fontSize:12,color:"#1e3050",marginTop:2}}>{new Date((p.date||today())+"T12:00").toLocaleDateString("es-MX",{year:"numeric",month:"long",day:"numeric"})} · {srcLabel(p.source)} · {p.itemsCount||0} producto(s) · {p.unitsCount||0} unidad(es)</div>
+                </div>
+                <div style={{display:"flex",gap:16,alignItems:"center"}}>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:10,color:"#1e3050"}}>INVERTIDO</div>
+                    <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,color:"#60a5fa"}}>{fmtUSD(p.totalInvested||0)}</div>
+                    <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:"#fbbf24"}}>{fmtBs(p.totalInvested||0,rate)}</div>
+                  </div>
+                  <button onClick={()=>del(p.id)} title="Borrar registro" style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer"}}><ITrash/></button>
+                </div>
+              </div>
+            </div>
+          ))
+      }
+    </div>
+  );
+}
+
 // ── History Tab ───────────────────────────────────────────────────────────────
 function HistTab({byDate,sortedDates,setDD}) {
   return (
@@ -4602,7 +4730,7 @@ function HistTab({byDate,sortedDates,setDD}) {
 }
 
 // ── Modals ────────────────────────────────────────────────────────────────────
-function InvModal({item,inventory,saveInv,onClose,rate,initialMode="normal"}) {
+function InvModal({item,inventory,saveInv,purchases=[],savePurchases,storeId=null,onClose,rate,initialMode="normal"}) {
   const photoRef   = useRef(null);
   const scanRef    = useRef(null);
   const [mode, setMode] = useState(initialMode);
@@ -4760,6 +4888,19 @@ function InvModal({item,inventory,saveInv,onClose,rate,initialMode="normal"}) {
       serials:[...it.serials.split(/[\n,;]+/).map(x=>x.trim()).filter(Boolean), ...genAutoCodes(Math.max(0, parseInt(it.qty) || 0))],
       photo:it.photo,description:""}));
     await saveInv([...inventory,...newItems]);
+    // Registrar la compra en el historial (cada recibo cargado)
+    if (savePurchases) {
+      const unitsCount = newItems.reduce((s,p)=>s+(p.serials?.length||0),0);
+      const totalInvested = newItems.reduce((s,p)=>s+p.cost*(p.serials?.length||0),0);
+      const record = {
+        id: uid(), date: today(),
+        distributor: scanInfo?.distributor || "", receiptNumber: scanInfo?.receiptNumber || "",
+        source: scanInfo?.imported ? "import" : (scanInfo ? "scan" : "manual"),
+        itemsCount: newItems.length, unitsCount, totalInvested,
+        storeId, createdAt: new Date().toISOString(),
+      };
+      try { await savePurchases([...(purchases||[]), record]); } catch {}
+    }
     setSaving(false); onClose();
   };
 
@@ -4977,6 +5118,24 @@ function InvModal({item,inventory,saveInv,onClose,rate,initialMode="normal"}) {
             );})}
           </div>
           {err&&<div style={{background:"#2a0c0c",border:"1px solid #5a1a1a",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#f87171",marginTop:10}}>⚠️ {err}</div>}
+          {(()=>{
+            const t = fastItems.reduce((a,it)=>{
+              const c=Number(it.cost)||0, p=Number(it.price)||0;
+              const u=it.serials.split(/[\n,;]+/).filter(x=>x.trim()).length+Math.max(0,parseInt(it.qty)||0);
+              a.u+=u; a.cost+=c*u; a.retail+=p*u; return a;
+            },{u:0,cost:0,retail:0});
+            if(t.u<=0) return null;
+            return (
+              <div style={{background:"#040d10",border:"1px solid #0a2028",borderRadius:10,padding:"10px 14px",marginTop:10}}>
+                <div style={{display:"flex",gap:12,flexWrap:"wrap",justifyContent:"space-around"}}>
+                  <div style={{textAlign:"center"}}><div style={{fontSize:9,color:"#1e3050"}}>INVERTIDO (a recuperar)</div><div style={{fontFamily:"'JetBrains Mono',monospace",color:"#60a5fa",fontSize:14,fontWeight:700}}>{fmtUSD(t.cost)}</div></div>
+                  <div style={{textAlign:"center"}}><div style={{fontSize:9,color:"#1e3050"}}>SI VENDES TODO</div><div style={{fontFamily:"'JetBrains Mono',monospace",color:"#34d399",fontSize:14,fontWeight:700}}>{fmtUSD(t.retail)}</div></div>
+                  <div style={{textAlign:"center"}}><div style={{fontSize:9,color:"#a78bfa"}}>GANANCIA</div><div style={{fontFamily:"'JetBrains Mono',monospace",color:"#a78bfa",fontSize:14,fontWeight:700}}>{fmtUSD(t.retail-t.cost)}</div></div>
+                </div>
+                <div style={{fontSize:10,color:"#1a4a50",marginTop:6,textAlign:"center"}}>{t.u} unidad(es) · los {fmtUSD(t.cost)} invertidos se reinvierten; la ganancia es lo tuyo.</div>
+              </div>
+            );
+          })()}
           <div style={{display:"flex",justifyContent:"space-between",marginTop:12,alignItems:"center"}}>
             <button className="btn-g" style={{fontSize:12}} onClick={()=>setFastItems(f=>[...f,{id:uid(),name:"",cat:CATS[0],cost:"",price:"",serials:"",qty:"",photo:null}])}><IPlus/> Otro producto</button>
             <div style={{display:"flex",gap:8}}>
