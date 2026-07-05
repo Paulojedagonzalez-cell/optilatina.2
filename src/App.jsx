@@ -3321,12 +3321,13 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate}) 
       <div className="card" style={{padding:0,overflow:"hidden"}}>
         <table>
           <thead><tr>
-            <th>Producto</th><th>Categoría</th>
+            <th>Producto</th>
+            <th style={{textAlign:"center"}}>Unidades</th>
+            <th>Categoría</th>
             <th style={{textAlign:"right"}}>Costo USD</th>
             <th style={{textAlign:"right"}}>Precio USD</th>
             <th style={{textAlign:"right"}}>Precio Bs</th>
             <th style={{textAlign:"right"}}>Margen</th>
-            <th style={{textAlign:"center"}}>Stock</th>
             <th style={{textAlign:"right"}}>Invertido</th>
             <th></th>
           </tr></thead>
@@ -3334,16 +3335,22 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate}) 
             {filtered.length===0 ? <tr><td colSpan={9} style={{textAlign:"center",color:"#1e3050",padding:"28px 0"}}>Sin resultados</td></tr>
               : filtered.map(p=>{
                   const mg=p.price>0?((p.price-p.cost)/p.price*100).toFixed(0):0;
-                  const sb=p.isService?{c:"bb",t:"Servicio"}:getStock(p)===0?{c:"br",t:"Agotado"}:getStock(p)<3?{c:"ba",t:`${getStock(p)} pz`}:{c:"bg",t:`${getStock(p)} pz`};
+                  const u=getStock(p);
                   return (
                     <tr key={p.id}>
                       <td style={{color:"#b0c0d8",fontWeight:500}}>{p.name}</td>
+                      <td style={{textAlign:"center"}}>
+                        {p.isService
+                          ? <span className="badge bb">Servicio</span>
+                          : u===0
+                            ? <span className="badge br">Agotado</span>
+                            : <span style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,fontSize:15,color:u<3?"#fbbf24":"#34d399"}}>{u}<span style={{fontSize:10,color:"#1a4a50",fontWeight:400}}> u</span></span>}
+                      </td>
                       <td><span className={`badge bb`}>{p.cat}</span></td>
                       <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#3a5070"}}>{fmtUSD(p.cost)}</td>
                       <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#60a5fa"}}>{fmtUSD(p.price)}</td>
                       <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#fbbf24"}}>{fmtBs(p.price,rate)}</td>
                       <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:mg>=40?"#34d399":mg>=20?"#fbbf24":"#f87171"}}>{mg}%</td>
-                      <td style={{textAlign:"center"}}><span className={`badge ${sb.c}`}>{sb.t}</span></td>
                       <td style={{textAlign:"right"}}>
                         {!p.isService ? <>
                           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#60a5fa"}}>{fmtUSD(p.cost*getStock(p))}</div>
