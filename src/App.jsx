@@ -345,7 +345,7 @@ tr:hover td{background:#061215}
 @media(max-width:767px){
   .desk-sidebar{display:none!important}
   .mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#050f12;border-top:1px solid #0a2028;z-index:50;padding:4px 0 max(4px,env(safe-area-inset-bottom))}
-  .mob-header{display:flex;align-items:center;justify-content:space-between;background:#050f12;border-bottom:1px solid #0a2028;padding:10px 16px;position:sticky;top:0;z-index:40}
+  .mob-header{display:flex;align-items:center;justify-content:space-between;background:#050f12;border-bottom:1px solid #0a2028;padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 10px;position:sticky;top:0;z-index:40}
   .mob-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border:none;background:transparent;color:#2a5060;font-family:'Outfit',sans-serif;font-size:10px;cursor:pointer;transition:color .2s}
   .mob-nav-btn.active{color:#2dcfe8}
   .mob-nav-btn svg{width:22px;height:22px}
@@ -1207,9 +1207,9 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
       <style>{CSS}</style>
 
       {showApart && (
-        <div style={{position:"fixed",inset:0,background:"#040d10",zIndex:200,overflow:"auto",padding:"16px"}}>
+        <div style={{position:"fixed",inset:0,background:"#040d10",zIndex:200,overflow:"auto",padding:"calc(env(safe-area-inset-top, 0px) + 14px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px)"}}>
           <div style={{maxWidth:920,margin:"0 auto"}}>
-            <button className="btn-g" onClick={()=>setShowApart(false)} style={{marginBottom:14}}>← Volver a ventas</button>
+            <button className="btn-g" onClick={()=>setShowApart(false)} style={{marginBottom:14,padding:"11px 18px",fontSize:14}}>← Volver a ventas</button>
             <ApartadosTab orders={orders||[]} saveOrders={saveOrders} rate={rate} profile={profile} isMobile={isMobile}/>
           </div>
         </div>
@@ -1225,7 +1225,7 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
       )}
 
       {/* ── HEADER ── */}
-      <div style={{background:"#050f12",borderBottom:"1px solid #0a2028",padding:isMobile?"10px 14px":"12px 20px",flexShrink:0}}>
+      <div style={{background:"#050f12",borderBottom:"1px solid #0a2028",padding:isMobile?"calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px":"12px 20px",flexShrink:0}}>
         {/* Row 1: Logo + Store info + Back */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -3883,10 +3883,10 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum }) {
       {done && <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#34d399",marginBottom:10}}>✓ Guardado — la orden quedó registrada en su lugar</div>}
       {!draft ? (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <input ref={scanRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={scanReceipt}/>
+          <input ref={scanRef} type="file" accept="image/*" style={{display:"none"}} onChange={scanReceipt}/>
           <button className="btn-p" onClick={()=>scanRef.current?.click()} disabled={scanning}
             style={{justifyContent:"center",background:scanning?"#0a2028":"linear-gradient(135deg,#7a5a0a,#b8860b)",opacity:scanning?.7:1}}>
-            {scanning ? "📷 Leyendo factura…" : "📷 Escanear factura"}
+            {scanning ? "📷 Leyendo factura…" : "📷 Escanear factura / foto"}
           </button>
           <div style={{display:"flex",alignItems:"center",gap:10,margin:"2px 0"}}>
             <div style={{flex:1,height:1,background:"#0d2a30"}}/>
