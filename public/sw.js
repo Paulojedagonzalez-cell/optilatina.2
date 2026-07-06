@@ -1,4 +1,7 @@
-const CACHE = "optilatina-v9";
+// El sufijo __BUILD_ID__ lo reemplaza scripts/stamp-sw.mjs en cada build,
+// así cada despliegue tiene un nombre de caché nuevo y el service worker se
+// actualiza solo (sin quedarse pegado en versiones viejas).
+const CACHE = "optilatina-__BUILD_ID__";
 
 self.addEventListener("install", e => {
   e.waitUntil(
