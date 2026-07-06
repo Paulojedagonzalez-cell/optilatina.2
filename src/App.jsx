@@ -3808,7 +3808,8 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum }) {
   const [err,   setErr]   = useState("");
   const [done,  setDone]  = useState(false);
   const [scanning, setScanning] = useState(false);
-  const scanRef = useRef(null);
+  const scanRef = useRef(null);  // cámara (capture)
+  const galRef  = useRef(null);  // galería (sin capture)
 
   const interpret = () => {
     setErr("");
@@ -3887,14 +3888,21 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum }) {
       {done && <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#34d399",marginBottom:10}}>✓ Guardado — la orden quedó registrada en su lugar</div>}
       {!draft ? (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <input ref={scanRef} type="file" accept="image/*" style={{display:"none"}} onChange={scanReceipt}/>
-          <button className="btn-p" onClick={()=>scanRef.current?.click()} disabled={scanning}
-            style={{justifyContent:"center",background:scanning?"#0a2028":"linear-gradient(135deg,#7a5a0a,#b8860b)",opacity:scanning?.7:1}}>
-            {scanning ? "📷 Leyendo factura…" : "📷 Escanear factura / foto"}
-          </button>
+          <input ref={scanRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={scanReceipt}/>
+          <input ref={galRef}  type="file" accept="image/*" style={{display:"none"}} onChange={scanReceipt}/>
+          {scanning ? (
+            <button className="btn-p" disabled style={{justifyContent:"center",background:"#0a2028",opacity:.7}}>📷 Leyendo factura…</button>
+          ) : (
+            <div style={{display:"flex",gap:8}}>
+              <button className="btn-p" onClick={()=>scanRef.current?.click()}
+                style={{flex:1,justifyContent:"center",background:"linear-gradient(135deg,#7a5a0a,#b8860b)"}}>📷 Cámara</button>
+              <button className="btn-p" onClick={()=>galRef.current?.click()}
+                style={{flex:1,justifyContent:"center",background:"linear-gradient(135deg,#0a5a6a,#0e7a8c)"}}>🖼️ Galería</button>
+            </div>
+          )}
           <div style={{display:"flex",alignItems:"center",gap:10,margin:"2px 0"}}>
             <div style={{flex:1,height:1,background:"#0d2a30"}}/>
-            <span style={{fontSize:10,color:"#1a4a50"}}>o escribe la venta</span>
+            <span style={{fontSize:10,color:"#1a4a50"}}>o escríbela a mano</span>
             <div style={{flex:1,height:1,background:"#0d2a30"}}/>
           </div>
           <textarea value={txt} onChange={e=>setTxt(e.target.value)} rows={3}
@@ -4757,7 +4765,8 @@ function HistTab({byDate,sortedDates,setDD}) {
 // ── Modals ────────────────────────────────────────────────────────────────────
 function InvModal({item,inventory,saveInv,purchases=[],savePurchases,storeId=null,onClose,rate,initialMode="normal"}) {
   const photoRef   = useRef(null);
-  const scanRef    = useRef(null);
+  const scanRef    = useRef(null);  // cámara (capture)
+  const galRef     = useRef(null);  // galería (varias fotos)
   const [mode, setMode] = useState(initialMode);
   // Serials existentes como estado local: quitar uno no cierra el modal
   const [existingSerials, setExistingSerials] = useState(item?.serials || []);
@@ -5059,13 +5068,20 @@ function InvModal({item,inventory,saveInv,purchases=[],savePurchases,storeId=nul
         {mode==="fast"&&!item&&(<>
           <div style={{fontSize:11,color:"#1a4a50",marginBottom:12,lineHeight:1.5}}>Toma foto del recibo del distribuidor y el sistema carga la mercancía, o agrégala a mano.</div>
 
-          {/* Escanear recibo del distribuidor */}
-          <input ref={scanRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={scanReceipt}/>
-          <button className="btn-p" onClick={()=>scanRef.current?.click()} disabled={scanning}
-            style={{width:"100%",justifyContent:"center",marginBottom:10,background:scanning?"#0a2028":"linear-gradient(135deg,#7a5a0a,#b8860b)",opacity:scanning?.7:1}}>
-            {scanning ? "📸 Leyendo recibo…" : "📸 Escanear recibo del distribuidor"}
-          </button>
-          <div style={{fontSize:10,color:"#1a4a50",textAlign:"center",marginBottom:12}}>Si el recibo tiene varias páginas, selecciona todas las fotos a la vez.</div>
+          {/* Escanear recibo del distribuidor — cámara o galería */}
+          <input ref={scanRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={scanReceipt}/>
+          <input ref={galRef}  type="file" accept="image/*" multiple style={{display:"none"}} onChange={scanReceipt}/>
+          {scanning ? (
+            <button className="btn-p" disabled style={{width:"100%",justifyContent:"center",marginBottom:10,background:"#0a2028",opacity:.7}}>📸 Leyendo recibo…</button>
+          ) : (
+            <div style={{display:"flex",gap:8,marginBottom:10}}>
+              <button className="btn-p" onClick={()=>scanRef.current?.click()}
+                style={{flex:1,justifyContent:"center",background:"linear-gradient(135deg,#7a5a0a,#b8860b)"}}>📷 Cámara</button>
+              <button className="btn-p" onClick={()=>galRef.current?.click()}
+                style={{flex:1,justifyContent:"center",background:"linear-gradient(135deg,#0a5a6a,#0e7a8c)"}}>🖼️ Galería</button>
+            </div>
+          )}
+          <div style={{fontSize:10,color:"#1a4a50",textAlign:"center",marginBottom:12}}>La cámara toma 1 foto; con <strong>Galería</strong> puedes elegir varias páginas a la vez. O agrégalo a mano abajo.</div>
 
           {/* Importar lista pegada */}
           <button className="btn-g" onClick={()=>setShowImport(v=>!v)} style={{width:"100%",justifyContent:"center",fontSize:12,marginBottom:showImport?8:12}}>
