@@ -1714,7 +1714,7 @@ function CameraModal({ onClose, onDetect }) {
 
         {/* Mode switcher */}
         <div style={{display:"flex",gap:6,marginBottom:14}}>
-          {[["cam","🎥 Cámara"],["file","📸 Tomar foto"],["manual","⌨️ Manual"]].map(([m,l])=>(
+          {[["cam","🎥 Cámara"],["file","🖼️ Galería"],["manual","⌨️ Manual"]].map(([m,l])=>(
             <button key={m} onClick={()=>setMode(m)}
               style={{flex:1,background:mode===m?"#0c2e35":"transparent",border:`1px solid ${mode===m?"#0e7a8c":"#0a2028"}`,borderRadius:8,padding:"7px 4px",fontSize:11,color:mode===m?"#2dcfe8":"#2a4060",cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
               {l}
@@ -1741,9 +1741,9 @@ function CameraModal({ onClose, onDetect }) {
                   <div style={{fontSize:24,marginBottom:8}}>⚠️</div>
                   <div style={{fontSize:12,color:"#fbbf24",lineHeight:1.5}}>
                     Tu navegador no soporta escaneo automático.<br/>
-                    Usa <strong>"Tomar foto"</strong> o ingresa el código manualmente.
+                    Usa <strong>"Galería"</strong> o ingresa el código manualmente.
                   </div>
-                  <button className="btn-p" style={{marginTop:12,fontSize:12}} onClick={()=>setMode("file")}>📸 Tomar foto</button>
+                  <button className="btn-p" style={{marginTop:12,fontSize:12}} onClick={()=>setMode("file")}>🖼️ Elegir foto</button>
                 </div>
               </div>
             )}
@@ -1752,11 +1752,11 @@ function CameraModal({ onClose, onDetect }) {
 
         {mode === "file" && (
           <div style={{marginBottom:14,textAlign:"center",padding:"20px 0"}}>
-            <div style={{fontSize:36,marginBottom:8}}>📸</div>
-            <div style={{fontSize:13,color:"#4a8090",marginBottom:14,lineHeight:1.5}}>Abre la cámara para fotografiar el código de barras o QR</div>
-            <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={handleFileCapture}/>
+            <div style={{fontSize:36,marginBottom:8}}>🖼️</div>
+            <div style={{fontSize:13,color:"#4a8090",marginBottom:14,lineHeight:1.5}}>Elige una foto del código de barras o QR de tu galería (o toma una nueva).</div>
+            <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleFileCapture}/>
             <button className="btn-p" style={{fontSize:14,padding:"12px 24px"}} onClick={()=>fileRef.current?.click()}>
-              📷 Abrir cámara
+              🖼️ Elegir foto
             </button>
           </div>
         )}
@@ -1774,7 +1774,7 @@ function CameraModal({ onClose, onDetect }) {
           <button className="btn-p" onClick={handleManual} disabled={!manual.trim()}><ICheck/></button>
         </div>
         <div style={{fontSize:11,color:"#1a3a40",marginTop:10,textAlign:"center"}}>
-          Tip: Si la cámara no funciona, usa <strong style={{color:"#2dcfe8"}}>Tomar foto</strong> para iOS/Android
+          Tip: Si la cámara no funciona, usa <strong style={{color:"#2dcfe8"}}>Galería</strong> para iOS/Android
         </div>
       </div>
     </div>
