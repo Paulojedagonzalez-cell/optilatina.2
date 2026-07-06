@@ -1859,7 +1859,8 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
     {id:"week",    I:IWeek,   l:"Esta semana"},
     {id:"finanzas",I:IMoney,  l:"Finanzas"},
     {id:"miperfil",I:IGear,   l:"Mi perfil"},
-    ...(profile.id==="owner" ? [{id:"ajustes",I:IUsers,l:"Gestión"},{id:"cierre",I:IChart,l:"Cierre"}] : []),
+    {id:"cierre",  I:IChart,  l:"Cierre"},   // cierre de caja: disponible para todos los administradores
+    ...(profile.id==="owner" ? [{id:"ajustes",I:IUsers,l:"Gestión"}] : []),
   ];
 
   return (
@@ -1937,7 +1938,8 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
             {id:"compras", I:IDeposit,l:"Compras"},
             {id:"history", I:IChart,  l:"Historial"},
             {id:"miperfil",I:IGear,   l:"Mi perfil"},
-            ...(profile.id==="owner" ? [{id:"ajustes",I:IUsers,l:"Gestión"},{id:"cierre",I:IChart,l:"Cierre de caja"}] : []),
+            {id:"cierre",  I:IChart,  l:"Cierre de caja"},
+            ...(profile.id==="owner" ? [{id:"ajustes",I:IUsers,l:"Gestión"}] : []),
           ].map(({id,I,l})=>(
             <button key={id} className={`nav-btn ${tab===id?"active":""}`} onClick={()=>setTab(id)}><I/>{l}</button>
           ))}
@@ -1995,7 +1997,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
         {tab==="finanzas" && <FinanzasTab {...{sales:filteredSales,orders,expenses,investments,inventory,rate,saveExpenses,saveInvestments,profile,isMobile,fixedExpenses,saveFixedExpenses}} />}
         {tab==="apart"    && <ApartadosTab {...{orders,saveOrders,rate,profile,isMobile}} />}
         {tab==="caja"     && <CajaTab    {...{sales:filteredSales,deposits,saveDeposits,rate,payments,isMobile,orders}} />}
-        {tab==="cierre"   && profile.id==="owner" && <CierreTab {...{sales,expenses,orders,rate,dynProfiles,profile}} />}
+        {tab==="cierre"   && <CierreTab {...{sales,expenses,orders,rate,dynProfiles,profile}} />}
         {tab==="inv"      && <InvTab     {...{inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,isMobile}} />}
         {tab==="compras"  && <ComprasTab {...{purchases,savePurchases,rate,isMobile}} />}
         {tab==="history"  && <HistTab    {...{byDate,sortedDates,setDD,storeFilter}} />}
@@ -2011,14 +2013,14 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
               <I/><span>{l}</span>
             </button>
           ))}
-          <button className={`mob-nav-btn ${["week","miperfil","ajustes"].includes(tab)?"active":""}`}
+          <button className={`mob-nav-btn ${["week","miperfil","ajustes","cierre"].includes(tab)?"active":""}`}
             onClick={()=>setTab(tab==="miperfil"||tab==="ajustes"?"miperfil":"week")}
             style={{position:"relative"}}>
             <IGear/>
             <span>Más</span>
           </button>
           {/* Sub-menu "Más" */}
-          {["week","miperfil","ajustes"].includes(tab) && (
+          {["week","miperfil","ajustes","cierre"].includes(tab) && (
             <div style={{position:"fixed",bottom:60,right:0,left:0,background:"#050f12",borderTop:"1px solid #0a2028",padding:"8px 0",display:"flex",gap:0,zIndex:51}}>
               {[...SIDE_EXTRA].map(({id,I,l})=>(
                 <button key={id} className={`mob-nav-btn ${tab===id?"active":""}`} onClick={()=>setTab(id)} style={{flex:1}}>
