@@ -4208,6 +4208,7 @@ function ApartadosTab({ orders, saveOrders, rate, profile, isMobile }) {
 function CierreTab({ sales, expenses, orders, rate, dynProfiles, profile }) {
   const [month, setMonth]   = useState(today().slice(0,7));
   const [saved, setSaved]   = useState(false);
+  const [showHTML, setShowHTML] = useState(false); // visor del cierre dentro de la app
 
   const monthName = m => {
     const [y,mm] = m.split("-");
@@ -4333,14 +4334,31 @@ function CierreTab({ sales, expenses, orders, rate, dynProfiles, profile }) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:10}}>
         <div>
           <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Cierre de caja</h1>
-          <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Resumen mensual — descárgalo como registro</div>
+          <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Resumen mensual — ábrelo con "Ver" o descárgalo como registro</div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
           <div className="field"><label>Mes</label><input type="month" value={month} onChange={e=>setMonth(e.target.value)}/></div>
           <button className="btn-g" onClick={guardar}>{saved?"✓ Guardado":"💾 Guardar registro"}</button>
-          <button className="btn-p" onClick={download}>⬇️ Descargar cierre (HTML)</button>
+          <button className="btn-p" onClick={()=>setShowHTML(true)} style={{background:"linear-gradient(135deg,#0a5a6a,#0e7a8c)"}}>👁 Ver cierre</button>
+          <button className="btn-p" onClick={download}>⬇️ Descargar</button>
         </div>
       </div>
+
+      {/* Visor del cierre — se ve renderizado dentro de la app (ideal iPhone) */}
+      {showHTML && (
+        <div className="ov" style={{padding:"calc(env(safe-area-inset-top, 0px) + 10px) 8px calc(env(safe-area-inset-bottom, 0px) + 8px)",zIndex:300}} onClick={e=>{if(e.target===e.currentTarget)setShowHTML(false);}}>
+          <div style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:900,height:"100%",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,padding:"10px 14px",background:"#071c22",flexShrink:0,flexWrap:"wrap"}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#fff"}}>🔒 Cierre — {month}</div>
+              <div style={{display:"flex",gap:8}}>
+                <button className="btn-p" onClick={download} style={{fontSize:12,padding:"7px 12px"}}>⬇️ Descargar</button>
+                <button className="btn-g" onClick={()=>setShowHTML(false)} style={{fontSize:12,padding:"7px 12px"}}>✕ Cerrar</button>
+              </div>
+            </div>
+            <iframe title="Cierre de caja" srcDoc={buildHTML()} style={{flex:1,width:"100%",border:"none",background:"#fff"}}/>
+          </div>
+        </div>
+      )}
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11}}>
         <Metric label="Total facturado" value={fmtUSD(facturado)} sub={`${clientes} operaciones · ${unidades} artículos`} color="#60a5fa"/>
