@@ -794,6 +794,10 @@ export default function App() {
 
   if (!profile) return <LoginScreen onSelect={handleLogin} dynProfiles={dynProfiles} />;
   const p = dynProfiles.find(x => x.id === profile);
+  // Si la sesion recordada apunta a un perfil que ya no existe (borrado o
+  // renombrado en otro dispositivo), NO crashear con pantalla en blanco:
+  // cerrar sesion y volver al login.
+  if (!p) { try { localStorage.removeItem("ol_session"); } catch {} return <LoginScreen onSelect={handleLogin} dynProfiles={dynProfiles} />; }
   // Primer acceso por invitacion: la clave que recibio es temporal (de un solo
   // uso). Antes de entrar a la app DEBE crear su propia contraseña.
   if (p?.pwTemp) return <SetPasswordScreen profile={p} dynProfiles={dynProfiles} saveDynProfiles={saveDynProfiles} onLogout={handleLogout} />;
