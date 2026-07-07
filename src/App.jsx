@@ -8,6 +8,16 @@ const weekStart = () => { const d=new Date(); d.setDate(d.getDate()-d.getDay());
 // "René", "rene" y "RENE" se consideran el mismo usuario al iniciar sesión.
 const normText = s => (s||"").trim().toLowerCase().replace(/[áàäâã]/g,"a").replace(/[éèëê]/g,"e").replace(/[íìïî]/g,"i").replace(/[óòöôõ]/g,"o").replace(/[úùüû]/g,"u").replace(/ñ/g,"n");
 
+// Tasa BCV oficial del dia (Bs por USD) desde dolarapi. Devuelve numero o null.
+const fetchTasaBCV = async () => {
+  try {
+    const res = await fetch("https://ve.dolarapi.com/v1/dolares/oficial", { cache: "no-store" });
+    const j = await res.json();
+    const r = Number(j?.promedio);
+    return r > 0 ? Math.round(r * 100) / 100 : null;
+  } catch { return null; }
+};
+
 // ══════════════════════════════════════════════════════════════════════════════
 // FIREBASE DATABASE LAYER — Firestore (tiempo real + offline incluido)
 // ══════════════════════════════════════════════════════════════════════════════
@@ -736,6 +746,24 @@ export default function App() {
   const savePD          = useCallback(async d => { setProfilesData(d);await dbSaveSetting("profilesData", d); }, []);
   const saveDynProfiles = useCallback(async d => { setDynProfiles(d); await dbSaveSetting("dynProfiles", d); }, []);
   const saveFixedExpenses = useCallback(async d => { setFixedExpenses(d); await dbSaveSetting("fixedExpenses", d); }, []);
+
+  // Tasa del dia automatica (BCV): una vez al dia sincroniza la tasa oficial
+  // del Banco Central. Si ya se sincronizo hoy (o hubo edicion manual hoy) no
+  // hace nada. Si la fuente falla, deja la tasa que estaba. Un solo intento.
+  useEffect(() => {
+    if (loading || !CONFIGURED) return;
+    (async () => {
+      try {
+        const syncedDate = await DB.getSetting("rateDate");
+        if (syncedDate === today()) return;
+        const r = await fetchTasaBCV();
+        if (r && r > 0) {
+          await saveRate(r);
+          await dbSaveSetting("rateDate", today());
+        }
+      } catch {}
+    })();
+  }, [loading, saveRate]);
 
   // Actualizar: recarga todos los datos de Firestore y busca app nueva
   const refreshData = useCallback(async () => {
@@ -1841,7 +1869,13 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
 
   const handleRateSave = async () => {
     const r = parseFloat(rateInput);
-    if (!isNaN(r) && r > 0) { await saveRate(r); setEditRate(false); }
+    if (!isNaN(r) && r > 0) {
+      await saveRate(r);
+      // Marca hoy como sincronizada: una edicion manual manda por hoy; mañana
+      // vuelve a tomar la tasa BCV automatica.
+      try { await dbSaveSetting("rateDate", today()); } catch {}
+      setEditRate(false);
+    }
   };
 
   const isMobile = useIsMobile();
@@ -1962,7 +1996,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>{setEditRate(true);setRateInput(String(rate));}}>
                 <div>
                   <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:15,fontWeight:700,color:"#fbbf24"}}>Bs {rate.toLocaleString("es-VE",{maximumFractionDigits:2})}</div>
-                  <div style={{fontSize:10,color:"#1e3050",marginTop:1}}>por 1 USDT</div>
+                  <div style={{fontSize:10,color:"#1e3050",marginTop:1}}>BCV · por 1 USD · se actualiza sola</div>
                 </div>
                 <span style={{fontSize:11,color:"#1e3050"}}>✎</span>
               </div>
