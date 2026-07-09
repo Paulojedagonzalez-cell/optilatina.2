@@ -18,6 +18,28 @@ const fetchTasaBCV = async () => {
   } catch { return null; }
 };
 
+// Empareja el nombre que leyó la IA en la foto del ticket con un producto real
+// del inventario (por si el vendedor escribió el nombre distinto/abreviado).
+// Si no hay un parecido razonable, devuelve null y el personal lo elige a mano.
+const fuzzyMatchProduct = (rawName, inventory) => {
+  const n = normText(rawName);
+  if (!n) return null;
+  const candidates = inventory.filter(p => !p.isService && getStock(p) > 0);
+  let exact = candidates.find(p => normText(p.name) === n);
+  if (exact) return exact;
+  let contains = candidates.find(p => n.includes(normText(p.name)) || normText(p.name).includes(n));
+  if (contains) return contains;
+  // Solapamiento de palabras (>=1 palabra de 3+ letras en comun)
+  const words = n.split(/\s+/).filter(w => w.length >= 3);
+  let best = null, bestScore = 0;
+  for (const p of candidates) {
+    const pw = normText(p.name).split(/\s+/).filter(w => w.length >= 3);
+    const score = words.filter(w => pw.includes(w)).length;
+    if (score > bestScore) { bestScore = score; best = p; }
+  }
+  return bestScore > 0 ? best : null;
+};
+
 // ══════════════════════════════════════════════════════════════════════════════
 // FIREBASE DATABASE LAYER — Firestore (tiempo real + offline incluido)
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1133,6 +1155,14 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
   const [lab,        setLab]       = useState(LAB_LIST[0]);
   const [camera,     setCamera]    = useState(false); // camera modal
   const [submitting, setSubmitting]= useState(false); // evita registrar la venta 2 veces por doble toque
+  const [showManual, setShowManual]= useState(false); // catálogo manual — respaldo, colapsado por defecto
+  // Venta por foto del ticket físico: cámara/galería → la IA lo lee → se
+  // confirma (recreando el ticket) → se guarda. Es la vía principal en tienda.
+  const [saleDraft,  setSaleDraft] = useState(null);   // {items:[{id,rawName,productId,qty}], method, note}
+  const [saleErr,    setSaleErr]   = useState("");
+  const [saleReading,setSaleReading]=useState(false);
+  const saleCamRef = useRef(null);
+  const saleGalRef = useRef(null);
 
   const METHODS = [
     {id:"cash",          label:"Efectivo",      icon:"💵", currency:"USD", detail:null},
@@ -1197,6 +1227,100 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
       await saveSal(newSales); await saveInv(newInv);
       setSuccess({total: total+labC, profit});
       setTimeout(()=>{setSuccess(null);setLines([]);setNote("");setMethod("cash");setLabCost("");setRx({od:{sphere:"",cylinder:"",axis:""},oi:{sphere:"",cylinder:"",axis:""},add:""});},3000);
+    } catch (e) {
+      console.error("Error registrando venta:", e);
+      alert("No se pudo registrar la venta. Revisa tu conexión e intenta de nuevo.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ── Venta por foto del ticket físico ────────────────────────────────────────
+  // El personal ya llenó el ticket en papel; solo toma la foto. La IA lo lee y
+  // se muestra recreado (como el ticket original) para confirmar antes de
+  // guardar — nunca se escribe de nuevo a mano.
+  const scanSaleTicket = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (!files.length) return;
+    setSaleErr(""); setSaleReading(true);
+    try {
+      const images = [];
+      for (const file of files.slice(0, 3)) images.push(await compressImage(file, 1400, 0.8));
+      const res = await fetch("/api/scan-sale", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.status === 503 || json.error === "not_configured") {
+        setSaleErr("El lector de tickets todavía no está activado. Pídeselo al administrador."); return;
+      }
+      if (!res.ok || !json.ok) {
+        setSaleErr(json.message || "No se pudo leer el ticket. Intenta con mejor luz/enfoque."); return;
+      }
+      const items = Array.isArray(json.data?.items) ? json.data.items : [];
+      if (!items.length) {
+        setSaleErr("No se reconoció ningún producto en la foto. Intenta de nuevo con mejor luz."); return;
+      }
+      setSaleDraft({
+        items: items.map(it => ({
+          id: uid(), rawName: it.name, qty: it.qty || 1,
+          productId: fuzzyMatchProduct(it.name, inventory)?.id || "",
+        })),
+        method: normMethod(json.data.paymentMethod) === "pagoMovil" ? "bank" : (json.data.paymentMethod || "cash"),
+        note: json.data.note || "",
+      });
+    } catch {
+      setSaleErr("No se pudo procesar la imagen. Revisa tu conexión e intenta de nuevo.");
+    } finally {
+      setSaleReading(false);
+    }
+  };
+
+  const resolvedDraft = (saleDraft?.items || []).map(r => {
+    const p = inventory.find(x => x.id === r.productId);
+    if (!p) return { ...r, product: null, subtotal: 0, profit: 0 };
+    return { ...r, product: p, subtotal: p.price * r.qty, profit: (p.price - p.cost) * r.qty };
+  });
+  const draftTotal  = resolvedDraft.reduce((s, r) => s + r.subtotal, 0);
+  const draftProfit = resolvedDraft.reduce((s, r) => s + r.profit, 0);
+  const draftValid  = resolvedDraft.length > 0 && resolvedDraft.every(r => r.product && r.qty > 0);
+  const draftStockWarn = resolvedDraft.filter(r => r.product && !r.product.isService && r.qty > getStock(r.product));
+
+  const updateDraftItem = (id, patch) => setSaleDraft(d => ({ ...d, items: d.items.map(it => it.id === id ? { ...it, ...patch } : it) }));
+  const removeDraftItem = id => setSaleDraft(d => ({ ...d, items: d.items.filter(it => it.id !== id) }));
+  const addDraftItem = () => setSaleDraft(d => ({ ...d, items: [...(d?.items || []), { id: uid(), rawName: "", qty: 1, productId: "" }] }));
+
+  const saveDraftSale = async () => {
+    if (!draftValid || draftStockWarn.length > 0 || submitting) return;
+    setSubmitting(true);
+    const saleId = uid(), newSales = [...sales];
+    const newInv = inventory.map(p => ({ ...p }));
+    resolvedDraft.forEach(r => {
+      const prodInv = newInv.find(p => p.id === r.product.id);
+      let assignedSerials = [];
+      if (prodInv && !prodInv.isService && prodInv.serials) {
+        const ordered = [...prodInv.serials].sort((a, b) => (isAutoCode(a) ? 0 : 1) - (isAutoCode(b) ? 0 : 1));
+        assignedSerials = ordered.slice(0, r.qty);
+        prodInv.serials = ordered.slice(r.qty);
+      }
+      const isBs = methodCur(saleDraft.method) === "Bs";
+      newSales.push({
+        id: uid(), saleId, date: today(), note: saleDraft.note, paymentMethod: saleDraft.method,
+        registeredBy: profile.id, storeId: profile.id,
+        productId: r.product.id, productName: r.product.name, cat: r.product.cat,
+        cost: r.product.cost, price: r.product.price, qty: r.qty,
+        total: r.subtotal, profit: r.profit,
+        totalBs: isBs ? r.subtotal * rate : null,
+        serials: assignedSerials,
+        frameType: null, crystalType: null, lab: null, labCost: 0, rx: null,
+      });
+    });
+    try {
+      await saveSal(newSales); await saveInv(newInv);
+      setSuccess({ total: draftTotal, profit: draftProfit });
+      setTimeout(() => { setSuccess(null); setSaleDraft(null); setSaleErr(""); }, 3000);
     } catch (e) {
       console.error("Error registrando venta:", e);
       alert("No se pudo registrar la venta. Revisa tu conexión e intenta de nuevo.");
@@ -1519,7 +1643,164 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
         </div>
       )}
 
-      <div style={{display:isMobile?"flex":"grid",flexDirection:isMobile?"column":"unset",gridTemplateColumns:isMobile?"unset":"1fr 340px",flex:1,overflow:isMobile?"auto":"hidden"}}>
+      {/* Venta por foto del ticket físico — vía principal en tienda */}
+      {!showManual && (
+        <div style={{display:isMobile?"flex":"grid",flexDirection:isMobile?"column":"unset",gridTemplateColumns:isMobile?"unset":"1fr 320px",flex:1,overflow:isMobile?"auto":"hidden",gap:isMobile?0:1}}>
+          <div style={{overflow:"auto",padding:isMobile?"14px 12px":"20px 22px"}}>
+            {!saleDraft ? (
+              <div className="card" style={{maxWidth:480,margin:"0 auto",textAlign:"center",padding:isMobile?"24px 18px":"36px 30px"}}>
+                <div style={{fontSize:44,marginBottom:10}}>🧾📸</div>
+                <div style={{fontSize:19,fontWeight:800,color:"#fff",marginBottom:8}}>Registrar venta</div>
+                <div style={{fontSize:13,color:"#4a8090",lineHeight:1.6,marginBottom:20}}>
+                  Toma foto del ticket que ya llenaste en papel.<br/>El sistema lo lee y te lo muestra para que confirmes antes de guardar.
+                </div>
+                <input ref={saleCamRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={scanSaleTicket}/>
+                <input ref={saleGalRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={scanSaleTicket}/>
+                {saleErr && <div style={{background:"#1a0a04",border:"1px solid #4a2010",borderRadius:10,padding:"11px 14px",fontSize:12,color:"#fbbf24",marginBottom:14,textAlign:"left",lineHeight:1.5}}>{saleErr}</div>}
+                {saleReading ? (
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"14px",color:"#2dcfe8",fontSize:14}}>
+                    <span style={{display:"inline-flex",animation:"spin 1s linear infinite"}}><IRefresh/></span> Leyendo el ticket…
+                  </div>
+                ) : (
+                  <div style={{display:"flex",gap:10}}>
+                    <button className="btn-p" style={{flex:1,justifyContent:"center",padding:"14px",fontSize:14}} onClick={()=>saleCamRef.current?.click()}>📷 Cámara</button>
+                    <button className="btn-p" style={{flex:1,justifyContent:"center",padding:"14px",fontSize:14,background:"linear-gradient(135deg,#0a5a6a,#0e7a8c)"}} onClick={()=>saleGalRef.current?.click()}>🖼️ Galería</button>
+                  </div>
+                )}
+                <button onClick={()=>setShowManual(true)} style={{marginTop:18,background:"transparent",border:"none",color:"#2a5a60",cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:12,textDecoration:"underline"}}>
+                  🖐️ Prefiero armar la venta manualmente
+                </button>
+              </div>
+            ) : (
+              <div className="card" style={{maxWidth:560,margin:"0 auto"}}>
+                <div style={{fontSize:16,fontWeight:700,color:"#fff",marginBottom:4}}>🧾 Confirma el ticket</div>
+                <div style={{fontSize:12,color:"#4a8090",marginBottom:16}}>Revisa que coincida con el papel — corrige lo que haga falta y guarda.</div>
+                <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
+                  {resolvedDraft.map(r=>(
+                    <div key={r.id} style={{background:"#0c1422",border:`1px solid ${!r.product?"#5a1a1a":r.qty>getStock(r.product)&&!r.product.isService?"#5a1a1a":"#1a2640"}`,borderRadius:10,padding:"10px 12px"}}>
+                      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
+                        <select value={r.productId} onChange={e=>updateDraftItem(r.id,{productId:e.target.value})}
+                          style={{flex:1,background:"#071418",border:"1px solid #0d2a30",borderRadius:7,padding:"7px 9px",color:r.product?"#e2e8f4":"#fbbf24",fontFamily:"'Outfit',sans-serif",fontSize:12,outline:"none"}}>
+                          <option value="">{r.rawName ? `"${r.rawName}" — elige el producto` : "— elige el producto —"}</option>
+                          {inventory.filter(p=>!p.isService).map(p=><option key={p.id} value={p.id}>{p.name} · {getStock(p)} pz · {fmtUSD(p.price)}</option>)}
+                        </select>
+                        <button onClick={()=>removeDraftItem(r.id)} style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",padding:"2px 4px",flexShrink:0}}><IClose/></button>
+                      </div>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <button className="qty-btn" onClick={()=>updateDraftItem(r.id,{qty:Math.max(1,r.qty-1)})}>−</button>
+                          <input type="number" min="1" value={r.qty} onChange={e=>updateDraftItem(r.id,{qty:Math.max(1,parseInt(e.target.value)||1)})}
+                            style={{width:48,textAlign:"center",background:"#081820",border:"1px solid #0d2a40",borderRadius:8,padding:"5px 4px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:14,outline:"none"}}/>
+                          <button className="qty-btn" onClick={()=>updateDraftItem(r.id,{qty:r.qty+1})}>+</button>
+                        </div>
+                        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,fontWeight:600}}>{r.product?fmtUSD(r.subtotal):"—"}</div>
+                      </div>
+                      {r.product && !r.product.isService && r.qty>getStock(r.product) && (
+                        <div style={{marginTop:6,fontSize:11,color:"#f87171"}}>⚠️ Solo hay {getStock(r.product)} unidad(es)</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button onClick={addDraftItem} className="btn-g" style={{width:"100%",justifyContent:"center",fontSize:12,marginBottom:16}}>+ Agregar otro producto</button>
+
+                <div style={{fontSize:10,color:"#1a4a50",marginBottom:6,letterSpacing:".07em"}}>MÉTODO DE PAGO</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:5,marginBottom:14}}>
+                  {METHODS.map(m=>(
+                    <button key={m.id} onClick={()=>setSaleDraft(d=>({...d,method:m.id}))} style={{background:saleDraft.method===m.id?"#0c2e35":"#071418",border:`1px solid ${saleDraft.method===m.id?"#0e7a8c":"#0d2a30"}`,borderRadius:8,padding:"6px 2px",cursor:"pointer",textAlign:"center"}}>
+                      <div style={{fontSize:14}}>{m.icon}</div>
+                      <div style={{fontSize:9,color:saleDraft.method===m.id?"#2dcfe8":"#1a4a50",marginTop:1}}>{m.label}</div>
+                    </button>
+                  ))}
+                </div>
+                <input placeholder="Nota / cliente (opcional)..." value={saleDraft.note} onChange={e=>setSaleDraft(d=>({...d,note:e.target.value}))}
+                  style={{width:"100%",background:"#071418",border:"1px solid #0d2a30",borderRadius:10,padding:"9px 13px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:13,marginBottom:16}}/>
+
+                <div style={{borderTop:"1px solid #0a2028",paddingTop:14,marginBottom:14}}>
+                  <div style={{fontSize:10,color:"#1a4a50"}}>TOTAL A COBRAR</div>
+                  <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:26,fontWeight:700,color:"#fff"}}>{fmtUSD(draftTotal)}</div>
+                  <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,color:"#fbbf24",marginTop:2}}>{fmtBs(draftTotal,rate)}</div>
+                </div>
+                {draftStockWarn.length>0 && (
+                  <div style={{background:"#1a0808",border:"1px solid #4a1010",borderRadius:10,padding:"10px 14px",marginBottom:10,fontSize:12,color:"#f87171"}}>⚠️ Hay {draftStockWarn.length} producto(s) con cantidad mayor al stock disponible.</div>
+                )}
+                {!draftValid && (
+                  <div style={{background:"#0a1820",border:"1px solid #0d2a40",borderRadius:10,padding:"10px 14px",marginBottom:10,fontSize:12,color:"#1a4a60"}}>Elige el producto correcto para cada línea del ticket.</div>
+                )}
+                <div style={{display:"flex",gap:8}}>
+                  <button className="btn-g" onClick={()=>{setSaleDraft(null);setSaleErr("");}} style={{flex:1,justifyContent:"center",padding:"13px"}}>Cancelar</button>
+                  <button onClick={saveDraftSale} disabled={!draftValid||draftStockWarn.length>0||submitting}
+                    style={{flex:2,background:draftValid&&!draftStockWarn.length?"linear-gradient(135deg,#0a6070,#0e7a8c)":"#071418",border:"none",borderRadius:10,padding:"13px",color:draftValid&&!draftStockWarn.length?"#fff":"#1a4a60",fontFamily:"'Outfit',sans-serif",fontSize:14,fontWeight:700,cursor:draftValid&&!draftStockWarn.length&&!submitting?"pointer":"default",opacity:submitting?.7:1,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                    {submitting?"Guardando…":<><ICheck/> Confirmar y guardar</>}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar: resumen de apartados + stock bajo — aprovechando el espacio */}
+          <div style={{overflow:"auto",padding:isMobile?"0 12px 14px":"18px 16px",display:"flex",flexDirection:"column",gap:14,borderLeft:isMobile?"none":"1px solid #0f1825",borderTop:isMobile?"1px solid #0f1825":"none"}}>
+            <div className="card-sm">
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{fontSize:11,fontWeight:700,color:"#e8c96a",textTransform:"uppercase",letterSpacing:".06em"}}>🧾 Apartados</div>
+                <button className="btn-g" style={{fontSize:11,padding:"4px 10px"}} onClick={()=>setShowApart(true)}>Ver todos</button>
+              </div>
+              {(() => {
+                const pend = (orders||[]).filter(o=>o.status!=="entregado"&&orderBalance(o)>0);
+                const pendAmt = pend.reduce((s,o)=>s+orderBalance(o),0);
+                return pend.length===0 ? (
+                  <div style={{fontSize:12,color:"#1a4a50",textAlign:"center",padding:"8px 0"}}>Nadie debe nada 🎉</div>
+                ) : (
+                  <>
+                    <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:20,fontWeight:700,color:"#fbbf24"}}>{fmtUSD(pendAmt)}</div>
+                    <div style={{fontSize:11,color:"#7a6420",marginBottom:8}}>{pend.length} {pend.length===1?"cliente debe":"clientes deben"}</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                      {pend.slice(0,4).map(o=>(
+                        <div key={o.id} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#a0c8d0"}}>
+                          <span>#{o.orderNumber} {o.customer}</span>
+                          <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#fbbf24"}}>{fmtUSD(orderBalance(o))}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            <div className="card-sm">
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{fontSize:11,fontWeight:700,color:"#60a5fa",textTransform:"uppercase",letterSpacing:".06em"}}>📦 Inventario</div>
+                <button className="btn-g" style={{fontSize:11,padding:"4px 10px"}} onClick={()=>setShowInv(true)}>Ver todo</button>
+              </div>
+              {(() => {
+                const low = inventory.filter(isLow).sort((a,b)=>getStock(a)-getStock(b));
+                return low.length===0 ? (
+                  <div style={{fontSize:12,color:"#1a4a50",textAlign:"center",padding:"8px 0"}}>Stock al día ✓</div>
+                ) : (
+                  <>
+                    <div style={{fontSize:11,color:"#f87171",marginBottom:8}}>⚠ {low.length} por agotarse</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                      {low.slice(0,5).map(p=>(
+                        <div key={p.id} onClick={()=>{setAdjustProd(p);setAdjustQty(1);setAdjustMode("add");}} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#a0c8d0",cursor:"pointer"}}>
+                          <span>{p.name}</span>
+                          <span style={{fontFamily:"'JetBrains Mono',monospace",color:getStock(p)===0?"#f87171":"#fbbf24"}}>{getStock(p)===0?"AGOTADO":`${getStock(p)} pz`}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Armar venta manualmente — respaldo, colapsado por defecto */}
+      {showManual && (
+      <div style={{display:"flex",flexDirection:"column",flex:1,overflow:isMobile?"auto":"hidden"}}>
+        <div style={{padding:isMobile?"10px 12px 0":"12px 16px 0",flexShrink:0}}>
+          <button className="btn-g" onClick={()=>setShowManual(false)} style={{fontSize:12,padding:"8px 14px"}}>← Volver a venta por foto</button>
+        </div>
+        <div style={{display:isMobile?"flex":"grid",flexDirection:isMobile?"column":"unset",gridTemplateColumns:isMobile?"unset":"1fr 340px",flex:1,overflow:isMobile?"auto":"hidden"}}>
 
         {/* Catálogo */}
         <div style={{overflow:"auto",padding:isMobile?"12px 10px":"14px 16px",borderRight:isMobile?"none":"1px solid #0f1825",borderBottom:isMobile?"1px solid #0f1825":"none",maxHeight:isMobile?"55vmax":"100%"}}>
@@ -1744,6 +2025,8 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
           </div>
         </div>
       </div>
+      </div>
+      )}
     </div>
   );
 }
