@@ -1111,11 +1111,16 @@ function LoginScreen({ onSelect, dynProfiles }) {
 }
 
 // ── Store View (pantalla tienda) ──────────────────────────────────────────────
-function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, orders, saveOrders, saveInv, saveSal, refreshData, onLogout }) {
+function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, orders, saveOrders, saveInv, saveSal, expenses = [], saveExpenses, refreshData, onLogout }) {
   const [lines,      setLines]     = useState([]);
   const [note,       setNote]      = useState("");
   const [method,     setMethod]    = useState("cash");
   const [showApart,  setShowApart] = useState(false);
+  const [showInv,    setShowInv]   = useState(false);  // ver inventario (sin editar precios)
+  const [showGasto,  setShowGasto] = useState(false);  // registrar gasto no fijo
+  const [gasto,      setGasto]     = useState({cat:"otro", amount:"", date:today(), note:""});
+  const [gastoBusy,  setGastoBusy] = useState(false);
+  const [gastoOk,    setGastoOk]   = useState(false);
   const [success,    setSuccess]   = useState(null);
   const [catF,       setCatF]      = useState("Todos");
   const [addStockM,  setAddStockM] = useState(false);
@@ -1237,6 +1242,25 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
     setAdjustProd(null);
   };
 
+  // Registrar un gasto NO fijo (variable) desde la tienda
+  const saveGasto = async () => {
+    const amt = Number(gasto.amount);
+    if (!amt || amt <= 0 || gastoBusy || !saveExpenses) return;
+    setGastoBusy(true);
+    const rec = { id: uid(), cat: gasto.cat, amount: amt, month: (gasto.date||today()).slice(0,7), date: gasto.date||today(), note: gasto.note||"" };
+    try {
+      await saveExpenses([...expenses, rec]);
+      setGastoOk(true);
+      setGasto({cat:"otro", amount:"", date:today(), note:""});
+      setTimeout(()=>{ setGastoOk(false); setShowGasto(false); }, 1400);
+    } catch (e) {
+      console.error("Error registrando gasto:", e);
+      alert("No se pudo registrar el gasto. Revisa tu conexión e intenta de nuevo.");
+    } finally {
+      setGastoBusy(false);
+    }
+  };
+
   return (
     <div style={{fontFamily:"'Outfit',sans-serif",background:"#040d10",color:"#e2e8f4",display:"flex",flexDirection:"column",height:isMobile?"auto":"100dvh",minHeight:isMobile?"100svh":"100dvh",overflow:isMobile?"auto":"hidden"}}>
       <style>{CSS}</style>
@@ -1246,6 +1270,81 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
           <div style={{maxWidth:920,margin:"0 auto"}}>
             <button className="btn-g" onClick={()=>setShowApart(false)} style={{marginBottom:14,padding:"11px 18px",fontSize:14}}>← Volver a ventas</button>
             <ApartadosTab orders={orders||[]} saveOrders={saveOrders} rate={rate} profile={profile} isMobile={isMobile}/>
+          </div>
+        </div>
+      )}
+
+      {/* Inventario (solo consulta + ajuste de stock, sin editar precios) */}
+      {showInv && (
+        <div style={{position:"fixed",inset:0,background:"#040d10",zIndex:90,overflow:"auto",padding:"calc(env(safe-area-inset-top, 0px) + 14px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px)"}}>
+          <div style={{maxWidth:920,margin:"0 auto"}}>
+            <button className="btn-g" onClick={()=>setShowInv(false)} style={{marginBottom:14,padding:"11px 18px",fontSize:14}}>← Volver a ventas</button>
+            <h1 style={{fontSize:22,fontWeight:800,color:"#fff"}}>📦 Inventario</h1>
+            <div style={{color:"#1a4a50",fontSize:12,margin:"4px 0 14px"}}>Consulta de existencias. Ajusta el stock con ⚙️. Los <strong>precios</strong> los define la administración.</div>
+            <div className="card" style={{padding:0,overflow:"auto"}}>
+              <table>
+                <thead><tr>
+                  <th>Producto</th>
+                  <th style={{textAlign:"center"}}>Unidades</th>
+                  <th>Categoría</th>
+                  <th style={{textAlign:"right"}}>Precio venta</th>
+                  <th></th>
+                </tr></thead>
+                <tbody>
+                  {inventory.length===0 ? <tr><td colSpan={5} style={{textAlign:"center",color:"#1e3050",padding:"26px 0"}}>Sin productos</td></tr>
+                    : [...inventory].sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(p=>{
+                      const u=getStock(p);
+                      return (
+                        <tr key={p.id}>
+                          <td style={{color:"#b0c0d8",fontWeight:500}}>{p.name}</td>
+                          <td style={{textAlign:"center"}}>
+                            {p.isService ? <span className="badge bb">Servicio</span>
+                              : u===0 ? <span className="badge br">Agotado</span>
+                              : <span style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,fontSize:15,color:u<3?"#fbbf24":"#34d399"}}>{u}<span style={{fontSize:10,color:"#1a4a50",fontWeight:400}}> u</span></span>}
+                          </td>
+                          <td><span className="badge bb">{p.cat}</span></td>
+                          <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#60a5fa"}}>{fmtUSD(p.price)}<div style={{fontSize:10,color:"#fbbf24"}}>{fmtBs(p.price,rate)}</div></td>
+                          <td style={{textAlign:"right"}}>{!p.isService && <button className="btn-g" style={{padding:"5px 9px"}} title="Ajustar stock" onClick={()=>{setAdjustProd(p);setAdjustQty(1);setAdjustMode("add");}}>⚙️</button>}</td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Registrar gasto NO fijo */}
+      {showGasto && (
+        <div className="ov" onClick={e=>{if(e.target===e.currentTarget)setShowGasto(false);}}>
+          <div className="modal" style={{maxWidth:400}}>
+            <div style={{fontSize:17,fontWeight:700,color:"#fff",marginBottom:4,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              💸 Registrar gasto
+              <button style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:20}} onClick={()=>setShowGasto(false)}>×</button>
+            </div>
+            <div style={{fontSize:12,color:"#1a4a50",marginBottom:16}}>Gastos del día de la tienda (compras, limpieza, transporte, etc.).</div>
+            {gastoOk ? (
+              <div style={{background:"#0f2820",border:"1px solid #1a4a30",borderRadius:10,padding:"18px",fontSize:14,color:"#34d399",textAlign:"center"}}>✓ Gasto registrado</div>
+            ) : (<>
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                <div className="field"><label>Concepto</label>
+                  <select value={gasto.cat} onChange={e=>setGasto(g=>({...g,cat:e.target.value}))}>
+                    {EXPENSE_CATS.map(c=><option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+                  </select>
+                </div>
+                <div className="rg2" style={{gap:10}}>
+                  <div className="field"><label>Monto (USD)</label><input autoFocus type="number" min="0" step="0.01" placeholder="0.00" value={gasto.amount} onChange={e=>setGasto(g=>({...g,amount:e.target.value}))}/></div>
+                  <div className="field"><label>Fecha</label><input type="date" value={gasto.date} onChange={e=>setGasto(g=>({...g,date:e.target.value}))}/></div>
+                </div>
+                {gasto.amount>0 && <div style={{fontSize:11,color:"#fbbf24",fontFamily:"'JetBrains Mono',monospace"}}>= {fmtBs(Number(gasto.amount),rate)}</div>}
+                <div className="field"><label>Nota (opcional)</label><input placeholder="Ej: bolsas, limpieza, flete…" value={gasto.note} onChange={e=>setGasto(g=>({...g,note:e.target.value}))}/></div>
+              </div>
+              <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
+                <button className="btn-g" onClick={()=>setShowGasto(false)}>Cancelar</button>
+                <button className="btn-p" onClick={saveGasto} disabled={gastoBusy||!(Number(gasto.amount)>0)} style={{opacity:(gastoBusy||!(Number(gasto.amount)>0))?.6:1}}><ICheck/>{gastoBusy?"Guardando…":"Registrar gasto"}</button>
+              </div>
+            </>)}
           </div>
         </div>
       )}
@@ -1276,8 +1375,10 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
               <div style={{fontSize:isMobile?11:13,fontWeight:600,color:profile.color,marginTop:1}}>{profile.address}</div>
             </div>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
             <button className="btn-p" style={{fontSize:11,padding:"6px 10px",display:"flex",alignItems:"center",gap:4,background:"linear-gradient(135deg,#7a5a0a,#b8860b)"}} onClick={()=>setShowApart(true)}>🧾{isMobile?"":" Apartados"}{orders?.filter(o=>o.status!=="entregado"&&orderBalance(o)>0).length>0&&<span style={{background:"#2a1e08",borderRadius:10,padding:"0 6px",fontSize:10}}>{orders.filter(o=>o.status!=="entregado"&&orderBalance(o)>0).length}</span>}</button>
+            <button className="btn-p" style={{fontSize:11,padding:"6px 10px",display:"flex",alignItems:"center",gap:4}} onClick={()=>setShowInv(true)}>📦{isMobile?"":" Inventario"}</button>
+            <button className="btn-p" style={{fontSize:11,padding:"6px 10px",display:"flex",alignItems:"center",gap:4,background:"linear-gradient(135deg,#5a2a0a,#8a3a10)"}} onClick={()=>{setGasto({cat:"otro",amount:"",date:today(),note:""});setGastoOk(false);setShowGasto(true);}}>💸{isMobile?"":" Gasto"}</button>
             <RefreshBtn refreshData={refreshData} label={false} style={{padding:"6px 10px"}}/>
             <button className="btn-p" style={{fontSize:11,padding:"6px 10px",display:"flex",alignItems:"center",gap:4}} onClick={()=>setCamera(true)}>📷{isMobile?"":" Escanear"}</button>
             <button onClick={()=>setAddStockM(true)} className="btn-p" style={{fontSize:11,padding:"6px 10px",display:"flex",alignItems:"center",gap:4}}><IPlus/>{isMobile?"":" Stock"}</button>
@@ -1300,6 +1401,12 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
               <div style={{fontSize:9,color:"#1a4a50",letterSpacing:".07em"}}>TRANSACCIONES</div>
               <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:isMobile?15:17,fontWeight:700,color:"#a78bfa"}}>{todaySales.length}</div>
             </div>
+          </div>
+          {/* Tasa del dia (BCV, se actualiza sola) */}
+          <div style={{background:"#071c22",border:"1px solid #2a2010",borderRadius:10,padding:"7px 14px"}}>
+            <div style={{fontSize:9,color:"#7a6420",letterSpacing:".07em"}}>TASA DEL DÍA</div>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:isMobile?15:17,fontWeight:700,color:"#fbbf24"}}>Bs {Number(rate).toLocaleString("es-VE",{maximumFractionDigits:2})}</div>
+            <div style={{fontSize:9,color:"#5a4a18"}}>BCV · por 1 USD</div>
           </div>
           {/* Payment method pills */}
           {todayByMethod.map(m=>(
