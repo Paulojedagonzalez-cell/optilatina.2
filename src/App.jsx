@@ -1248,12 +1248,21 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
     setSaleErr(""); setSaleReading(true);
     try {
       const images = [];
-      for (const file of files.slice(0, 3)) images.push(await compressImage(file, 1400, 0.8));
-      const res = await fetch("/api/scan-sale", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ images }),
-      });
+      for (const file of files.slice(0, 3)) {
+        try { images.push(await compressImage(file, 1400, 0.8)); }
+        catch (imgErr) { console.error("compressImage error:", imgErr); throw new Error("no se pudo leer la foto (formato no soportado)"); }
+      }
+      let res;
+      try {
+        res = await fetch("/api/scan-sale", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ images }),
+        });
+      } catch (netErr) {
+        console.error("scan-sale fetch error:", netErr);
+        throw new Error("sin conexión con el servidor");
+      }
       const json = await res.json().catch(() => ({}));
       if (res.status === 503 || json.error === "not_configured") {
         setSaleErr("El lector de tickets todavía no está activado. Pídeselo al administrador."); return;
@@ -1273,8 +1282,9 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
         abono: (d.abono != null && d.abono !== "" && Number(d.abono) > 0) ? String(d.abono) : "",
         method: normMethod(d.paymentMethod) === "pagoMovil" ? "bank" : (d.paymentMethod || "cash"),
       });
-    } catch {
-      setSaleErr("No se pudo procesar la imagen. Revisa tu conexión e intenta de nuevo.");
+    } catch (err) {
+      console.error("scanSaleTicket error:", err);
+      setSaleErr(`No se pudo procesar la foto (${err?.message || "error"}). Intenta de nuevo o usa el modo manual.`);
     } finally {
       setSaleReading(false);
     }

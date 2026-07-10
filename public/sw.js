@@ -22,7 +22,9 @@ self.addEventListener("activate", e => {
 
 self.addEventListener("fetch", e => {
   const url = e.request.url;
-  if (url.includes("firebase") || url.includes("googleapis") || url.includes("dolarapi")) return;
+  // NUNCA tocar llamadas a APIs (IA, Firebase, tasa): son POST/dinámicas y no se
+  // deben cachear ni interceptar — hacerlo rompía la subida de fotos en la PWA.
+  if (e.request.method !== "GET" || url.includes("/api/") || url.includes("firebase") || url.includes("googleapis") || url.includes("dolarapi")) return;
 
   // Network-first para navegación/HTML: siempre la versión más reciente,
   // con caché solo como respaldo cuando no hay internet.
