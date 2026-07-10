@@ -425,6 +425,7 @@ const METHOD_INFO = {
   usdt:          {label:"USDT",          icon:"₮",  cur:"USDT"},
   pagoMovil:     {label:"Pago Móvil",    icon:"📱", cur:"Bs"},
   transferencia: {label:"Transferencia", icon:"🏦", cur:"Bs"},
+  cashea:        {label:"Cashea",        icon:"🛒", cur:"USD"}, // compra a crédito (BNPL)
 };
 // Ventas viejas usan ids legacy: cash → efectivo, bank → pagoMovil
 const normMethod = m => m==="cash" ? "efectivo" : m==="bank" ? "pagoMovil" : (m || "efectivo");
@@ -1170,6 +1171,7 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
     {id:"usdt",          label:"USDT",          icon:"₮",  currency:"USDT", detail:payments?.usdt?.address ? `${payments.usdt.network} · ${payments.usdt.address}` : null},
     {id:"bank",          label:"Pago Móvil",    icon:"📱", currency:"Bs",  detail:payments?.bank?.name ? `${payments.bank.bank} · ${payments.bank.phone} · ${payments.bank.name}` : null},
     {id:"transferencia", label:"Transferencia", icon:"🏦", currency:"Bs",  detail:payments?.bank?.account ? `${payments.bank.bank} · ${payments.bank.account} · ${payments.bank.name}` : null},
+    {id:"cashea",        label:"Cashea",        icon:"🛒", currency:"USD", detail:"Compra a crédito (BNPL)"},
   ];
   const selMethod = METHODS.find(m=>m.id===method);
 
@@ -1259,17 +1261,17 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
       if (!res.ok || !json.ok) {
         setSaleErr(json.message || "No se pudo leer el ticket. Intenta con mejor luz/enfoque."); return;
       }
-      const items = Array.isArray(json.data?.items) ? json.data.items : [];
-      if (!items.length) {
-        setSaleErr("No se reconoció ningún producto en la foto. Intenta de nuevo con mejor luz."); return;
-      }
+      const d = json.data || {};
+      const matched = d.montura ? fuzzyMatchProduct(d.montura, inventory) : null;
       setSaleDraft({
-        items: items.map(it => ({
-          id: uid(), rawName: it.name, qty: it.qty || 1,
-          productId: fuzzyMatchProduct(it.name, inventory)?.id || "",
-        })),
-        method: normMethod(json.data.paymentMethod) === "pagoMovil" ? "bank" : (json.data.paymentMethod || "cash"),
-        note: json.data.note || "",
+        customer: d.customer || "",
+        phone: d.phone || "",
+        monturaRaw: d.montura || "",
+        monturaId: matched?.id || "",
+        cristal: d.crystal || "",
+        total: (d.total != null && d.total !== "") ? String(d.total) : "",
+        abono: (d.abono != null && d.abono !== "" && Number(d.abono) > 0) ? String(d.abono) : "",
+        method: normMethod(d.paymentMethod) === "pagoMovil" ? "bank" : (d.paymentMethod || "cash"),
       });
     } catch {
       setSaleErr("No se pudo procesar la imagen. Revisa tu conexión e intenta de nuevo.");
@@ -1278,52 +1280,62 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
     }
   };
 
-  const resolvedDraft = (saleDraft?.items || []).map(r => {
-    const p = inventory.find(x => x.id === r.productId);
-    if (!p) return { ...r, product: null, subtotal: 0, profit: 0 };
-    return { ...r, product: p, subtotal: p.price * r.qty, profit: (p.price - p.cost) * r.qty };
-  });
-  const draftTotal  = resolvedDraft.reduce((s, r) => s + r.subtotal, 0);
-  const draftProfit = resolvedDraft.reduce((s, r) => s + r.profit, 0);
-  const draftValid  = resolvedDraft.length > 0 && resolvedDraft.every(r => r.product && r.qty > 0);
-  const draftStockWarn = resolvedDraft.filter(r => r.product && !r.product.isService && r.qty > getStock(r.product));
-
-  const updateDraftItem = (id, patch) => setSaleDraft(d => ({ ...d, items: d.items.map(it => it.id === id ? { ...it, ...patch } : it) }));
-  const removeDraftItem = id => setSaleDraft(d => ({ ...d, items: d.items.filter(it => it.id !== id) }));
-  const addDraftItem = () => setSaleDraft(d => ({ ...d, items: [...(d?.items || []), { id: uid(), rawName: "", qty: 1, productId: "" }] }));
+  // Cálculos del borrador del ticket (una montura + cristal)
+  const draftMontura = saleDraft ? inventory.find(p => p.id === saleDraft.monturaId) : null;
+  const dTotal = Number(saleDraft?.total) || 0;
+  // Si no escribió abono, se asume pago completo (contado).
+  const dAbono = (saleDraft?.abono === "" || saleDraft?.abono == null) ? dTotal : (Number(saleDraft.abono) || 0);
+  const dSaldo = Math.max(0, dTotal - dAbono);
+  const esApartado = dSaldo > 0.01;
+  const draftValid = !!(saleDraft && draftMontura && dTotal > 0 && (!esApartado || saleDraft.customer.trim()));
+  const draftStockWarn = !!(draftMontura && !draftMontura.isService && getStock(draftMontura) < 1);
+  const setDraft = (k, v) => setSaleDraft(d => ({ ...d, [k]: v }));
 
   const saveDraftSale = async () => {
-    if (!draftValid || draftStockWarn.length > 0 || submitting) return;
+    if (!draftValid || draftStockWarn || submitting) return;
     setSubmitting(true);
-    const saleId = uid(), newSales = [...sales];
-    const newInv = inventory.map(p => ({ ...p }));
-    resolvedDraft.forEach(r => {
-      const prodInv = newInv.find(p => p.id === r.product.id);
+    try {
+      // Descontar 1 unidad de la montura vendida
+      const newInv = inventory.map(p => ({ ...p }));
+      const prodInv = newInv.find(p => p.id === draftMontura.id);
       let assignedSerials = [];
       if (prodInv && !prodInv.isService && prodInv.serials) {
         const ordered = [...prodInv.serials].sort((a, b) => (isAutoCode(a) ? 0 : 1) - (isAutoCode(b) ? 0 : 1));
-        assignedSerials = ordered.slice(0, r.qty);
-        prodInv.serials = ordered.slice(r.qty);
+        assignedSerials = ordered.slice(0, 1);
+        prodInv.serials = ordered.slice(1);
       }
+      const prodDesc = `${draftMontura.name}${saleDraft.cristal ? " · cristal " + saleDraft.cristal : ""}`;
       const isBs = methodCur(saleDraft.method) === "Bs";
-      newSales.push({
-        id: uid(), saleId, date: today(), note: saleDraft.note, paymentMethod: saleDraft.method,
-        registeredBy: profile.id, storeId: profile.id,
-        productId: r.product.id, productName: r.product.name, cat: r.product.cat,
-        cost: r.product.cost, price: r.product.price, qty: r.qty,
-        total: r.subtotal, profit: r.profit,
-        totalBs: isBs ? r.subtotal * rate : null,
-        serials: assignedSerials,
-        frameType: null, crystalType: null, lab: null, labCost: 0, rx: null,
-      });
-    });
-    try {
-      await saveSal(newSales); await saveInv(newInv);
-      setSuccess({ total: draftTotal, profit: draftProfit });
-      setTimeout(() => { setSuccess(null); setSaleDraft(null); setSaleErr(""); }, 3000);
+
+      if (esApartado) {
+        // Crédito / abono → apartado con saldo pendiente
+        const num = orders.reduce((m, o) => Math.max(m, o.orderNumber || 0), 0) + 1;
+        const order = {
+          id: uid(), orderNumber: num, customer: saleDraft.customer.trim(), phone: saleDraft.phone || "",
+          product: prodDesc, total: dTotal,
+          payments: dAbono > 0 ? [{ id: uid(), date: today(), amount: dAbono, method: saleDraft.method, amountBs: isBs ? dAbono * rate : null, rate }] : [],
+          status: "pendiente", storeId: profile.id, createdAt: new Date().toISOString(), createdDate: today(), viaTicket: true,
+        };
+        await saveOrders([...(orders || []), order]);
+        await saveInv(newInv);
+      } else {
+        // Contado → venta directa
+        const sale = {
+          id: uid(), saleId: uid(), date: today(), note: saleDraft.customer || "", paymentMethod: saleDraft.method,
+          registeredBy: profile.id, storeId: profile.id,
+          productId: draftMontura.id, productName: prodDesc, cat: draftMontura.cat,
+          cost: draftMontura.cost, price: dTotal, qty: 1, total: dTotal, profit: dTotal - draftMontura.cost,
+          totalBs: isBs ? dTotal * rate : null, serials: assignedSerials,
+          frameType: null, crystalType: saleDraft.cristal || null, lab: null, labCost: 0, rx: null,
+        };
+        await saveSal([...sales, sale]);
+        await saveInv(newInv);
+      }
+      setSuccess({ total: dTotal, apartado: esApartado, saldo: dSaldo, cliente: saleDraft.customer });
+      setTimeout(() => { setSuccess(null); setSaleDraft(null); setSaleErr(""); }, 3200);
     } catch (e) {
-      console.error("Error registrando venta:", e);
-      alert("No se pudo registrar la venta. Revisa tu conexión e intenta de nuevo.");
+      console.error("Error registrando:", e);
+      alert("No se pudo registrar. Revisa tu conexión e intenta de nuevo.");
     } finally {
       setSubmitting(false);
     }
@@ -1475,10 +1487,11 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
 
       {success && (
         <div className="popin" style={{position:"fixed",inset:0,background:"rgba(2,8,10,.95)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:10}}>
-          <div style={{fontSize:72}}>✅</div>
-          <div style={{fontSize:26,fontWeight:800,color:"#34d399"}}>¡Venta registrada!</div>
+          <div style={{fontSize:72}}>{success.apartado ? "🧾" : "✅"}</div>
+          <div style={{fontSize:26,fontWeight:800,color:success.apartado?"#e8c96a":"#34d399"}}>{success.apartado ? "¡Apartado guardado!" : "¡Venta registrada!"}</div>
           <div style={{fontSize:18,color:"#1a5060"}}>Total <span style={{color:"#fff",fontFamily:"'JetBrains Mono',monospace"}}>{fmtUSD(success.total)}</span></div>
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,color:"#fbbf24"}}>{fmtBs(success.total,rate)}</div>
+          {success.apartado && success.saldo>0 && <div style={{fontSize:14,color:"#fbbf24",marginTop:4}}>Saldo pendiente: <strong>{fmtUSD(success.saldo)}</strong>{success.cliente?` · ${success.cliente}`:""}</div>}
         </div>
       )}
 
@@ -1675,75 +1688,70 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
               <div className="card" style={{maxWidth:560,margin:"0 auto"}}>
                 <div style={{fontSize:16,fontWeight:700,color:"#fff",marginBottom:4}}>🧾 Confirma el ticket</div>
                 <div style={{fontSize:12,color:"#4a8090",marginBottom:16}}>Revisa que coincida con el papel — corrige lo que haga falta y guarda.</div>
-                <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
-                  {resolvedDraft.map((r,idx)=>(
-                    <div key={r.id} style={{background:"#0c1422",border:`1px solid ${!r.product?"#5a3a1a":r.qty>getStock(r.product)&&!r.product.isService?"#5a1a1a":"#1a2640"}`,borderRadius:10,padding:"11px 12px"}}>
-                      {/* Encabezado: número de renglón + eliminar */}
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                        <div style={{fontSize:10,color:"#2a5060",fontWeight:700,letterSpacing:".05em"}}>PRODUCTO {idx+1}</div>
-                        <button onClick={()=>removeDraftItem(r.id)} style={{background:"transparent",border:"none",color:"#4a5a70",cursor:"pointer",padding:0,display:"flex"}}><IClose/></button>
-                      </div>
-                      {/* Lo que leyó la IA en el papel (envuelto, no desborda) */}
-                      {r.rawName && (
-                        <div style={{fontSize:11,color:"#8a7a45",marginBottom:8,lineHeight:1.4,wordBreak:"break-word"}}>
-                          📄 En el papel: <span style={{color:"#c9a84a"}}>{r.rawName}</span>
-                        </div>
-                      )}
-                      {/* Selector del producto de inventario */}
-                      <select value={r.productId} onChange={e=>updateDraftItem(r.id,{productId:e.target.value})}
-                        style={{width:"100%",minWidth:0,maxWidth:"100%",background:"#071418",border:`1px solid ${r.product?"#0d2a30":"#4a3510"}`,borderRadius:8,padding:"9px 10px",color:r.product?"#e2e8f4":"#fbbf24",fontFamily:"'Outfit',sans-serif",fontSize:13,outline:"none",marginBottom:9}}>
-                        <option value="">👉 Elige el producto…</option>
-                        {inventory.filter(p=>!p.isService).map(p=><option key={p.id} value={p.id}>{p.name} · {getStock(p)} pz · {fmtUSD(p.price)}</option>)}
-                      </select>
-                      {/* Cantidad + subtotal */}
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                        <div style={{display:"flex",alignItems:"center",gap:6}}>
-                          <button className="qty-btn" onClick={()=>updateDraftItem(r.id,{qty:Math.max(1,r.qty-1)})}>−</button>
-                          <input type="number" min="1" value={r.qty} onChange={e=>updateDraftItem(r.id,{qty:Math.max(1,parseInt(e.target.value)||1)})}
-                            style={{width:46,textAlign:"center",background:"#081820",border:"1px solid #0d2a40",borderRadius:8,padding:"6px 4px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:15,outline:"none"}}/>
-                          <button className="qty-btn" onClick={()=>updateDraftItem(r.id,{qty:r.qty+1})}>+</button>
-                        </div>
-                        <div style={{textAlign:"right"}}>
-                          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:700,color:r.product?"#e2e8f4":"#2a4060"}}>{r.product?fmtUSD(r.subtotal):"— elige —"}</div>
-                          {r.product && <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24"}}>{fmtBs(r.subtotal,rate)}</div>}
-                        </div>
-                      </div>
-                      {r.product && !r.product.isService && r.qty>getStock(r.product) && (
-                        <div style={{marginTop:8,fontSize:11,color:"#f87171"}}>⚠️ Solo hay {getStock(r.product)} unidad(es) en stock</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <button onClick={addDraftItem} className="btn-g" style={{width:"100%",justifyContent:"center",fontSize:12,marginBottom:16}}>+ Agregar otro producto</button>
 
+                {/* Cliente */}
+                <div className="rg2" style={{gap:10,marginBottom:12}}>
+                  <div className="field"><label>Cliente {esApartado && "*"}</label><input value={saleDraft.customer} onChange={e=>setDraft("customer",e.target.value)} placeholder="Nombre" style={{minWidth:0}}/></div>
+                  <div className="field"><label>Teléfono</label><input value={saleDraft.phone} onChange={e=>setDraft("phone",e.target.value)} placeholder="0412…" style={{minWidth:0}}/></div>
+                </div>
+
+                {/* Montura */}
+                {saleDraft.monturaRaw && (
+                  <div style={{fontSize:11,color:"#8a7a45",marginBottom:6,lineHeight:1.4,wordBreak:"break-word"}}>📄 En el papel: <span style={{color:"#c9a84a"}}>{saleDraft.monturaRaw}</span></div>
+                )}
+                <div className="field" style={{marginBottom:12}}>
+                  <label>Montura vendida {!draftMontura && "— elígela"}</label>
+                  <select value={saleDraft.monturaId} onChange={e=>setDraft("monturaId",e.target.value)}
+                    style={{width:"100%",minWidth:0,maxWidth:"100%",background:"#071418",border:`1px solid ${draftMontura?"#0d2a30":"#4a3510"}`,borderRadius:8,padding:"9px 10px",color:draftMontura?"#e2e8f4":"#fbbf24",fontFamily:"'Outfit',sans-serif",fontSize:13,outline:"none"}}>
+                    <option value="">👉 Elige la montura del inventario…</option>
+                    {inventory.filter(p=>!p.isService).map(p=><option key={p.id} value={p.id}>{p.name} · {getStock(p)} pz</option>)}
+                  </select>
+                  {draftStockWarn && <div style={{marginTop:5,fontSize:11,color:"#f87171"}}>⚠️ Esa montura está agotada en inventario</div>}
+                </div>
+
+                {/* Tipo de cristal */}
+                <div className="field" style={{marginBottom:14}}>
+                  <label>Tipo de cristal</label>
+                  <select value={saleDraft.cristal} onChange={e=>setDraft("cristal",e.target.value)}
+                    style={{width:"100%",minWidth:0,maxWidth:"100%",background:"#071418",border:"1px solid #0d2a30",borderRadius:8,padding:"9px 10px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:13,outline:"none"}}>
+                    <option value="">— sin especificar —</option>
+                    {CRYSTAL_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+
+                {/* Total + abono */}
+                <div className="rg2" style={{gap:10,marginBottom:8}}>
+                  <div className="field"><label>Total (USD) *</label><input type="number" min="0" step="0.01" value={saleDraft.total} onChange={e=>setDraft("total",e.target.value)} placeholder="0.00" style={{minWidth:0,fontFamily:"'JetBrains Mono',monospace"}}/></div>
+                  <div className="field"><label>Abonó (USD)</label><input type="number" min="0" step="0.01" value={saleDraft.abono} onChange={e=>setDraft("abono",e.target.value)} placeholder={dTotal?fmtUSD(dTotal).replace("$",""):"completo"} style={{minWidth:0,fontFamily:"'JetBrains Mono',monospace"}}/></div>
+                </div>
+                {dTotal>0 && <div style={{fontSize:11,color:"#7a94a8",marginBottom:12,fontFamily:"'JetBrains Mono',monospace"}}>{esApartado ? <>Saldo pendiente: <span style={{color:"#fbbf24",fontWeight:700}}>{fmtUSD(dSaldo)}</span> · se guardará como <span style={{color:"#e8c96a"}}>apartado</span></> : <span style={{color:"#34d399"}}>Pago completo (contado) ✓</span>}</div>}
+
+                {/* Método de pago */}
                 <div style={{fontSize:10,color:"#1a4a50",marginBottom:6,letterSpacing:".07em"}}>MÉTODO DE PAGO</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:5,marginBottom:14}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:5,marginBottom:16}}>
                   {METHODS.map(m=>(
-                    <button key={m.id} onClick={()=>setSaleDraft(d=>({...d,method:m.id}))} style={{background:saleDraft.method===m.id?"#0c2e35":"#071418",border:`1px solid ${saleDraft.method===m.id?"#0e7a8c":"#0d2a30"}`,borderRadius:8,padding:"6px 2px",cursor:"pointer",textAlign:"center"}}>
-                      <div style={{fontSize:14}}>{m.icon}</div>
-                      <div style={{fontSize:9,color:saleDraft.method===m.id?"#2dcfe8":"#1a4a50",marginTop:1}}>{m.label}</div>
+                    <button key={m.id} onClick={()=>setDraft("method",m.id)} style={{background:saleDraft.method===m.id?"#0c2e35":"#071418",border:`1px solid ${saleDraft.method===m.id?"#0e7a8c":"#0d2a30"}`,borderRadius:8,padding:"7px 2px",cursor:"pointer",textAlign:"center"}}>
+                      <div style={{fontSize:15}}>{m.icon}</div>
+                      <div style={{fontSize:10,color:saleDraft.method===m.id?"#2dcfe8":"#1a4a50",marginTop:2}}>{m.label}</div>
                     </button>
                   ))}
                 </div>
-                <input placeholder="Nota / cliente (opcional)..." value={saleDraft.note} onChange={e=>setSaleDraft(d=>({...d,note:e.target.value}))}
-                  style={{width:"100%",background:"#071418",border:"1px solid #0d2a30",borderRadius:10,padding:"9px 13px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:13,marginBottom:16}}/>
 
                 <div style={{borderTop:"1px solid #0a2028",paddingTop:14,marginBottom:14}}>
-                  <div style={{fontSize:10,color:"#1a4a50"}}>TOTAL A COBRAR</div>
-                  <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:26,fontWeight:700,color:"#fff"}}>{fmtUSD(draftTotal)}</div>
-                  <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,color:"#fbbf24",marginTop:2}}>{fmtBs(draftTotal,rate)}</div>
+                  <div style={{fontSize:10,color:"#1a4a50"}}>{esApartado ? "TOTAL DE LA VENTA" : "TOTAL A COBRAR"}</div>
+                  <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:26,fontWeight:700,color:"#fff"}}>{fmtUSD(dTotal)}</div>
+                  <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,color:"#fbbf24",marginTop:2}}>{fmtBs(dTotal,rate)}</div>
                 </div>
-                {draftStockWarn.length>0 && (
-                  <div style={{background:"#1a0808",border:"1px solid #4a1010",borderRadius:10,padding:"10px 14px",marginBottom:10,fontSize:12,color:"#f87171"}}>⚠️ Hay {draftStockWarn.length} producto(s) con cantidad mayor al stock disponible.</div>
-                )}
                 {!draftValid && (
-                  <div style={{background:"#0a1820",border:"1px solid #0d2a40",borderRadius:10,padding:"10px 14px",marginBottom:10,fontSize:12,color:"#1a4a60"}}>Elige el producto correcto para cada línea del ticket.</div>
+                  <div style={{background:"#0a1820",border:"1px solid #0d2a40",borderRadius:10,padding:"10px 14px",marginBottom:10,fontSize:12,color:"#1a4a60"}}>
+                    {!draftMontura ? "Elige la montura del inventario." : dTotal<=0 ? "Escribe el total de la venta." : esApartado && !saleDraft.customer.trim() ? "Un apartado necesita el nombre del cliente." : "Completa los datos."}
+                  </div>
                 )}
                 <div style={{display:"flex",gap:8}}>
                   <button className="btn-g" onClick={()=>{setSaleDraft(null);setSaleErr("");}} style={{flex:1,justifyContent:"center",padding:"13px"}}>Cancelar</button>
-                  <button onClick={saveDraftSale} disabled={!draftValid||draftStockWarn.length>0||submitting}
-                    style={{flex:2,background:draftValid&&!draftStockWarn.length?"linear-gradient(135deg,#0a6070,#0e7a8c)":"#071418",border:"none",borderRadius:10,padding:"13px",color:draftValid&&!draftStockWarn.length?"#fff":"#1a4a60",fontFamily:"'Outfit',sans-serif",fontSize:14,fontWeight:700,cursor:draftValid&&!draftStockWarn.length&&!submitting?"pointer":"default",opacity:submitting?.7:1,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                    {submitting?"Guardando…":<><ICheck/> Confirmar y guardar</>}
+                  <button onClick={saveDraftSale} disabled={!draftValid||draftStockWarn||submitting}
+                    style={{flex:2,background:draftValid&&!draftStockWarn?(esApartado?"linear-gradient(135deg,#7a5a0a,#b8860b)":"linear-gradient(135deg,#0a6070,#0e7a8c)"):"#071418",border:"none",borderRadius:10,padding:"13px",color:draftValid&&!draftStockWarn?"#fff":"#1a4a60",fontFamily:"'Outfit',sans-serif",fontSize:14,fontWeight:700,cursor:draftValid&&!draftStockWarn&&!submitting?"pointer":"default",opacity:submitting?.7:1,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                    {submitting?"Guardando…":<><ICheck/> {esApartado?"Guardar apartado":"Confirmar venta"}</>}
                   </button>
                 </div>
               </div>

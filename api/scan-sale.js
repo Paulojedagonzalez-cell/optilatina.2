@@ -5,27 +5,34 @@ import Anthropic from "@anthropic-ai/sdk";
 // de guardarlo. El personal solo toma la foto — nunca escribe el ticket de
 // nuevo. La clave de Anthropic vive solo aquí, nunca en el navegador.
 
-const SYSTEM = `Eres un asistente que lee TICKETS DE VENTA escritos a mano en una óptica (OptiLatina). El ticket ya fue llenado en papel por el vendedor; tu trabajo es transcribirlo para que el sistema lo registre.
+const SYSTEM = `Eres un asistente que lee TICKETS DE VENTA de una óptica venezolana (OptiLatina), llenados a mano por el vendedor. Tu trabajo es transcribir el ticket para registrarlo en el sistema.
 
-Cada ticket suele tener: uno o varios productos vendidos (nombre/descripción, cantidad, precio unitario), el método de pago, y a veces una nota o el nombre del cliente.
+Un ticket de óptica típico incluye:
+- El nombre del cliente y a veces su cédula (C.I.) y teléfono.
+- La MONTURA vendida (marca/modelo/referencia). Ej: "Montura Orview ref. 68132".
+- El TIPO DE CRISTAL/lente que se le pone a la montura: monofocal, progresivo, bifocal, antirreflejante, fotocromático, etc. (Esto NO es un producto aparte, es una característica del lente).
+- El TOTAL de la venta (en USD salvo que diga Bs).
+- El ABONO/adelanto que pagó el cliente, y el SALDO pendiente si compró a crédito.
+- El MÉTODO de pago: efectivo, zelle, usdt, pago móvil, transferencia, o CASHEA (Cashea es una app de compra a crédito, muy común).
 
-Reglas importantes:
-- Lee cada renglón de producto: descripción, cantidad y precio unitario (en USD salvo que diga Bs).
-- Si no hay cantidad explícita, asume 1.
-- El método de pago suele estar escrito o marcado: efectivo, zelle, USDT, pago móvil, transferencia. Si dice "punto" o no se distingue, usa "efectivo".
-- Si hay un total escrito, inclúyelo; si no, se calculará solo.
-- No inventes productos ni montos que no aparezcan escritos.
+Reglas:
+- "montura" = descripción de la montura/armazón vendida (marca, modelo, referencia, color si aparece).
+- "crystal" = tipo de cristal/lente (una palabra: progresivo, monofocal, bifocal, antirreflejante, fotocromático, u ''). NO lo pongas dentro de "montura".
+- Método: si dice "cashea" usa "cashea". Si dice "pago movil"/"punto" usa "pagoMovil". Si no se distingue, "efectivo".
+- Los montos en USD salvo que se indique Bs. No inventes datos: si algo no aparece, usa "" o null o 0.
 
 Devuelve SOLO un objeto JSON válido, sin texto adicional, con esta forma exacta:
 {
-  "items": [ { "name": "descripción del producto", "qty": número entero, "unitPrice": precio unitario en USD (número) } ],
-  "total": total en USD si aparece escrito, o null,
-  "paymentMethod": uno de "efectivo","zelle","usdt","pagoMovil","transferencia",
-  "note": "nombre del cliente o nota breve si aparece, o ''"
-}
-Si no logras leer ningún producto, devuelve "items": [].`;
+  "customer": "nombre del cliente, o ''",
+  "phone": "teléfono solo dígitos, o ''",
+  "montura": "descripción de la montura vendida, o ''",
+  "crystal": "tipo de cristal, o ''",
+  "total": total en USD (número), o null,
+  "abono": monto abonado en USD (número), 0 si no hay,
+  "paymentMethod": uno de "efectivo","zelle","usdt","pagoMovil","transferencia","cashea"
+}`;
 
-const USER_TEXT = "Esta foto es de un ticket de venta ya escrito a mano en la óptica. Transcribe los productos vendidos y devuelve el JSON. Responde únicamente con el objeto JSON.";
+const USER_TEXT = "Esta foto es de un ticket de venta escrito a mano en la óptica. Transcribe los datos y devuelve el JSON. Responde únicamente con el objeto JSON.";
 
 const parseDataUrl = (s) => {
   const m = typeof s === "string" && s.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
@@ -81,27 +88,24 @@ export default async function handler(req, res) {
     if (start !== -1 && end !== -1) {
       try { parsed = JSON.parse(raw.slice(start, end + 1)); } catch {}
     }
-    if (!parsed || !Array.isArray(parsed.items)) {
+    if (!parsed || typeof parsed !== "object") {
       res.status(502).json({ error: "parse_failed", raw });
       return;
     }
 
-    const METHODS = new Set(["efectivo", "zelle", "usdt", "pagoMovil", "transferencia"]);
-    const items = parsed.items
-      .map((it) => ({
-        name: String(it.name ?? "").trim(),
-        qty: Math.max(1, Math.round(Number(it.qty) || 1)),
-        unitPrice: Number(it.unitPrice) || 0,
-      }))
-      .filter((it) => it.name);
+    const METHODS = new Set(["efectivo", "zelle", "usdt", "pagoMovil", "transferencia", "cashea"]);
+    const num = (v) => (v != null && !isNaN(Number(v)) ? Number(v) : 0);
 
     res.status(200).json({
       ok: true,
       data: {
-        items,
+        customer: String(parsed.customer ?? "").trim(),
+        phone: String(parsed.phone ?? "").replace(/\D/g, ""),
+        montura: String(parsed.montura ?? "").trim(),
+        crystal: String(parsed.crystal ?? "").trim(),
         total: parsed.total != null && !isNaN(Number(parsed.total)) ? Number(parsed.total) : null,
+        abono: num(parsed.abono),
         paymentMethod: METHODS.has(parsed.paymentMethod) ? parsed.paymentMethod : "efectivo",
-        note: String(parsed.note ?? "").trim(),
       },
       model,
     });
