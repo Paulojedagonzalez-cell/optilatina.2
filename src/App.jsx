@@ -1645,8 +1645,8 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
 
       {/* Venta por foto del ticket físico — vía principal en tienda */}
       {!showManual && (
-        <div style={{display:isMobile?"flex":"grid",flexDirection:isMobile?"column":"unset",gridTemplateColumns:isMobile?"unset":"1fr 320px",flex:1,overflow:isMobile?"auto":"hidden",gap:isMobile?0:1}}>
-          <div style={{overflow:"auto",padding:isMobile?"14px 12px":"20px 22px"}}>
+        <div style={{display:isMobile?"flex":"grid",flexDirection:isMobile?"column":"unset",gridTemplateColumns:isMobile?"unset":"1fr 320px",flex:1,overflowY:isMobile?"auto":"hidden",overflowX:"hidden",gap:isMobile?0:1}}>
+          <div style={{overflowY:"auto",overflowX:"hidden",padding:isMobile?"14px 12px":"20px 22px",minWidth:0}}>
             {!saleDraft ? (
               <div className="card" style={{maxWidth:480,margin:"0 auto",textAlign:"center",padding:isMobile?"24px 18px":"36px 30px"}}>
                 <div style={{fontSize:44,marginBottom:10}}>🧾📸</div>
@@ -1676,27 +1676,40 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
                 <div style={{fontSize:16,fontWeight:700,color:"#fff",marginBottom:4}}>🧾 Confirma el ticket</div>
                 <div style={{fontSize:12,color:"#4a8090",marginBottom:16}}>Revisa que coincida con el papel — corrige lo que haga falta y guarda.</div>
                 <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
-                  {resolvedDraft.map(r=>(
-                    <div key={r.id} style={{background:"#0c1422",border:`1px solid ${!r.product?"#5a1a1a":r.qty>getStock(r.product)&&!r.product.isService?"#5a1a1a":"#1a2640"}`,borderRadius:10,padding:"10px 12px"}}>
-                      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
-                        <select value={r.productId} onChange={e=>updateDraftItem(r.id,{productId:e.target.value})}
-                          style={{flex:1,background:"#071418",border:"1px solid #0d2a30",borderRadius:7,padding:"7px 9px",color:r.product?"#e2e8f4":"#fbbf24",fontFamily:"'Outfit',sans-serif",fontSize:12,outline:"none"}}>
-                          <option value="">{r.rawName ? `"${r.rawName}" — elige el producto` : "— elige el producto —"}</option>
-                          {inventory.filter(p=>!p.isService).map(p=><option key={p.id} value={p.id}>{p.name} · {getStock(p)} pz · {fmtUSD(p.price)}</option>)}
-                        </select>
-                        <button onClick={()=>removeDraftItem(r.id)} style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",padding:"2px 4px",flexShrink:0}}><IClose/></button>
+                  {resolvedDraft.map((r,idx)=>(
+                    <div key={r.id} style={{background:"#0c1422",border:`1px solid ${!r.product?"#5a3a1a":r.qty>getStock(r.product)&&!r.product.isService?"#5a1a1a":"#1a2640"}`,borderRadius:10,padding:"11px 12px"}}>
+                      {/* Encabezado: número de renglón + eliminar */}
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                        <div style={{fontSize:10,color:"#2a5060",fontWeight:700,letterSpacing:".05em"}}>PRODUCTO {idx+1}</div>
+                        <button onClick={()=>removeDraftItem(r.id)} style={{background:"transparent",border:"none",color:"#4a5a70",cursor:"pointer",padding:0,display:"flex"}}><IClose/></button>
                       </div>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      {/* Lo que leyó la IA en el papel (envuelto, no desborda) */}
+                      {r.rawName && (
+                        <div style={{fontSize:11,color:"#8a7a45",marginBottom:8,lineHeight:1.4,wordBreak:"break-word"}}>
+                          📄 En el papel: <span style={{color:"#c9a84a"}}>{r.rawName}</span>
+                        </div>
+                      )}
+                      {/* Selector del producto de inventario */}
+                      <select value={r.productId} onChange={e=>updateDraftItem(r.id,{productId:e.target.value})}
+                        style={{width:"100%",minWidth:0,maxWidth:"100%",background:"#071418",border:`1px solid ${r.product?"#0d2a30":"#4a3510"}`,borderRadius:8,padding:"9px 10px",color:r.product?"#e2e8f4":"#fbbf24",fontFamily:"'Outfit',sans-serif",fontSize:13,outline:"none",marginBottom:9}}>
+                        <option value="">👉 Elige el producto…</option>
+                        {inventory.filter(p=>!p.isService).map(p=><option key={p.id} value={p.id}>{p.name} · {getStock(p)} pz · {fmtUSD(p.price)}</option>)}
+                      </select>
+                      {/* Cantidad + subtotal */}
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                         <div style={{display:"flex",alignItems:"center",gap:6}}>
                           <button className="qty-btn" onClick={()=>updateDraftItem(r.id,{qty:Math.max(1,r.qty-1)})}>−</button>
                           <input type="number" min="1" value={r.qty} onChange={e=>updateDraftItem(r.id,{qty:Math.max(1,parseInt(e.target.value)||1)})}
-                            style={{width:48,textAlign:"center",background:"#081820",border:"1px solid #0d2a40",borderRadius:8,padding:"5px 4px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:14,outline:"none"}}/>
+                            style={{width:46,textAlign:"center",background:"#081820",border:"1px solid #0d2a40",borderRadius:8,padding:"6px 4px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:15,outline:"none"}}/>
                           <button className="qty-btn" onClick={()=>updateDraftItem(r.id,{qty:r.qty+1})}>+</button>
                         </div>
-                        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,fontWeight:600}}>{r.product?fmtUSD(r.subtotal):"—"}</div>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:700,color:r.product?"#e2e8f4":"#2a4060"}}>{r.product?fmtUSD(r.subtotal):"— elige —"}</div>
+                          {r.product && <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24"}}>{fmtBs(r.subtotal,rate)}</div>}
+                        </div>
                       </div>
                       {r.product && !r.product.isService && r.qty>getStock(r.product) && (
-                        <div style={{marginTop:6,fontSize:11,color:"#f87171"}}>⚠️ Solo hay {getStock(r.product)} unidad(es)</div>
+                        <div style={{marginTop:8,fontSize:11,color:"#f87171"}}>⚠️ Solo hay {getStock(r.product)} unidad(es) en stock</div>
                       )}
                     </div>
                   ))}
