@@ -767,6 +767,12 @@ export default function App() {
     await dbSavePurchases(d);
     await Promise.all(removed.map(x => DB.delete("purchases", x.id)));
   }, [purchases]);
+  // Vaciar TODO el historial de ventas (solo dueño; para limpiar datos de prueba)
+  const clearSales      = useCallback(async () => {
+    const ids = sales.map(s => s.id);
+    setSales([]);
+    await DB.deleteAll("sales", ids);
+  }, [sales]);
   const saveRate        = useCallback(async r => { setRateState(r);   await dbSaveSetting("rate", r); }, []);
   const savePayments    = useCallback(async d => { setPayments(d);    await dbSaveSetting("payments", d); }, []);
   const savePD          = useCallback(async d => { setProfilesData(d);await dbSaveSetting("profilesData", d); }, []);
@@ -858,7 +864,7 @@ export default function App() {
   // Cambio directo de perfil (solo owner, desde Gestion): entra de lleno al
   // otro perfil. La sesion recordada sigue siendo la suya — al recargar vuelve.
   const switchTo = id => { setViewAs(null); setProfile(id); };
-  const shared = { inventory, sales, rate, deposits, expenses, investments, purchases, orders, recovery, payments, profilesData, dynProfiles, fixedExpenses, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, savePurchases, saveOrders, saveDynProfiles, saveFixedExpenses, setViewAs, switchTo, refreshData, onLogout:handleLogout };
+  const shared = { inventory, sales, rate, deposits, expenses, investments, purchases, orders, recovery, payments, profilesData, dynProfiles, fixedExpenses, storeFilter, setStoreFilter, saveInv, saveSal, clearSales, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, savePurchases, saveOrders, saveDynProfiles, saveFixedExpenses, setViewAs, switchTo, refreshData, onLogout:handleLogout };
 
   // "Ver como": el propietario puede ver la app tal cual la ve otro perfil
   if (viewAs && p?.id === "owner") {
@@ -2234,7 +2240,7 @@ function CameraModal({ onClose, onDetect }) {
 }
 
 // ── Admin View ────────────────────────────────────────────────────────────────
-function AdminView({ profile, inventory, sales, rate, deposits, expenses, investments, purchases = [], orders, recovery = [], payments, profilesData, dynProfiles, fixedExpenses = DEFAULT_FIXED, storeFilter, setStoreFilter, saveInv, saveSal, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, savePurchases, saveOrders, saveDynProfiles, saveFixedExpenses, setViewAs, switchTo, refreshData, onLogout }) {
+function AdminView({ profile, inventory, sales, rate, deposits, expenses, investments, purchases = [], orders, recovery = [], payments, profilesData, dynProfiles, fixedExpenses = DEFAULT_FIXED, storeFilter, setStoreFilter, saveInv, saveSal, clearSales, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, savePurchases, saveOrders, saveDynProfiles, saveFixedExpenses, setViewAs, switchTo, refreshData, onLogout }) {
   const [tab,       setTab]      = useState("dash");
   const [invModal,  setInvModal] = useState(null);
   const [detailDate,setDD]       = useState(null);
@@ -2458,7 +2464,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
         {tab==="cierre"   && <CierreTab {...{sales,expenses,orders,rate,dynProfiles,profile}} />}
         {tab==="inv"      && <InvTab     {...{inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,isMobile}} />}
         {tab==="compras"  && <ComprasTab {...{purchases,savePurchases,rate,isMobile}} />}
-        {tab==="history"  && <HistTab    {...{byDate,sortedDates,setDD,storeFilter}} />}
+        {tab==="history"  && <HistTab    {...{byDate,sortedDates,setDD,storeFilter,sales,clearSales,isOwner:profile.id==="owner"}} />}
         {tab==="miperfil" && <ProfileSettingsTab profile={profile} dynProfiles={dynProfiles} saveDynProfiles={saveDynProfiles}/>}
         {tab==="ajustes"  && profile.id==="owner" && <GestionTab {...{profilesData,savePD,payments,savePayments,dynProfiles,saveDynProfiles,setViewAs,switchTo,recovery}} />}
       </main>
@@ -5206,7 +5212,15 @@ function ComprasTab({purchases=[], savePurchases, rate}) {
 }
 
 // ── History Tab ───────────────────────────────────────────────────────────────
-function HistTab({byDate,sortedDates,setDD}) {
+function HistTab({byDate,sortedDates,setDD,sales=[],clearSales,isOwner=false}) {
+  const handleClear = async () => {
+    const n = sales.length;
+    if (!n) return;
+    const c = window.prompt(`Vas a BORRAR ${n} venta(s) del historial. Esto NO se puede deshacer, y no afecta tu inventario ni tus compras.\n\nEscribe BORRAR para confirmar:`);
+    if (!c || c.trim().toUpperCase() !== "BORRAR") return;
+    try { await clearSales(); window.alert("Listo — el historial de ventas quedó vacío."); }
+    catch { window.alert("No se pudo borrar. Revisa tu conexión e intenta de nuevo."); }
+  };
   return (
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
       <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Historial</h1>
@@ -5236,6 +5250,15 @@ function HistTab({byDate,sortedDates,setDD}) {
             );
           })
       }
+      {isOwner && sortedDates.length>0 && clearSales && (
+        <div style={{marginTop:8,paddingTop:14,borderTop:"1px solid #0f1825"}}>
+          <button onClick={handleClear}
+            style={{background:"#1a0808",border:"1px solid #5a1a1a",color:"#f87171",borderRadius:9,padding:"9px 14px",fontSize:12,fontFamily:"'Outfit',sans-serif",cursor:"pointer"}}>
+            🗑️ Borrar todo el historial de ventas de prueba
+          </button>
+          <div style={{fontSize:10,color:"#1a4a50",marginTop:6}}>Solo tú (dueño) ves esto. Borra las ventas registradas; no toca inventario ni compras.</div>
+        </div>
+      )}
     </div>
   );
 }
