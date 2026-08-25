@@ -1001,10 +1001,15 @@ function LoginScreen({ onSelect, dynProfiles }) {
     // Si el perfil tiene correo, el usuario es SOLO el correo.
     // Si no tiene, se acepta el nombre (o la tienda) mientras tanto.
     // Se compara sin acentos ni mayúsculas: "René", "rene" y "RENE" entran igual.
+    // Entra con el NOMBRE o con el CORREO (si tiene). Antes, tener correo
+    // obligaba a usar solo el correo — y si a alguien le quedó un correo
+    // guardado, ya no podía entrar con su nombre. Ahora ambos sirven.
     const p = dynProfiles.find(x => {
-      if (x.email?.trim()) return normText(x.email) === u;
-      return normText(x.name) === u ||
-        (x.role === "store" && (normText(x.address) === u || normText(`${x.storeName||""} ${x.address||""}`) === u));
+      const byEmail = x.email?.trim() && normText(x.email) === u;
+      const byName  = normText(x.name) === u;
+      const byStore = x.role === "store" &&
+        (normText(x.address) === u || normText(`${x.storeName||""} ${x.address||""}`) === u);
+      return byEmail || byName || byStore;
     });
     const ok = p && (p.password ? pw === p.password : pw === (p.pin || "0000"));
     setTimeout(() => { // pequeña pausa para no delatar si el usuario existe
