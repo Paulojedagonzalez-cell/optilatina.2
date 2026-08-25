@@ -2285,6 +2285,10 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
   const weekSales     = filteredSales.filter(s=>s.date>=ws);
   const weekRev       = weekSales.reduce((s,v)=>s+v.total,0);
   const weekProf      = weekSales.reduce((s,v)=>s+v.profit,0);
+  // Abonos (adelantos de apartados) recibidos: dinero que SÍ entró, aunque no sea venta completa
+  const allPayments   = (orders||[]).flatMap(o=>o.payments||[]);
+  const todayAbonos   = allPayments.filter(p=>p.date===today()).reduce((s,p)=>s+(Number(p.amount)||0),0);
+  const weekAbonos    = allPayments.filter(p=>p.date>=ws).reduce((s,p)=>s+(Number(p.amount)||0),0);
   const byDate        = filteredSales.reduce((a,s)=>{if(!a[s.date])a[s.date]=[];a[s.date].push(s);return a},{});
   const sortedDates   = Object.keys(byDate).sort((a,b)=>b.localeCompare(a));
   const lowStock      = inventory.filter(isLow);
@@ -2460,7 +2464,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
             <span style={{fontSize:12,color:"#e8c96a",textDecoration:"underline"}}>Resolver en Gestión →</span>
           </div>
         )}
-        {tab==="dash"     && <DashTab    {...{todayRev,todayProf,todayItems,weekRev,weekProf,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders,fixedExpenses,expenses}} />}
+        {tab==="dash"     && <DashTab    {...{todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos,weekAbonos,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders,fixedExpenses,expenses}} />}
         {tab==="stats"    && <StatsTab   {...{sales:filteredSales,orders,expenses,rate,isMobile,profile,fixedExpenses}} />}
         {tab==="week"     && <WeekTab    {...{byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles,isMobile}} />}
         {tab==="finanzas" && <FinanzasTab {...{sales:filteredSales,orders,expenses,investments,inventory,rate,saveExpenses,saveInvestments,profile,isMobile,fixedExpenses,saveFixedExpenses}} />}
@@ -3425,7 +3429,7 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile, fixe
   );
 }
 
-function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders=[],fixedExpenses=[],expenses=[]}) {
+function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos=0,weekAbonos=0,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders=[],fixedExpenses=[],expenses=[]}) {
   const last7=sortedDates.slice(0,7).reverse();
   const pendientes = orders.filter(o=>o.status!=="entregado" && orderBalance(o)>0);
   const porPagar    = pendientes.reduce((s,o)=>s+orderBalance(o),0);
@@ -3468,9 +3472,9 @@ function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,totalInvested,t
       </div>
       <div className="rg4">
         {[
-          {l:"Ventas hoy",    usd:todayRev,  s:`${todayItems} artículos`, c:"#60a5fa", d:deltas?.todayRev,  vs:"vs ayer"},
-          {l:"Ganancia hoy",  usd:todayProf, s:todayRev>0?`Margen ${((todayProf/todayRev)*100).toFixed(0)}%`:"Sin ventas", c:"#34d399", d:deltas?.todayProf, vs:"vs ayer"},
-          {l:"Ventas semana", usd:weekRev,   s:"Lunes → hoy",  c:"#a78bfa", d:deltas?.weekRev,  vs:"vs sem. pasada"},
+          {l:"Ventas hoy",    usd:todayRev+todayAbonos,  s:`${todayItems} art.${todayAbonos>0?` · incluye ${fmtUSD(todayAbonos)} en abonos`:""}`, c:"#60a5fa", d:deltas?.todayRev,  vs:"vs ayer"},
+          {l:"Ganancia hoy",  usd:todayProf, s:todayRev>0?`Margen ${((todayProf/todayRev)*100).toFixed(0)}%`:(todayAbonos>0?"Solo abonos hoy":"Sin ventas"), c:"#34d399", d:deltas?.todayProf, vs:"vs ayer"},
+          {l:"Ventas semana", usd:weekRev+weekAbonos,   s:weekAbonos>0?`Lunes → hoy · +${fmtUSD(weekAbonos)} abonos`:"Lunes → hoy",  c:"#a78bfa", d:deltas?.weekRev,  vs:"vs sem. pasada"},
           {l:"Gan. semana",   usd:weekProf,  s:weekRev>0?`Margen ${((weekProf/weekRev)*100).toFixed(0)}%`:"Sin ventas",   c:"#fbbf24", d:deltas?.weekProf, vs:"vs sem. pasada"},
         ].map(({l,usd,s,c,d,vs})=>(
           <div key={l} className="card" style={{borderTop:`2px solid ${c}22`}}>
