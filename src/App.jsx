@@ -1346,6 +1346,8 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
         const order = {
           id: uid(), orderNumber: num, customer: saleDraft.customer.trim(), phone: saleDraft.phone || "",
           product: prodDesc, total: dTotal,
+          // Guardamos el costo para reconocer la ganancia cuando el apartado quede pagado
+          cost: draftMontura.cost || 0, productId: draftMontura.id, cat: draftMontura.cat,
           payments: dAbono > 0 ? [{ id: uid(), date: today(), amount: dAbono, method: saleDraft.method, amountBs: isBs ? dAbono * rate : null, rate }] : [],
           status: "pendiente", storeId: profile.id, createdAt: new Date().toISOString(), createdDate: today(), viaTicket: true,
         };
@@ -2301,6 +2303,11 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
   const allPayments   = (orders||[]).flatMap(o=>o.payments||[]);
   const todayAbonos   = allPayments.filter(p=>p.date===today()).reduce((s,p)=>s+(Number(p.amount)||0),0);
   const weekAbonos    = allPayments.filter(p=>p.date>=ws).reduce((s,p)=>s+(Number(p.amount)||0),0);
+  // Ganancia de apartados: se reconoce cuando el apartado queda PAGADO (saldo 0), en la fecha del último abono.
+  const lastPayDate   = o => (o.payments||[]).reduce((m,p)=>(p.date>m?p.date:m),"");
+  const paidOrders    = (orders||[]).filter(o => o.cost!=null && orderBalance(o)<=0.01 && (o.payments||[]).length>0);
+  const todayApartProf= paidOrders.filter(o=>lastPayDate(o)===today()).reduce((s,o)=>s+((o.total||0)-(o.cost||0)),0);
+  const weekApartProf = paidOrders.filter(o=>lastPayDate(o)>=ws).reduce((s,o)=>s+((o.total||0)-(o.cost||0)),0);
   const byDate        = filteredSales.reduce((a,s)=>{if(!a[s.date])a[s.date]=[];a[s.date].push(s);return a},{});
   const sortedDates   = Object.keys(byDate).sort((a,b)=>b.localeCompare(a));
   const lowStock      = inventory.filter(isLow);
@@ -2476,7 +2483,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
             <span style={{fontSize:12,color:"#e8c96a",textDecoration:"underline"}}>Resolver en Gestión →</span>
           </div>
         )}
-        {tab==="dash"     && <DashTab    {...{todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos,weekAbonos,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders,fixedExpenses,expenses}} />}
+        {tab==="dash"     && <DashTab    {...{todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos,weekAbonos,todayApartProf,weekApartProf,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders,fixedExpenses,expenses}} />}
         {tab==="stats"    && <StatsTab   {...{sales:filteredSales,orders,expenses,rate,isMobile,profile,fixedExpenses}} />}
         {tab==="week"     && <WeekTab    {...{byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles,isMobile}} />}
         {tab==="finanzas" && <FinanzasTab {...{sales:filteredSales,orders,expenses,investments,inventory,rate,saveExpenses,saveInvestments,profile,isMobile,fixedExpenses,saveFixedExpenses}} />}
@@ -2558,7 +2565,11 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
   // El costo de laboratorio se le cobra al cliente (va en "total") y se le paga
   // al laboratorio: pasa-manos, no ganancia. Se resta junto al costo de mercancía.
   const mCOGS     = mSales.reduce((s,v)=>s+v.cost*v.qty+(v.labCost||0),0);
-  const mGross    = mRevenue - mCOGS;
+  // Ganancia de apartados pagados este mes (se reconoce cuando quedan en saldo 0)
+  const mApartProf = orders.filter(o=>o.cost!=null && orderBalance(o)<=0.01 && (o.payments||[]).length)
+    .filter(o=>((o.payments||[]).reduce((m,p)=>(p.date>m?p.date:m),"")).slice(0,7)===viewMonth)
+    .reduce((s,o)=>s+((o.total||0)-(o.cost||0)),0);
+  const mGross    = mRevenue - mCOGS + mApartProf;
   const monthExpenses = expenses.filter(e=>emonth(e)===viewMonth);
   const mExpenses = monthExpenses.reduce((s,e)=>s+e.amount,0);
   const mNet      = mGross - mExpenses;
@@ -3046,13 +3057,20 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile, fixe
       const k = keyOf(s.date);
       if (buckets[k]) { buckets[k].rev+=s.total; buckets[k].profit+=s.profit; buckets[k].items+=s.qty; }
     });
-    // Abonos de apartados: el dinero que entra ese dia cuenta como ingreso,
-    // aunque la orden no este completa. Sin ganancia asociada (el apartado
-    // no tiene costo de producto registrado hasta que se entregue).
+    // Abonos de apartados: el dinero que entra ese dia cuenta como ingreso (cobrado),
+    // aunque la orden no este completa.
     orders.forEach(o => (o.payments||[]).forEach(p => {
       const k = keyOf(p.date);
       if (buckets[k]) buckets[k].rev += p.amount;
     }));
+    // Ganancia del apartado: se reconoce cuando queda PAGADO (saldo 0), en la
+    // fecha del ultimo abono, usando el costo guardado al crearlo.
+    orders.forEach(o => {
+      if (o.cost==null || orderBalance(o)>0.01 || !(o.payments||[]).length) return;
+      const lastD = (o.payments||[]).reduce((m,p)=>(p.date>m?p.date:m),"");
+      const k = keyOf(lastD);
+      if (buckets[k]) buckets[k].profit += (o.total||0) - (o.cost||0);
+    });
     // Falta por pagar: apartados creados en esa fecha que siguen sin entregarse hoy.
     // Las ordenes guardan createdDate/createdAt (no "date"), asi que tomamos la
     // fecha real con fallback — pasar undefined a keyOf romperia la vista.
@@ -3441,7 +3459,7 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile, fixe
   );
 }
 
-function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos=0,weekAbonos=0,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders=[],fixedExpenses=[],expenses=[]}) {
+function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos=0,weekAbonos=0,todayApartProf=0,weekApartProf=0,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders=[],fixedExpenses=[],expenses=[]}) {
   const last7=sortedDates.slice(0,7).reverse();
   const pendientes = orders.filter(o=>o.status!=="entregado" && orderBalance(o)>0);
   const porPagar    = pendientes.reduce((s,o)=>s+orderBalance(o),0);
@@ -3484,10 +3502,10 @@ function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos=0,w
       </div>
       <div className="rg4">
         {[
-          {l:"Ventas hoy",    usd:todayRev+todayAbonos,  s:`${todayItems} art.${todayAbonos>0?` · incluye ${fmtUSD(todayAbonos)} en abonos`:""}`, c:"#60a5fa", d:deltas?.todayRev,  vs:"vs ayer"},
-          {l:"Ganancia hoy",  usd:todayProf, s:todayRev>0?`Margen ${((todayProf/todayRev)*100).toFixed(0)}%`:(todayAbonos>0?"Solo abonos hoy":"Sin ventas"), c:"#34d399", d:deltas?.todayProf, vs:"vs ayer"},
-          {l:"Ventas semana", usd:weekRev+weekAbonos,   s:weekAbonos>0?`Lunes → hoy · +${fmtUSD(weekAbonos)} abonos`:"Lunes → hoy",  c:"#a78bfa", d:deltas?.weekRev,  vs:"vs sem. pasada"},
-          {l:"Gan. semana",   usd:weekProf,  s:weekRev>0?`Margen ${((weekProf/weekRev)*100).toFixed(0)}%`:"Sin ventas",   c:"#fbbf24", d:deltas?.weekProf, vs:"vs sem. pasada"},
+          {l:"Cobrado hoy",   usd:todayRev+todayAbonos,  s:todayAbonos>0?`ventas + ${fmtUSD(todayAbonos)} en abonos`:"ventas + abonos", c:"#60a5fa", d:deltas?.todayRev,  vs:"vs ayer"},
+          {l:"Ganancia hoy",  usd:todayProf+todayApartProf, s:todayApartProf>0?"incluye apartados pagados":(todayRev>0?`Margen ${((todayProf/todayRev)*100).toFixed(0)}%`:"Sin ventas"), c:"#34d399", d:deltas?.todayProf, vs:"vs ayer"},
+          {l:"Cobrado semana",usd:weekRev+weekAbonos,   s:weekAbonos>0?`ventas + ${fmtUSD(weekAbonos)} en abonos`:"ventas + abonos",  c:"#a78bfa", d:deltas?.weekRev,  vs:"vs sem. pasada"},
+          {l:"Gan. semana",   usd:weekProf+weekApartProf,  s:weekApartProf>0?"incluye apartados pagados":(weekRev>0?`Margen ${((weekProf/weekRev)*100).toFixed(0)}%`:"Sin ventas"),   c:"#fbbf24", d:deltas?.weekProf, vs:"vs sem. pasada"},
         ].map(({l,usd,s,c,d,vs})=>(
           <div key={l} className="card" style={{borderTop:`2px solid ${c}22`}}>
             <div style={{fontSize:10,color:"#2a4060",textTransform:"uppercase",letterSpacing:".07em",marginBottom:6}}>{l}</div>
