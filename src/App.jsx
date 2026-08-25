@@ -598,6 +598,15 @@ function RefreshBtn({ refreshData, label = true, style = {} }) {
 const ILock   = () => <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#e8c96a" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>;
 const IEyeOff = () => <Svg d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" s={18}/>;
 
+// Distribuidores guardados (contactos para enviar el pedido de reposición).
+// Sembrados con lo leído de los recibos — el usuario revisa/edita/agrega.
+const DEFAULT_DISTRIBUTORS = [
+  {id:"d_innova",   name:"Innova Vision",  phone:"04147418755", email:"innovavisionca@gmail.com"},
+  {id:"d_optiam",   name:"Optiamérica",    phone:"04145363320", email:""},
+  {id:"d_optiview", name:"Optiview 2020",  phone:"04140728411", email:""},
+  {id:"d_ziba",     name:"ZIBA",           phone:"04246988395", email:"blancamontilla1972@gmail.com"},
+];
+
 export default function App() {
   const [profile,      setProfile]      = useState(null);
   const [inventory,    setInventory]    = useState([]);
@@ -612,6 +621,7 @@ export default function App() {
   const [profilesData, setProfilesData] = useState(DEFAULT_PROFILES_DATA);
   const [dynProfiles,  setDynProfiles]  = useState(DEFAULT_DYN_PROFILES);
   const [fixedExpenses, setFixedExpenses] = useState(DEFAULT_FIXED);
+  const [distributors, setDistributors] = useState(DEFAULT_DISTRIBUTORS);
   const [storeFilter,  setStoreFilter]  = useState("all"); // "all" | storeId
   const [viewAs,       setViewAs]       = useState(null);  // owner viendo la app como otro perfil
   const [recovery,     setRecovery]     = useState([]);    // solicitudes de recuperacion de acceso
@@ -716,6 +726,7 @@ export default function App() {
       DB.listenSetting("profilesData",  v => setProfilesData(v)),
       DB.listenSetting("dynProfiles",   v => setDynProfiles(v)),
       DB.listenSetting("fixedExpenses", v => { if (v?.length) setFixedExpenses(v); }),
+      DB.listenSetting("distributors",  v => { if (v?.length) setDistributors(v); }),
     ];
     return () => unsubs.forEach(u => u());
   }, [profile]);
@@ -778,6 +789,7 @@ export default function App() {
   const savePD          = useCallback(async d => { setProfilesData(d);await dbSaveSetting("profilesData", d); }, []);
   const saveDynProfiles = useCallback(async d => { setDynProfiles(d); await dbSaveSetting("dynProfiles", d); }, []);
   const saveFixedExpenses = useCallback(async d => { setFixedExpenses(d); await dbSaveSetting("fixedExpenses", d); }, []);
+  const saveDistributors  = useCallback(async d => { setDistributors(d);  await dbSaveSetting("distributors", d); }, []);
 
   // Tasa del dia automatica (BCV): una vez al dia sincroniza la tasa oficial
   // del Banco Central. Si ya se sincronizo hoy (o hubo edicion manual hoy) no
@@ -864,7 +876,7 @@ export default function App() {
   // Cambio directo de perfil (solo owner, desde Gestion): entra de lleno al
   // otro perfil. La sesion recordada sigue siendo la suya — al recargar vuelve.
   const switchTo = id => { setViewAs(null); setProfile(id); };
-  const shared = { inventory, sales, rate, deposits, expenses, investments, purchases, orders, recovery, payments, profilesData, dynProfiles, fixedExpenses, storeFilter, setStoreFilter, saveInv, saveSal, clearSales, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, savePurchases, saveOrders, saveDynProfiles, saveFixedExpenses, setViewAs, switchTo, refreshData, onLogout:handleLogout };
+  const shared = { inventory, sales, rate, deposits, expenses, investments, purchases, orders, recovery, payments, profilesData, dynProfiles, fixedExpenses, distributors, storeFilter, setStoreFilter, saveInv, saveSal, clearSales, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, savePurchases, saveOrders, saveDynProfiles, saveFixedExpenses, saveDistributors, setViewAs, switchTo, refreshData, onLogout:handleLogout };
 
   // "Ver como": el propietario puede ver la app tal cual la ve otro perfil
   if (viewAs && p?.id === "owner") {
@@ -2245,7 +2257,7 @@ function CameraModal({ onClose, onDetect }) {
 }
 
 // ── Admin View ────────────────────────────────────────────────────────────────
-function AdminView({ profile, inventory, sales, rate, deposits, expenses, investments, purchases = [], orders, recovery = [], payments, profilesData, dynProfiles, fixedExpenses = DEFAULT_FIXED, storeFilter, setStoreFilter, saveInv, saveSal, clearSales, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, savePurchases, saveOrders, saveDynProfiles, saveFixedExpenses, setViewAs, switchTo, refreshData, onLogout }) {
+function AdminView({ profile, inventory, sales, rate, deposits, expenses, investments, purchases = [], orders, recovery = [], payments, profilesData, dynProfiles, fixedExpenses = DEFAULT_FIXED, distributors = DEFAULT_DISTRIBUTORS, storeFilter, setStoreFilter, saveInv, saveSal, clearSales, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, savePurchases, saveOrders, saveDynProfiles, saveFixedExpenses, saveDistributors, setViewAs, switchTo, refreshData, onLogout }) {
   const [tab,       setTab]      = useState("dash");
   const [invModal,  setInvModal] = useState(null);
   const [detailDate,setDD]       = useState(null);
@@ -2471,7 +2483,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
         {tab==="apart"    && <ApartadosTab {...{orders,saveOrders,rate,profile,isMobile}} />}
         {tab==="caja"     && <CajaTab    {...{sales:filteredSales,deposits,saveDeposits,rate,payments,isMobile,orders}} />}
         {tab==="cierre"   && <CierreTab {...{sales,expenses,orders,rate,dynProfiles,profile}} />}
-        {tab==="inv"      && <InvTab     {...{inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,isMobile}} />}
+        {tab==="inv"      && <InvTab     {...{inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,isMobile,distributors,saveDistributors}} />}
         {tab==="compras"  && <ComprasTab {...{purchases,savePurchases,rate,isMobile}} />}
         {tab==="history"  && <HistTab    {...{byDate,sortedDates,setDD,storeFilter,sales,clearSales,isOwner:profile.id==="owner"}} />}
         {tab==="miperfil" && <ProfileSettingsTab profile={profile} dynProfiles={dynProfiles} saveDynProfiles={saveDynProfiles}/>}
@@ -3748,10 +3760,14 @@ function WeekTab({byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles}
 }
 
 // ── Inv Tab ───────────────────────────────────────────────────────────────────
-function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate}) {
+function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,distributors=[],saveDistributors}) {
   const [filter,setFilter]=useState("Todos");
   const [search,setSearch]=useState("");
   const [copied,setCopied]=useState(false);
+  const [distId,setDistId]=useState("");        // distribuidor elegido para el pedido
+  const [showDist,setShowDist]=useState(false);  // modal de gestión de distribuidores
+  const dist = distributors.find(d=>d.id===distId) || null;
+  const waPhone = p => { const x=phoneDigits(p); return x.startsWith("58")?x:x.replace(/^0/,"58"); };
   const filtered=inventory.filter(p=>(filter==="Todos"||p.cat===filter)&&(search===""||p.name.toLowerCase().includes(search.toLowerCase())));
   const del=async id=>{if(!confirm("¿Eliminar?"))return;await saveInv(inventory.filter(p=>p.id!==id));};
 
@@ -3767,7 +3783,8 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate}) 
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Inventario</h1>
-        <div style={{display:"flex",gap:8}}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}>
+          <button className="btn-g" onClick={()=>setShowDist(true)} style={{background:"#0a1830",borderColor:"#1a2a4a",color:"#7aa0e0"}}>🏢 Distribuidores</button>
           <button className="btn-g" onClick={()=>setInvModal("scan")} style={{background:"linear-gradient(135deg,#3a2c08,#6b5010)",borderColor:"#4a3510",color:"#fbbf24"}}>📸 Escanear recibo</button>
           <button className="btn-p" onClick={()=>setInvModal("new")}><IPlus/>Agregar</button>
         </div>
@@ -3778,12 +3795,19 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate}) 
         <div className="card" style={{borderColor:"#4a3510"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:10}}>
             <div style={{fontSize:13,fontWeight:700,color:"#fbbf24"}}>⚠️ Por agotarse — {porAgotarse.length} producto(s) necesitan reposición</div>
-            <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+            <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center"}}>
+              {distributors.length>0 && (
+                <select value={distId} onChange={e=>setDistId(e.target.value)}
+                  style={{background:"#050e10",border:"1px solid #0d2a30",borderRadius:8,padding:"7px 10px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:12,outline:"none"}}>
+                  <option value="">Elegir distribuidor…</option>
+                  {distributors.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              )}
               <button className="btn-g" style={{fontSize:12}} onClick={copyPedido}>{copied?"✓ Copiado":"Copiar pedido"}</button>
-              <a href={`https://api.whatsapp.com/send?text=${encodeURIComponent(pedidoMsg)}`} target="_blank" rel="noreferrer"
-                className="btn-p" style={{textDecoration:"none",fontSize:12,padding:"7px 13px",background:"linear-gradient(135deg,#0d7a50,#10b981)"}}>📱 WhatsApp</a>
-              <a href={`https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(`Pedido de reposición — OptiLatina · ${today()}`)}&body=${encodeURIComponent(pedidoMsg)}`} target="_blank" rel="noreferrer"
-                className="btn-p" style={{textDecoration:"none",fontSize:12,padding:"7px 13px",background:"linear-gradient(135deg,#b23121,#d93025)"}}>📧 Gmail</a>
+              <a href={dist&&waPhone(dist.phone) ? `https://api.whatsapp.com/send?phone=${waPhone(dist.phone)}&text=${encodeURIComponent(pedidoMsg)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(pedidoMsg)}`} target="_blank" rel="noreferrer"
+                className="btn-p" style={{textDecoration:"none",fontSize:12,padding:"7px 13px",background:"linear-gradient(135deg,#0d7a50,#10b981)"}}>📱 WhatsApp{dist&&waPhone(dist.phone)?` → ${dist.name}`:""}</a>
+              <a href={`https://mail.google.com/mail/?view=cm&fs=1${dist?.email?`&to=${encodeURIComponent(dist.email)}`:""}&su=${encodeURIComponent(`Pedido de reposición — OptiLatina · ${today()}`)}&body=${encodeURIComponent(pedidoMsg)}`} target="_blank" rel="noreferrer"
+                className="btn-p" style={{textDecoration:"none",fontSize:12,padding:"7px 13px",background:"linear-gradient(135deg,#b23121,#d93025)"}}>📧 Gmail{dist?.email?` → ${dist.name}`:""}</a>
             </div>
           </div>
           <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
@@ -3874,6 +3898,61 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate}) 
             }
           </tbody>
         </table>
+      </div>
+      {showDist && <DistributorsModal distributors={distributors} saveDistributors={saveDistributors} onClose={()=>setShowDist(false)} />}
+    </div>
+  );
+}
+
+// ── Distribuidores (contactos guardados para la reposición) ───────────────────
+function DistributorsModal({ distributors=[], saveDistributors, onClose }) {
+  const [list, setList]   = useState(distributors.map(d=>({...d})));
+  const [saving, setSaving] = useState(false);
+  const upd = (id,k,v) => setList(l=>l.map(d=>d.id===id?{...d,[k]:v}:d));
+  const add = () => setList(l=>[...l,{id:uid(),name:"",phone:"",email:""}]);
+  const remove = id => setList(l=>l.filter(d=>d.id!==id));
+  const save = async () => {
+    if (!saveDistributors) { onClose(); return; }
+    setSaving(true);
+    const clean = list.filter(d=>(d.name||"").trim()).map(d=>({id:d.id,name:d.name.trim(),phone:(d.phone||"").trim(),email:(d.email||"").trim()}));
+    try { await saveDistributors(clean); } catch {}
+    setSaving(false); onClose();
+  };
+  return (
+    <div className="ov" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="modal" style={{maxWidth:560}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+          <div style={{fontSize:17,fontWeight:700,color:"#fff"}}>🏢 Distribuidores</div>
+          <button style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:22}} onClick={onClose}>×</button>
+        </div>
+        <div style={{fontSize:11,color:"#1a4a50",marginBottom:12,lineHeight:1.5}}>Guarda el WhatsApp y correo de cada distribuidor. Al pedir reposición eliges a quién enviar y sale ya dirigido. <span style={{color:"#fbbf24"}}>Revisa los contactos que sembré de tus recibos.</span></div>
+        <div style={{display:"flex",flexDirection:"column",gap:10,maxHeight:"55vh",overflowY:"auto",paddingRight:2}}>
+          {list.length===0 && <div style={{fontSize:12,color:"#1a4a50",textAlign:"center",padding:"20px 0"}}>Sin distribuidores todavía. Agrega uno abajo.</div>}
+          {list.map(d=>(
+            <div key={d.id} style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:12,padding:"12px"}}>
+              <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+                <div style={{flex:1,display:"flex",flexDirection:"column",gap:7}}>
+                  <div className="field"><label style={{fontSize:9}}>Nombre</label>
+                    <input placeholder="Ej: Innova Vision" value={d.name} onChange={e=>upd(d.id,"name",e.target.value)} style={{padding:"6px 9px",fontSize:12}}/></div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+                    <div className="field"><label style={{fontSize:9}}>WhatsApp</label>
+                      <input placeholder="0414 1234567" value={d.phone} onChange={e=>upd(d.id,"phone",e.target.value)} style={{padding:"6px 9px",fontSize:12,fontFamily:"'JetBrains Mono',monospace"}}/></div>
+                    <div className="field"><label style={{fontSize:9}}>Correo (Gmail)</label>
+                      <input type="email" placeholder="correo@ejemplo.com" value={d.email} onChange={e=>upd(d.id,"email",e.target.value)} style={{padding:"6px 9px",fontSize:12}}/></div>
+                  </div>
+                </div>
+                <button onClick={()=>remove(d.id)} title="Borrar" style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:18,padding:"2px 4px",flexShrink:0}}>×</button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:12,alignItems:"center",gap:8,flexWrap:"wrap"}}>
+          <button className="btn-g" style={{fontSize:12}} onClick={add}><IPlus/> Agregar distribuidor</button>
+          <div style={{display:"flex",gap:8}}>
+            <button className="btn-g" onClick={onClose}>Cancelar</button>
+            <button className="btn-p" onClick={save} disabled={saving} style={{minWidth:120}}><ICheck/>{saving?"Guardando…":"Guardar"}</button>
+          </div>
+        </div>
       </div>
     </div>
   );
