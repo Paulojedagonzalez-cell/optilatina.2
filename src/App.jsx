@@ -2397,7 +2397,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
             </div>
           )}
           {[
-            {id:"dash",    I:IHome,   l:"Dashboard"},
+            {id:"dash",    I:IHome,   l:"Inicio"},
             {id:"apart",   I:ITag,    l:"Apartados"},
             {id:"stats",   I:IStats,  l:"Estadísticas"},
             {id:"week",    I:IWeek,   l:"Esta semana"},
@@ -2460,7 +2460,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
             <span style={{fontSize:12,color:"#e8c96a",textDecoration:"underline"}}>Resolver en Gestión →</span>
           </div>
         )}
-        {tab==="dash"     && <DashTab    {...{todayRev,todayProf,todayItems,weekRev,weekProf,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders}} />}
+        {tab==="dash"     && <DashTab    {...{todayRev,todayProf,todayItems,weekRev,weekProf,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders,fixedExpenses,expenses}} />}
         {tab==="stats"    && <StatsTab   {...{sales:filteredSales,orders,expenses,rate,isMobile,profile,fixedExpenses}} />}
         {tab==="week"     && <WeekTab    {...{byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles,isMobile}} />}
         {tab==="finanzas" && <FinanzasTab {...{sales:filteredSales,orders,expenses,investments,inventory,rate,saveExpenses,saveInvestments,profile,isMobile,fixedExpenses,saveFixedExpenses}} />}
@@ -3425,10 +3425,20 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile, fixe
   );
 }
 
-function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders=[]}) {
+function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders=[],fixedExpenses=[],expenses=[]}) {
   const last7=sortedDates.slice(0,7).reverse();
   const pendientes = orders.filter(o=>o.status!=="entregado" && orderBalance(o)>0);
   const porPagar    = pendientes.reduce((s,o)=>s+orderBalance(o),0);
+
+  // Gastos fijos del mes: total esperado, pagado y lo que falta (igual que en Finanzas)
+  const _mes = today().slice(0,7);
+  const _monthExp = (expenses||[]).filter(e => ((e.date ? e.date.slice(0,7) : e.month) || "") === _mes);
+  const _lastAmt = fid => { const h=(expenses||[]).filter(e=>e.cat===fid && +e.amount>0).sort((a,b)=>(b.date||b.month||"").localeCompare(a.date||a.month||"")); return h.length?h[0].amount:null; };
+  const _expected = f => f.amount>0 ? f.amount : (_lastAmt(f.id) ?? 0);
+  const _esFijo = e => e.type ? e.type==="fijo" : (fixedExpenses||[]).some(f=>f.id===e.cat);
+  const gastosFijosTotal = (fixedExpenses||[]).reduce((s,f)=>s+_expected(f),0);
+  const gastosFijosPagado = _monthExp.filter(_esFijo).reduce((s,e)=>s+e.amount,0);
+  const gastosFijosFalta = Math.max(0, gastosFijosTotal - gastosFijosPagado);
   const maxR=Math.max(1,...last7.map(d=>byDate[d].reduce((s,v)=>s+v.total,0)));
   const storeLabel = storeFilter==="all" ? "Todas las tiendas" : (storeProfiles?.find(s=>s.id===storeFilter)?.address || storeFilter);
   // Delta vs periodo anterior, estilo panel profesional: ↑ verde / ↓ rojo
@@ -3449,7 +3459,7 @@ function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,totalInvested,t
     <div style={{display:"flex",flexDirection:"column",gap:20}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <div>
-          <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Dashboard</h1>
+          <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Inicio</h1>
           <div style={{color:"#2a4060",fontSize:13,marginTop:2}}>{new Date().toLocaleDateString("es-MX",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
         </div>
         <div style={{background:"#071c22",border:"1px solid #0e3040",borderRadius:10,padding:"6px 14px",fontSize:12,color:"#2dcfe8"}}>
@@ -3487,6 +3497,22 @@ function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,totalInvested,t
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#a08020"}}>{fmtBs(porPagar,rate)}</div>
         </div>
       </div>
+
+      {/* Gastos fijos del mes: total esperado + progreso de pago */}
+      {gastosFijosTotal>0 && (
+        <div className="card" style={{background:"#0a1220",borderColor:"#182a48",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+          <div>
+            <div style={{fontSize:10,color:"#6a86c0",textTransform:"uppercase",letterSpacing:".07em",marginBottom:4}}>🔒 Gastos fijos del mes</div>
+            <div style={{fontSize:12,color:"#8aa0c8"}}>
+              {gastosFijosFalta<=0.01 ? "Todo pagado este mes ✓" : `Pagado ${fmtUSD(gastosFijosPagado)} · falta por pagar ${fmtUSD(gastosFijosFalta)}`}
+            </div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:22,fontWeight:800,color:"#7aa0e0"}}>{fmtUSD(gastosFijosTotal)}</div>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#4a6088"}}>{fmtBs(gastosFijosTotal,rate)}</div>
+          </div>
+        </div>
+      )}
 
       <div className="rg2">
         <div className="card" style={{background:"#030b0e",borderColor:"#0a2028"}}>
