@@ -3784,6 +3784,7 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
   const [copied,setCopied]=useState(false);
   const [distId,setDistId]=useState("");        // distribuidor elegido para el pedido
   const [showDist,setShowDist]=useState(false);  // modal de gestión de distribuidores
+  const [showBulk,setShowBulk]=useState(false);  // modal de precio de venta masivo
   const dist = distributors.find(d=>d.id===distId) || null;
   const waPhone = p => { const x=phoneDigits(p); return x.startsWith("58")?x:x.replace(/^0/,"58"); };
   const filtered=inventory.filter(p=>(filter==="Todos"||p.cat===filter)&&(search===""||p.name.toLowerCase().includes(search.toLowerCase())));
@@ -3802,6 +3803,7 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Inventario</h1>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}>
+          <button className="btn-g" onClick={()=>setShowBulk(true)} style={{background:"#0a2018",borderColor:"#14402a",color:"#34d399"}}>💲 Precios de venta</button>
           <button className="btn-g" onClick={()=>setShowDist(true)} style={{background:"#0a1830",borderColor:"#1a2a4a",color:"#7aa0e0"}}>🏢 Distribuidores</button>
           <button className="btn-g" onClick={()=>setInvModal("scan")} style={{background:"linear-gradient(135deg,#3a2c08,#6b5010)",borderColor:"#4a3510",color:"#fbbf24"}}>📸 Escanear recibo</button>
           <button className="btn-p" onClick={()=>setInvModal("new")}><IPlus/>Agregar</button>
@@ -3918,6 +3920,87 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
         </table>
       </div>
       {showDist && <DistributorsModal distributors={distributors} saveDistributors={saveDistributors} onClose={()=>setShowDist(false)} />}
+      {showBulk && <BulkPriceModal inventory={inventory} saveInv={saveInv} onClose={()=>setShowBulk(false)} rate={rate} />}
+    </div>
+  );
+}
+
+// ── Precio de venta masivo (poner precio a muchos productos de un golpe) ──────
+function BulkPriceModal({ inventory, saveInv, onClose }) {
+  const [mode, setMode] = useState("x");      // x = multiplicar costo, + = sumar USD
+  const [val, setVal]   = useState("2");
+  const [cat, setCat]   = useState("Todas");
+  const [onlyEmpty, setOnlyEmpty] = useState(true);  // solo los que aún no tienen precio (precio ≤ costo)
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(0);
+
+  const v = Number(val) || 0;
+  const priceFor = c => mode==="x" ? c*v : c+v;
+  const affected = inventory.filter(p =>
+    !p.isService && Number(p.cost)>0 &&
+    (cat==="Todas" || p.cat===cat) &&
+    (!onlyEmpty || !(Number(p.price) > Number(p.cost)))
+  );
+  const sample = affected.slice(0,3);
+
+  const apply = async () => {
+    if (v<=0 || !affected.length || saving) return;
+    setSaving(true);
+    const ids = new Set(affected.map(a=>a.id));
+    const upd = inventory.map(p => ids.has(p.id) ? {...p, price: Number(priceFor(Number(p.cost)).toFixed(2))} : p);
+    try { await saveInv(upd); setDone(affected.length); setTimeout(onClose, 1500); }
+    catch { setSaving(false); }
+  };
+
+  return (
+    <div className="ov" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="modal" style={{maxWidth:520}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+          <div style={{fontSize:17,fontWeight:700,color:"#fff"}}>💲 Precio de venta masivo</div>
+          <button style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:22}} onClick={onClose}>×</button>
+        </div>
+        <div style={{fontSize:11,color:"#1a4a50",marginBottom:14,lineHeight:1.5}}>Pon el precio de venta de muchos productos de un golpe, a partir del costo. Luego ajustas a mano los que sean distintos.</div>
+        {done>0 ? (
+          <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:10,padding:"16px",fontSize:14,color:"#34d399",textAlign:"center"}}>✓ Listo — {done} precio(s) de venta actualizados</div>
+        ) : (<>
+          <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:12,padding:"12px",marginBottom:12}}>
+            <div style={{fontSize:11,color:"#2dcfe8",fontWeight:600,marginBottom:8}}>Regla del precio</div>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <span style={{fontSize:12,color:"#8aa0c8"}}>precio = costo</span>
+              <select value={mode} onChange={e=>setMode(e.target.value)} style={{background:"#050e10",border:"1px solid #0d2a30",borderRadius:6,padding:"6px 8px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:13,outline:"none"}}>
+                <option value="x">× (multiplicar)</option>
+                <option value="+">+ (sumar USD)</option>
+              </select>
+              <input type="number" min="0" step="0.1" value={val} onChange={e=>setVal(e.target.value)} style={{width:80,background:"#050e10",border:"1px solid #0d2a30",borderRadius:6,padding:"6px 9px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:13,outline:"none"}}/>
+            </div>
+            <div style={{fontSize:10,color:"#1a4a50",marginTop:8}}>Ejemplo: costo $17 → precio {fmtUSD(priceFor(17))}</div>
+          </div>
+          <div style={{display:"flex",gap:10,alignItems:"flex-end",flexWrap:"wrap",marginBottom:12}}>
+            <div className="field" style={{flex:1,minWidth:140}}><label>Categoría</label>
+              <select value={cat} onChange={e=>setCat(e.target.value)}>
+                <option>Todas</option>{CATS.filter(c=>c!=="Servicio").map(c=><option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:"#8aa0c8",cursor:"pointer",paddingBottom:8}}>
+              <input type="checkbox" checked={onlyEmpty} onChange={e=>setOnlyEmpty(e.target.checked)}/> Solo los que aún no tienen precio
+            </label>
+          </div>
+          <div style={{background:"#040d10",border:"1px solid #0a2028",borderRadius:10,padding:"10px 14px",marginBottom:14}}>
+            <div style={{fontSize:12,color:affected.length?"#34d399":"#f87171",fontWeight:600,marginBottom:sample.length?6:0}}>Se aplicará a {affected.length} producto(s){onlyEmpty?" sin precio":""}.</div>
+            {sample.map(p=>(
+              <div key={p.id} style={{fontSize:11,color:"#7a94a8",fontFamily:"'JetBrains Mono',monospace",display:"flex",justifyContent:"space-between",gap:8}}>
+                <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
+                <span style={{whiteSpace:"nowrap"}}>{fmtUSD(Number(p.cost))} → <strong style={{color:"#34d399"}}>{fmtUSD(priceFor(Number(p.cost)))}</strong></span>
+              </div>
+            ))}
+            {affected.length>sample.length && <div style={{fontSize:10,color:"#1a4a50",marginTop:4}}>…y {affected.length-sample.length} más</div>}
+          </div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+            <button className="btn-g" onClick={onClose}>Cancelar</button>
+            <button className="btn-p" onClick={apply} disabled={saving||!affected.length||v<=0} style={{minWidth:150}}><ICheck/>{saving?"Aplicando…":`Aplicar a ${affected.length}`}</button>
+          </div>
+        </>)}
+      </div>
     </div>
   );
 }
