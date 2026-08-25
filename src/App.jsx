@@ -3778,10 +3778,12 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate}) 
         <div className="card" style={{borderColor:"#4a3510"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:10}}>
             <div style={{fontSize:13,fontWeight:700,color:"#fbbf24"}}>⚠️ Por agotarse — {porAgotarse.length} producto(s) necesitan reposición</div>
-            <div style={{display:"flex",gap:7}}>
+            <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
               <button className="btn-g" style={{fontSize:12}} onClick={copyPedido}>{copied?"✓ Copiado":"Copiar pedido"}</button>
               <a href={`https://api.whatsapp.com/send?text=${encodeURIComponent(pedidoMsg)}`} target="_blank" rel="noreferrer"
-                className="btn-p" style={{textDecoration:"none",fontSize:12,padding:"7px 13px"}}>Enviar a distribuidora</a>
+                className="btn-p" style={{textDecoration:"none",fontSize:12,padding:"7px 13px",background:"linear-gradient(135deg,#0d7a50,#10b981)"}}>📱 WhatsApp</a>
+              <a href={`https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(`Pedido de reposición — OptiLatina · ${today()}`)}&body=${encodeURIComponent(pedidoMsg)}`} target="_blank" rel="noreferrer"
+                className="btn-p" style={{textDecoration:"none",fontSize:12,padding:"7px 13px",background:"linear-gradient(135deg,#b23121,#d93025)"}}>📧 Gmail</a>
             </div>
           </div>
           <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
