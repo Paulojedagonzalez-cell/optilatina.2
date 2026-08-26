@@ -80,6 +80,10 @@ const db = CONFIGURED
   : null;
 
 // ── CRUD helpers ──────────────────────────────────────────────────────────────
+// Perfil "Revisión" (conserje / mantenimiento): solo lectura. Bloquea TODA
+// escritura a Firestore de raíz, sin importar qué botón se toque.
+let _readOnlyMode = false;
+const setDbReadOnly = v => { _readOnlyMode = v; };
 const DB = {
   async getAll(col, orderField = "createdAt") {
     if (!db) return [];
@@ -94,7 +98,7 @@ const DB = {
   },
 
   async upsertMany(col, items) {
-    if (!db || !items?.length) return;
+    if (_readOnlyMode || !db || !items?.length) return;
     // Firestore batch: máx 500 ops por batch
     const BATCH_SIZE = 490;
     for (let i = 0; i < items.length; i += BATCH_SIZE) {
@@ -107,17 +111,17 @@ const DB = {
   },
 
   async set(col, id, data) {
-    if (!db) return;
+    if (_readOnlyMode || !db) return;
     await setDoc(doc(db, col, id), data, { merge: true });
   },
 
   async delete(col, id) {
-    if (!db) return;
+    if (_readOnlyMode || !db) return;
     await deleteDoc(doc(db, col, id));
   },
 
   async deleteAll(col, ids) {
-    if (!db || !ids?.length) return;
+    if (_readOnlyMode || !db || !ids?.length) return;
     const BATCH_SIZE = 490;
     for (let i = 0; i < ids.length; i += BATCH_SIZE) {
       const batch = writeBatch(db);
@@ -133,7 +137,7 @@ const DB = {
   },
 
   async setSetting(key, value) {
-    if (!db) return;
+    if (_readOnlyMode || !db) return;
     await setDoc(doc(db, "settings", key), {
       value, updatedAt: new Date().toISOString()
     });
@@ -607,6 +611,14 @@ const DEFAULT_DISTRIBUTORS = [
   {id:"d_ziba",     name:"ZIBA",           phone:"04246988395", email:"blancamontilla1972@gmail.com"},
 ];
 
+// Perfil "conserje" de solo lectura para revisión/mantenimiento del sistema.
+// Ve todo (rol admin) pero `readOnly` bloquea cualquier escritura. No aparece en
+// el login por formulario; se entra por sesión (uso interno de mantenimiento).
+const REVISOR = {
+  id:"revisor", name:"Revisión", role:"admin", readOnly:true, color:"#8aa0c8",
+  storeName:null, address:null, phone:"", email:"", description:"Conserje · solo lectura (mantenimiento)", photo:null,
+};
+
 export default function App() {
   const [profile,      setProfile]      = useState(null);
   const [inventory,    setInventory]    = useState([]);
@@ -704,7 +716,7 @@ export default function App() {
       const raw = localStorage.getItem("ol_session");
       if (raw) {
         const { id } = JSON.parse(raw);
-        if (id && dynProfiles.find(p => p.id === id)) setProfile(prev => prev ?? id);
+        if (id && (id === REVISOR.id || dynProfiles.find(p => p.id === id))) setProfile(prev => prev ?? id);
       }
     } catch {}
   }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -864,8 +876,10 @@ export default function App() {
     try { localStorage.removeItem("ol_session"); } catch {}
   };
 
-  if (!profile) return <LoginScreen onSelect={handleLogin} dynProfiles={dynProfiles} />;
-  const p = dynProfiles.find(x => x.id === profile);
+  if (!profile) { setDbReadOnly(false); return <LoginScreen onSelect={handleLogin} dynProfiles={dynProfiles} />; }
+  const p = profile === REVISOR.id ? REVISOR : dynProfiles.find(x => x.id === profile);
+  // Perfil "Revisión" = solo lectura: bloquea toda escritura a la nube.
+  setDbReadOnly(!!p?.readOnly);
   // Si la sesion recordada apunta a un perfil que ya no existe (borrado o
   // renombrado en otro dispositivo), NO crashear con pantalla en blanco:
   // cerrar sesion y volver al login.
@@ -900,9 +914,19 @@ export default function App() {
     }
   }
 
-  return p?.role === "store"
+  const mainView = p?.role === "store"
     ? <StoreView  profile={p} {...shared} />
     : <AdminView  profile={p} {...shared} />;
+  if (p?.readOnly) return (
+    <div>
+      <div style={{position:"fixed",top:0,left:0,right:0,zIndex:2000,background:"linear-gradient(90deg,#0a2a3a,#0e3a4a)",color:"#8ad0e8",display:"flex",justifyContent:"center",alignItems:"center",gap:10,padding:"6px 12px",fontFamily:"'Outfit',sans-serif",fontSize:12.5,flexWrap:"wrap"}}>
+        🔒 Modo revisión — <strong>solo lectura</strong>. Los cambios no se guardan.
+        <button onClick={handleLogout} style={{background:"#040d10",border:"none",borderRadius:8,color:"#8ad0e8",padding:"4px 12px",cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:11,fontWeight:600}}>Salir</button>
+      </div>
+      <div style={{paddingTop:38}}>{mainView}</div>
+    </div>
+  );
+  return mainView;
 }
 
 // ── Primer acceso: el invitado crea SU propia contraseña (la temporal ya no vale) ──
