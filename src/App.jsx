@@ -2523,7 +2523,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
         {tab==="compras"  && <ComprasTab {...{purchases,savePurchases,rate,isMobile}} />}
         {tab==="history"  && <HistTab    {...{byDate,sortedDates,setDD,storeFilter,sales,clearSales,isOwner:profile.id==="owner",orders,rate}} />}
         {tab==="miperfil" && <ProfileSettingsTab profile={profile} dynProfiles={dynProfiles} saveDynProfiles={saveDynProfiles}/>}
-        {tab==="ajustes"  && profile.id==="owner" && <GestionTab {...{profilesData,savePD,payments,savePayments,dynProfiles,saveDynProfiles,setViewAs,switchTo,recovery}} />}
+        {tab==="ajustes"  && profile.id==="owner" && <GestionTab {...{profilesData,savePD,payments,savePayments,dynProfiles,saveDynProfiles,setViewAs,switchTo,recovery,fixedExpenses,saveFixedExpenses,rate}} />}
       </main>
 
       {/* ── MOBILE BOTTOM NAV ── */}
@@ -5286,7 +5286,20 @@ function CierreTab({ sales, expenses, orders, rate, dynProfiles, profile }) {
   );
 }
 
-function GestionTab({ profilesData, savePD, payments, savePayments, dynProfiles, saveDynProfiles, setViewAs, switchTo, recovery = [] }) {
+function GestionTab({ profilesData, savePD, payments, savePayments, dynProfiles, saveDynProfiles, setViewAs, switchTo, recovery = [], fixedExpenses = DEFAULT_FIXED, saveFixedExpenses, rate }) {
+  // Gastos fijos: mismos que se ven en Finanzas, editables también desde aquí.
+  const [fx, setFx] = useState(null);        // borrador (null = usar el guardado)
+  const [fxSaved, setFxSaved] = useState(false);
+  const fxList = fx ?? fixedExpenses;
+  const fxTotal = fxList.reduce((s,f)=>s+(Number(f.amount)||0),0);
+  const fxUpd = (id,patch) => setFx(fxList.map(f=>f.id===id?{...f,...patch}:f));
+  const fxAdd = () => setFx([...fxList, {id:uid(), title:"", icon:"📋", amount:0, dueFrom:null, dueTo:null}]);
+  const fxDel = id => setFx(fxList.filter(f=>f.id!==id));
+  const fxSave = async () => {
+    if (!fx || !saveFixedExpenses) return;
+    await saveFixedExpenses(fx.filter(f=>f.title?.trim()));
+    setFx(null); setFxSaved(true); setTimeout(()=>setFxSaved(false), 2500);
+  };
   const [pay, setPay] = useState(payments || DEFAULT_PAYMENTS);
   const [savingPay, setSavingPay] = useState(false);
   const [editProf, setEditProf] = useState(null);
@@ -5375,7 +5388,44 @@ Marca "Recordar mi sesión" para no volver a escribirla.`) : "";
       )}
       <div>
         <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Gestión</h1>
-        <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Perfiles, tiendas y métodos de cobro</div>
+        <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Perfiles, tiendas, gastos fijos y métodos de cobro</div>
+      </div>
+
+      {/* Gastos fijos: título + monto + vencimiento. Se repiten cada mes. */}
+      <div className="card">
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#7aa0e0"}}>🔒 Gastos fijos del mes</div>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:15,fontWeight:700,color:"#7aa0e0"}}>{fmtUSD(fxTotal)}{rate?<span style={{fontSize:11,color:"#fbbf24",marginLeft:8}}>{fmtBs(fxTotal,rate)}</span>:null}</div>
+        </div>
+        <div style={{fontSize:11,color:"#1a4a50",marginBottom:12}}>Escribe el título y el monto de cada gasto que se repite cada mes (alquiler, nómina, wifi…). Opcional: del día __ al __ que vence.</div>
+        {fxSaved && <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#34d399",marginBottom:10}}>✓ Gastos fijos guardados</div>}
+        <div style={{display:"flex",flexDirection:"column",gap:9}}>
+          {fxList.map(f=>(
+            <div key={f.id} style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center",background:"#040d10",border:"1px solid #0d2a30",borderRadius:10,padding:"10px"}}>
+              <input value={f.title||""} onChange={e=>fxUpd(f.id,{title:e.target.value})} placeholder="Título del gasto"
+                style={{flex:"2 1 150px",minWidth:0,background:"#050f12",border:"1px solid #12303a",borderRadius:6,padding:"7px 9px",color:"#e2e8f4",fontSize:13,fontFamily:"'Outfit',sans-serif"}}/>
+              <div style={{display:"flex",alignItems:"center",gap:4,flex:"1 1 110px"}}>
+                <span style={{color:"#1a5060",fontSize:12}}>$</span>
+                <input type="number" min="0" step="0.01" value={f.amount||""} onChange={e=>fxUpd(f.id,{amount:+e.target.value||0})} placeholder="Monto"
+                  style={{width:"100%",background:"#050f12",border:"1px solid #12303a",borderRadius:6,padding:"7px 9px",color:"#fbbf24",fontSize:13,fontFamily:"'JetBrains Mono',monospace"}}/>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:5,flex:"1 1 130px",fontSize:12,color:"#1a5060"}}>
+                <span>del</span>
+                <input type="number" min="1" max="31" value={f.dueFrom??""} onChange={e=>fxUpd(f.id,{dueFrom:e.target.value===""?null:+e.target.value})}
+                  style={{width:44,background:"#050f12",border:"1px solid #12303a",borderRadius:6,padding:"7px 6px",color:"#e2e8f4",fontSize:13,fontFamily:"'JetBrains Mono',monospace",textAlign:"center"}}/>
+                <span>al</span>
+                <input type="number" min="1" max="31" value={f.dueTo??""} onChange={e=>fxUpd(f.id,{dueTo:e.target.value===""?null:+e.target.value})}
+                  style={{width:44,background:"#050f12",border:"1px solid #12303a",borderRadius:6,padding:"7px 6px",color:"#e2e8f4",fontSize:13,fontFamily:"'JetBrains Mono',monospace",textAlign:"center"}}/>
+              </div>
+              <button onClick={()=>fxDel(f.id)} title="Quitar"
+                style={{background:"#1a0808",border:"1px solid #4a1010",borderRadius:6,padding:"6px 9px",color:"#f87171",fontSize:12,cursor:"pointer"}}>🗑</button>
+            </div>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap",justifyContent:"space-between"}}>
+          <button className="btn-g" style={{fontSize:12}} onClick={fxAdd}><IPlus/>Agregar gasto</button>
+          {fx && <button className="btn-p" style={{fontSize:12}} onClick={fxSave}><ICheck/>Guardar gastos</button>}
+        </div>
       </div>
 
       {/* Solicitudes de recuperación de acceso */}
