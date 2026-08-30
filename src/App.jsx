@@ -4727,6 +4727,8 @@ function ApartadosTab({ orders, saveOrders, rate, profile, isMobile, inventory=[
   const [search,   setSearch]   = useState("");
   const [err,      setErr]      = useState("");
   const [saving,   setSaving]   = useState(false); // evita crear/abonar 2 veces por doble toque
+  const [showCostos, setShowCostos] = useState(false); // pantalla para completar costos faltantes
+  const sinCosto = orders.filter(o => !(Number(o.cost) > 0));
 
   const nextOrderNum = orders.reduce((m,o)=>Math.max(m, o.orderNumber||0), 0) + 1;
   const [no, setNo] = useState({customer:"", phone:"", product:"", total:"", orderNumber:"", firstAmt:"", firstMethod:"efectivo"});
@@ -4844,6 +4846,16 @@ function ApartadosTab({ orders, saveOrders, rate, profile, isMobile, inventory=[
         </div>
         <button className="btn-p" onClick={()=>{setShowNew(true);setErr("");}}><IPlus/>Nuevo apartado</button>
       </div>
+
+      {sinCosto.length>0 && (
+        <div className="card" style={{background:"#2a1e08",borderColor:"#4a3510",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+          <div>
+            <div style={{fontSize:13,fontWeight:700,color:"#fbbf24"}}>⚠️ {sinCosto.length} apartado(s) sin costo</div>
+            <div style={{fontSize:11.5,color:"#c9a84a",marginTop:2}}>Sin el costo no se puede calcular la ganancia — saldrá en $0 al entregarlos.</div>
+          </div>
+          <button className="btn-p" onClick={()=>setShowCostos(true)} style={{background:"linear-gradient(135deg,#7a5a0a,#b8860b)"}}>💰 Completar costos</button>
+        </div>
+      )}
 
       <QuickEntry orders={orders} saveOrders={saveOrders} rate={rate} profile={profile} nextOrderNum={nextOrderNum}
         inventory={inventory} saveInv={saveInv} sales={sales} saveSal={saveSal}/>
@@ -4985,6 +4997,88 @@ function ApartadosTab({ orders, saveOrders, rate, profile, isMobile, inventory=[
           </div>
         </div>
       )}
+      {showCostos && <CostosModal orders={orders} saveOrders={saveOrders} onClose={()=>setShowCostos(false)} />}
+    </div>
+  );
+}
+
+// ── Completar costos de apartados viejos (sin costo no hay ganancia) ─────────
+function CostosModal({ orders, saveOrders, onClose }) {
+  const faltantes = orders.filter(o => !(Number(o.cost) > 0));
+  const [vals, setVals] = useState(() => Object.fromEntries(faltantes.map(o=>[o.id,""])));
+  const [bulk, setBulk] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(0);
+  const set = (id,v) => setVals(p=>({...p,[id]:v}));
+  const llenos = Object.values(vals).filter(v=>Number(v)>0).length;
+
+  // Aplicar a los que aún están vacíos: costo fijo, o un % del precio de venta
+  const aplicarBulk = (modo) => {
+    const n = Number(bulk)||0; if (n<=0) return;
+    setVals(p => {
+      const out = {...p};
+      faltantes.forEach(o => {
+        if (Number(out[o.id])>0) return;
+        out[o.id] = modo==="fijo" ? String(n) : String(Number((((Number(o.total)||0)*n)/100).toFixed(2)));
+      });
+      return out;
+    });
+  };
+
+  const save = async () => {
+    if (saving || !llenos) return;
+    setSaving(true);
+    const upd = orders.map(o => Number(vals[o.id])>0 ? {...o, cost:Number(vals[o.id])} : o);
+    try { await saveOrders(upd); setDone(llenos); setTimeout(onClose, 1500); }
+    catch { setSaving(false); }
+  };
+
+  return (
+    <div className="ov" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="modal" style={{maxWidth:720}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+          <div style={{fontSize:17,fontWeight:700,color:"#fff"}}>💰 Completar costos</div>
+          <button style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:22}} onClick={onClose}>×</button>
+        </div>
+        {done>0 ? (
+          <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:10,padding:"16px",fontSize:14,color:"#34d399",textAlign:"center"}}>✓ Listo — {done} costo(s) guardados. Ahora sí calculan ganancia.</div>
+        ) : (<>
+          <div style={{fontSize:11.5,color:"#1a4a50",marginBottom:12,lineHeight:1.5}}>Escribe lo que te costó a ti cada trabajo (lente + montura + laboratorio). Los que dejes vacíos quedan igual. <strong style={{color:"#fbbf24"}}>Ganancia = precio − costo.</strong></div>
+          <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:10,padding:"10px 12px",marginBottom:12,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+            <span style={{fontSize:11,color:"#2dcfe8",fontWeight:600}}>Atajo para los vacíos:</span>
+            <input type="number" min="0" step="0.01" value={bulk} onChange={e=>setBulk(e.target.value)} placeholder="0"
+              style={{width:90,background:"#050e10",border:"1px solid #0d2a30",borderRadius:6,padding:"5px 9px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:12,outline:"none"}}/>
+            <button className="btn-g" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>aplicarBulk("fijo")}>Poner como costo fijo</button>
+            <button className="btn-g" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>aplicarBulk("pct")}>Usar como % del precio</button>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:7,maxHeight:"50vh",overflowY:"auto",paddingRight:2}}>
+            {faltantes.map(o=>{
+              const c = Number(vals[o.id])||0, t = Number(o.total)||0;
+              return (
+                <div key={o.id} style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:10,padding:"9px 11px",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                  <div style={{flex:1,minWidth:180}}>
+                    <div style={{fontSize:12,color:"#b0c0d8"}}>#{o.orderNumber} · {o.customer}</div>
+                    <div style={{fontSize:10.5,color:"#2a5060",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:400}}>{o.product}</div>
+                  </div>
+                  <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#60a5fa",whiteSpace:"nowrap"}}>vende {fmtUSD(t)}</div>
+                  <input type="number" min="0" step="0.01" placeholder="costo" value={vals[o.id]} onChange={e=>set(o.id,e.target.value)}
+                    style={{width:95,background:"#050e10",border:`1px solid ${c>0?"#14503a":"#0d2a30"}`,borderRadius:6,padding:"6px 9px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:12,outline:"none"}}/>
+                  <div style={{width:96,textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:11.5,color:c>0?(t-c>=0?"#34d399":"#f87171"):"#1e3050",whiteSpace:"nowrap"}}>
+                    {c>0 ? `gana ${fmtUSD(t-c)}` : "—"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:12,alignItems:"center",gap:8,flexWrap:"wrap"}}>
+            <div style={{fontSize:11.5,color:llenos?"#34d399":"#1a4a50"}}>{llenos} de {faltantes.length} con costo</div>
+            <div style={{display:"flex",gap:8}}>
+              <button className="btn-g" onClick={onClose}>Cancelar</button>
+              <button className="btn-p" onClick={save} disabled={saving||!llenos} style={{minWidth:140}}><ICheck/>{saving?"Guardando…":`Guardar ${llenos}`}</button>
+            </div>
+          </div>
+        </>)}
+      </div>
     </div>
   );
 }
