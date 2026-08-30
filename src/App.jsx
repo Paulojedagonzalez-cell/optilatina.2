@@ -3821,9 +3821,22 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
   const [distId,setDistId]=useState("");        // distribuidor elegido para el pedido
   const [showDist,setShowDist]=useState(false);  // modal de gestión de distribuidores
   const [showBulk,setShowBulk]=useState(false);  // modal de precio de venta masivo
+  const [orden,setOrden]=useState("nombre");     // nombre | margen-alto | margen-bajo
+  // Margen del inventario: cuánto deja cada producto sobre su precio de venta
+  const margenDe = p => (Number(p.price)>0 ? ((Number(p.price)-Number(p.cost))/Number(p.price))*100 : null);
+  const conMargen = inventory.filter(p=>!p.isService && Number(p.price)>0 && Number(p.cost)>0);
+  const margenProm = conMargen.length
+    ? conMargen.reduce((s,p)=>s+margenDe(p),0)/conMargen.length : null;
+  const sinPrecio = inventory.filter(p=>!p.isService && !(Number(p.price)>Number(p.cost))).length;
   const dist = distributors.find(d=>d.id===distId) || null;
   const waPhone = p => { const x=phoneDigits(p); return x.startsWith("58")?x:x.replace(/^0/,"58"); };
-  const filtered=inventory.filter(p=>(filter==="Todos"||p.cat===filter)&&(search===""||p.name.toLowerCase().includes(search.toLowerCase())));
+  const filtered=inventory.filter(p=>(filter==="Todos"||p.cat===filter)&&(search===""||p.name.toLowerCase().includes(search.toLowerCase())))
+    .sort((a,b)=>{
+      if (orden==="nombre") return 0;   // deja el orden que ya trae
+      const ma=margenDe(a), mb=margenDe(b);
+      if (ma===null) return 1; if (mb===null) return -1;   // sin precio, al final
+      return orden==="margen-alto" ? mb-ma : ma-mb;
+    });
   const del=async id=>{if(!confirm("¿Eliminar?"))return;await saveInv(inventory.filter(p=>p.id!==id));};
 
   // Control automatico de reposicion: productos en o bajo su umbral
@@ -3904,7 +3917,21 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
         {["Todos",...CATS].map(c=>(
           <button key={c} onClick={()=>setFilter(c)} style={{background:filter===c?"#0f1e35":"transparent",border:`1px solid ${filter===c?"#1e3a60":"#141e30"}`,color:filter===c?"#60a5fa":"#1e3050",borderRadius:20,padding:"4px 12px",fontSize:12,fontFamily:"'Outfit',sans-serif",cursor:"pointer"}}>{c}</button>
         ))}
+        <select value={orden} onChange={e=>setOrden(e.target.value)} title="Ordenar la lista"
+          style={{background:"#0c1220",border:"1px solid #141e30",borderRadius:8,padding:"6px 10px",color:"#8aa0c8",fontFamily:"'Outfit',sans-serif",fontSize:12,outline:"none",marginLeft:"auto"}}>
+          <option value="nombre">Orden: por nombre</option>
+          <option value="margen-alto">Margen: mayor primero 📈</option>
+          <option value="margen-bajo">Margen: menor primero 📉</option>
+        </select>
       </div>
+
+      {/* Margen promedio del inventario: qué % de cada venta te queda */}
+      {(margenProm!==null || sinPrecio>0) && (
+        <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:8,padding:"8px 13px",fontSize:11.5,color:"#8aa0c8",display:"flex",gap:14,flexWrap:"wrap",alignItems:"center"}}>
+          {margenProm!==null && <span>📊 Margen promedio del inventario: <strong style={{color:"#a78bfa",fontFamily:"'JetBrains Mono',monospace"}}>{margenProm.toFixed(1)}%</strong> — de cada $100 que vendes, te quedan {fmtUSD(margenProm)}</span>}
+          {sinPrecio>0 && <span style={{color:"#fbbf24"}}>⚠️ {sinPrecio} producto(s) sin precio de venta — usa 💲 Precios de venta</span>}
+        </div>
+      )}
       <div className="card" style={{padding:0,overflow:"hidden"}}>
         <table>
           <thead><tr>
