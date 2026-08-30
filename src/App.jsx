@@ -2373,6 +2373,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
     {id:"stats",   I:IStats,  l:"Stats"},
     {id:"caja",    I:ICash,   l:"Caja"},
     {id:"inv",     I:IBox,    l:"Inventario"},
+    {id:"analisis",I:IStats,  l:"Análisis"},
     {id:"compras", I:IDeposit,l:"Compras"},
     {id:"history", I:IChart,  l:"Historial"},
   ];
@@ -2456,6 +2457,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
             {id:"finanzas",I:IMoney,  l:"Finanzas"},
             {id:"caja",    I:ICash,   l:"Caja"},
             {id:"inv",     I:IBox,    l:"Inventario"},
+            {id:"analisis",I:IStats,  l:"Análisis"},
             {id:"compras", I:IDeposit,l:"Compras"},
             {id:"history", I:IChart,  l:"Historial"},
             {id:"miperfil",I:IGear,   l:"Mi perfil"},
@@ -2520,6 +2522,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
         {tab==="caja"     && <CajaTab    {...{sales:filteredSales,deposits,saveDeposits,rate,payments,isMobile,orders}} />}
         {tab==="cierre"   && <CierreTab {...{sales,expenses,orders,rate,dynProfiles,profile}} />}
         {tab==="inv"      && <InvTab     {...{inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,isMobile,distributors,saveDistributors}} />}
+        {tab==="analisis" && <AnalisisTab {...{inventory,sales:filteredSales,orders,purchases,rate,isMobile,expenses,fixedExpenses}} />}
         {tab==="compras"  && <ComprasTab {...{purchases,savePurchases,rate,isMobile}} />}
         {tab==="history"  && <HistTab    {...{byDate,sortedDates,setDD,storeFilter,sales,clearSales,isOwner:profile.id==="owner",orders,rate}} />}
         {tab==="miperfil" && <ProfileSettingsTab profile={profile} dynProfiles={dynProfiles} saveDynProfiles={saveDynProfiles}/>}
@@ -5641,6 +5644,183 @@ Marca "Recordar mi sesión" para no volver a escribirla.`) : "";
             <button className="btn-p" style={{minWidth:160}} onClick={handleSavePay} disabled={savingPay}><ICheck/>{savingPay?"Guardando...":"Guardar métodos"}</button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Análisis: centro de resumen del negocio con gráficas ─────────────────────
+function AnalisisTab({ inventory=[], sales=[], orders=[], purchases=[], rate, isMobile, expenses=[], fixedExpenses=[] }) {
+  const margenDe = p => (Number(p.price)>0 ? ((Number(p.price)-Number(p.cost))/Number(p.price))*100 : null);
+
+  // ── Inventario: inversión, valor y ganancia potencial ──
+  const items      = inventory.filter(p=>!p.isService);
+  const invertido  = items.reduce((s,p)=>s+(Number(p.cost)||0)*getStock(p),0);
+  const valorVenta = items.reduce((s,p)=>s+(Number(p.price)||0)*getStock(p),0);
+  const potencial  = valorVenta - invertido;
+  const conPrecio  = items.filter(p=>Number(p.price)>0 && Number(p.cost)>0);
+  const margenProm = conPrecio.length ? conPrecio.reduce((s,p)=>s+margenDe(p),0)/conPrecio.length : null;
+  const sinPrecio  = items.filter(p=>!(Number(p.price)>Number(p.cost)));
+  const unidades   = items.reduce((s,p)=>s+getStock(p),0);
+
+  // ── Ranking por margen (para la gráfica de barras) ──
+  const ranking = [...conPrecio].sort((a,b)=>margenDe(b)-margenDe(a));
+  const top = ranking.slice(0,10);
+
+  // ── Inversión por categoría ──
+  const porCat = Object.entries(items.reduce((a,p)=>{
+    const k=p.cat||"Otro"; a[k]=(a[k]||0)+(Number(p.cost)||0)*getStock(p); return a;
+  },{})).sort((a,b)=>b[1]-a[1]);
+
+  // ── Ventas: qué producto rota más y deja más ──
+  const porProd = Object.values(sales.reduce((a,s)=>{
+    const k=s.productName||"—";
+    if(!a[k]) a[k]={name:k, qty:0, total:0, profit:0};
+    a[k].qty+=s.qty||1; a[k].total+=s.total||0; a[k].profit+=s.profit||0; return a;
+  },{})).sort((a,b)=>b.profit-a.profit);
+
+  // ── Clientes que más compran ──
+  const porCliente = Object.values([...sales.map(s=>({n:s.note,m:s.total})), ...orders.map(o=>({n:o.customer,m:o.total}))]
+    .filter(x=>(x.n||"").trim())
+    .reduce((a,x)=>{const k=x.n.trim(); if(!a[k])a[k]={nombre:k,compras:0,total:0}; a[k].compras++; a[k].total+=Number(x.m)||0; return a;},{}))
+    .sort((a,b)=>b.total-a.total).slice(0,8);
+
+  // ── Dinero: cobrado (ventas de contado + abonos) vs por cobrar ──
+  const cobradoVentas = sales.filter(s=>!s.fromOrderId).reduce((s,v)=>s+(v.total||0),0);
+  const abonos   = orders.flatMap(o=>o.payments||[]).reduce((s,p)=>s+(Number(p.amount)||0),0);
+  const cobrado  = cobradoVentas + abonos;
+  const porCobrar= orders.filter(o=>o.status!=="entregado").reduce((s,o)=>s+orderBalance(o),0);
+  const gananciaReal = sales.reduce((s,v)=>s+(v.profit||0),0);
+  const invertidoCompras = purchases.reduce((s,p)=>s+(p.totalInvested||0),0);
+
+  const Card = ({l,v,sub,c}) => (
+    <div className="card-sm" style={{borderLeft:`3px solid ${c}55`}}>
+      <div style={{fontSize:10,color:"#2a4060",textTransform:"uppercase",letterSpacing:".07em",marginBottom:4}}>{l}</div>
+      <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:700,color:c}}>{v}</div>
+      {sub && <div style={{fontSize:10,color:"#1a4a50",marginTop:3}}>{sub}</div>}
+    </div>
+  );
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      <div>
+        <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Análisis</h1>
+        <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Resumen del negocio · márgenes · qué deja más · clientes</div>
+      </div>
+
+      {/* Resumen general */}
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:11}}>
+        <Card l="Invertido en stock" v={fmtUSD(invertido)} sub={`${unidades} unidad(es)`} c="#60a5fa"/>
+        <Card l="Si vendes todo" v={fmtUSD(valorVenta)} sub="valor de venta" c="#34d399"/>
+        <Card l="Ganancia potencial" v={fmtUSD(potencial)} sub="venta − invertido" c={potencial>=0?"#a78bfa":"#f87171"}/>
+        <Card l="Margen promedio" v={margenProm!==null?`${margenProm.toFixed(1)}%`:"—"} sub={margenProm!==null?`de cada $100 quedan ${fmtUSD(margenProm)}`:"falta poner precios"} c="#fbbf24"/>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:11}}>
+        <Card l="Cobrado" v={fmtUSD(cobrado)} sub="ventas + abonos" c="#2dcfe8"/>
+        <Card l="Por cobrar" v={fmtUSD(porCobrar)} sub="apartados pendientes" c="#fbbf24"/>
+        <Card l="Ganancia registrada" v={fmtUSD(gananciaReal)} sub={sales.length?`${sales.length} venta(s)`:"sin ventas cerradas"} c="#34d399"/>
+        <Card l="Compras a distribuidor" v={fmtUSD(invertidoCompras)} sub={`${purchases.length} recibo(s)`} c="#60a5fa"/>
+      </div>
+
+      {sinPrecio.length>0 && (
+        <div className="card" style={{background:"#2a1e08",borderColor:"#4a3510",fontSize:12,color:"#fbbf24"}}>
+          ⚠️ <strong>{sinPrecio.length} producto(s) sin precio de venta</strong> — su margen no se puede calcular. Ponlos con <strong>Inventario → 💲 Precios de venta</strong>.
+        </div>
+      )}
+
+      {/* GRÁFICA: margen por producto */}
+      <div className="card">
+        <div style={{fontSize:11,fontWeight:600,color:"#1e3050",textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}}>Margen por producto</div>
+        <div style={{fontSize:11,color:"#1a4a50",marginBottom:14}}>Qué porcentaje de cada venta te queda como ganancia. Barra más larga = deja más.</div>
+        {top.length===0
+          ? <div style={{color:"#141e2e",fontSize:13,textAlign:"center",padding:"30px 0"}}>Pon precios de venta para ver los márgenes</div>
+          : <div style={{display:"flex",flexDirection:"column",gap:9}}>
+              {top.map(p=>{
+                const m = margenDe(p), gan = (Number(p.price)||0)-(Number(p.cost)||0);
+                const col = m>=60?"#34d399":m>=40?"#fbbf24":m>=20?"#fb923c":"#f87171";
+                return (
+                  <div key={p.id}>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11.5,marginBottom:3,gap:8}}>
+                      <span style={{color:"#b0c0d8",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
+                      <span style={{fontFamily:"'JetBrains Mono',monospace",color:col,whiteSpace:"nowrap"}}>{m.toFixed(0)}% · gana {fmtUSD(gan)}</span>
+                    </div>
+                    <div style={{height:9,background:"#050f12",borderRadius:5,overflow:"hidden",border:"1px solid #0a2028"}}>
+                      <div style={{width:`${Math.max(2,Math.min(100,m))}%`,height:"100%",background:`linear-gradient(90deg,${col}66,${col})`,borderRadius:5}}/>
+                    </div>
+                    <div style={{fontSize:9.5,color:"#1a4a50",marginTop:2}}>cuesta {fmtUSD(Number(p.cost)||0)} · vendes {fmtUSD(Number(p.price)||0)} · {getStock(p)} pz</div>
+                  </div>
+                );
+              })}
+            </div>
+        }
+      </div>
+
+      {/* GRÁFICA: inversión por categoría */}
+      {porCat.length>0 && (
+        <div className="card">
+          <div style={{fontSize:11,fontWeight:600,color:"#1e3050",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>Dónde está tu dinero invertido</div>
+          {porCat.map(([cat,monto])=>{
+            const pct = invertido>0 ? (monto/invertido)*100 : 0;
+            return (
+              <div key={cat} style={{marginBottom:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                  <span style={{color:"#b0c0d8"}}>{cat}</span>
+                  <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#60a5fa"}}>{fmtUSD(monto)} · {pct.toFixed(0)}%</span>
+                </div>
+                <div style={{height:8,background:"#050f12",borderRadius:4,overflow:"hidden"}}>
+                  <div style={{width:`${pct}%`,height:"100%",background:"linear-gradient(90deg,#1e3a60,#60a5fa)",borderRadius:4}}/>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Qué producto deja más plata (ventas reales) */}
+      <div className="card">
+        <div style={{fontSize:11,fontWeight:600,color:"#1e3050",textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}}>Lo que más te ha dejado</div>
+        <div style={{fontSize:11,color:"#1a4a50",marginBottom:14}}>Según las ventas ya cerradas. Ojo: margen alto no siempre es lo que más plata deja — también cuenta cuánto rota.</div>
+        {porProd.length===0
+          ? <div style={{color:"#141e2e",fontSize:13,textAlign:"center",padding:"26px 0"}}>Sin ventas cerradas todavía</div>
+          : porProd.slice(0,8).map(p=>{
+              const max = porProd[0].profit || 1;
+              return (
+                <div key={p.name} style={{marginBottom:10}}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11.5,marginBottom:3,gap:8}}>
+                    <span style={{color:"#b0c0d8",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
+                    <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#34d399",whiteSpace:"nowrap"}}>{fmtUSD(p.profit)}</span>
+                  </div>
+                  <div style={{height:8,background:"#050f12",borderRadius:4,overflow:"hidden"}}>
+                    <div style={{width:`${Math.max(2,(p.profit/max)*100)}%`,height:"100%",background:"linear-gradient(90deg,#0d7a50,#34d399)",borderRadius:4}}/>
+                  </div>
+                  <div style={{fontSize:9.5,color:"#1a4a50",marginTop:2}}>{p.qty} vendido(s) · {fmtUSD(p.total)} facturado</div>
+                </div>
+              );
+            })
+        }
+      </div>
+
+      {/* Clientes que más compran */}
+      <div className="card">
+        <div style={{fontSize:11,fontWeight:600,color:"#1e3050",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>Clientes que más compran</div>
+        {porCliente.length===0
+          ? <div style={{color:"#141e2e",fontSize:13,textAlign:"center",padding:"26px 0"}}>Sin clientes registrados</div>
+          : porCliente.map(c=>{
+              const max = porCliente[0].total || 1;
+              return (
+                <div key={c.nombre} style={{marginBottom:10}}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11.5,marginBottom:3,gap:8}}>
+                    <span style={{color:"#b0c0d8",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.nombre}{c.compras>1?` 🔁 ${c.compras}`:""}</span>
+                    <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#a78bfa",whiteSpace:"nowrap"}}>{fmtUSD(c.total)}</span>
+                  </div>
+                  <div style={{height:8,background:"#050f12",borderRadius:4,overflow:"hidden"}}>
+                    <div style={{width:`${Math.max(2,(c.total/max)*100)}%`,height:"100%",background:"linear-gradient(90deg,#4c2d8a,#a78bfa)",borderRadius:4}}/>
+                  </div>
+                </div>
+              );
+            })
+        }
       </div>
     </div>
   );
