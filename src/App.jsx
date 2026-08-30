@@ -1464,7 +1464,8 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
         <div style={{position:"fixed",inset:0,background:"#040d10",zIndex:200,overflow:"auto",padding:"calc(env(safe-area-inset-top, 0px) + 14px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px)"}}>
           <div style={{maxWidth:920,margin:"0 auto"}}>
             <button className="btn-g" onClick={()=>setShowApart(false)} style={{marginBottom:14,padding:"11px 18px",fontSize:14}}>← Volver a ventas</button>
-            <ApartadosTab orders={orders||[]} saveOrders={saveOrders} rate={rate} profile={profile} isMobile={isMobile}/>
+            <ApartadosTab orders={orders||[]} saveOrders={saveOrders} rate={rate} profile={profile} isMobile={isMobile}
+              inventory={inventory} saveInv={saveInv} sales={sales} saveSal={saveSal}/>
           </div>
         </div>
       )}
@@ -2315,21 +2316,25 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
 
   const totalInvested = inventory.reduce((s,p)=>s+(p.isService?0:p.cost*getStock(p)),0);
   const totalRetail   = inventory.reduce((s,p)=>s+(p.isService?0:p.price*getStock(p)),0);
+  // OJO con el DINERO cobrado: las ventas con `fromOrderId` vienen de un apartado
+  // y su dinero ya se contó como abonos el día que entró — se excluyen para no
+  // contarlo dos veces. Su GANANCIA sí cuenta (se reconoce al entregar).
   const todaySales    = filteredSales.filter(s=>s.date===today());
-  const todayRev      = todaySales.reduce((s,v)=>s+v.total,0);
+  const todayRev      = todaySales.filter(s=>!s.fromOrderId).reduce((s,v)=>s+v.total,0);
   const todayProf     = todaySales.reduce((s,v)=>s+v.profit,0);
   const todayItems    = todaySales.reduce((s,v)=>s+v.qty,0);
   const ws            = weekStart();
   const weekSales     = filteredSales.filter(s=>s.date>=ws);
-  const weekRev       = weekSales.reduce((s,v)=>s+v.total,0);
+  const weekRev       = weekSales.filter(s=>!s.fromOrderId).reduce((s,v)=>s+v.total,0);
   const weekProf      = weekSales.reduce((s,v)=>s+v.profit,0);
   // Abonos (adelantos de apartados) recibidos: dinero que SÍ entró, aunque no sea venta completa
   const allPayments   = (orders||[]).flatMap(o=>o.payments||[]);
   const todayAbonos   = allPayments.filter(p=>p.date===today()).reduce((s,p)=>s+(Number(p.amount)||0),0);
   const weekAbonos    = allPayments.filter(p=>p.date>=ws).reduce((s,p)=>s+(Number(p.amount)||0),0);
   // Ganancia de apartados: se reconoce cuando el apartado queda PAGADO (saldo 0), en la fecha del último abono.
+  // Si el apartado YA se entregó, su venta quedó registrada en `sales` — no se cuenta aquí (evita duplicar).
   const lastPayDate   = o => (o.payments||[]).reduce((m,p)=>(p.date>m?p.date:m),"");
-  const paidOrders    = (orders||[]).filter(o => o.cost!=null && orderBalance(o)<=0.01 && (o.payments||[]).length>0);
+  const paidOrders    = (orders||[]).filter(o => o.cost!=null && !o.saleRegistered && orderBalance(o)<=0.01 && (o.payments||[]).length>0);
   const todayApartProf= paidOrders.filter(o=>lastPayDate(o)===today()).reduce((s,o)=>s+((o.total||0)-(o.cost||0)),0);
   const weekApartProf = paidOrders.filter(o=>lastPayDate(o)>=ws).reduce((s,o)=>s+((o.total||0)-(o.cost||0)),0);
   const byDate        = filteredSales.reduce((a,s)=>{if(!a[s.date])a[s.date]=[];a[s.date].push(s);return a},{});
@@ -2511,7 +2516,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
         {tab==="stats"    && <StatsTab   {...{sales:filteredSales,orders,expenses,rate,isMobile,profile,fixedExpenses}} />}
         {tab==="week"     && <WeekTab    {...{byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles,isMobile}} />}
         {tab==="finanzas" && <FinanzasTab {...{sales:filteredSales,orders,expenses,investments,inventory,rate,saveExpenses,saveInvestments,profile,isMobile,fixedExpenses,saveFixedExpenses}} />}
-        {tab==="apart"    && <ApartadosTab {...{orders,saveOrders,rate,profile,isMobile}} />}
+        {tab==="apart"    && <ApartadosTab {...{orders,saveOrders,rate,profile,isMobile,inventory,saveInv,sales,saveSal}} />}
         {tab==="caja"     && <CajaTab    {...{sales:filteredSales,deposits,saveDeposits,rate,payments,isMobile,orders}} />}
         {tab==="cierre"   && <CierreTab {...{sales,expenses,orders,rate,dynProfiles,profile}} />}
         {tab==="inv"      && <InvTab     {...{inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,isMobile,distributors,saveDistributors}} />}
@@ -4509,7 +4514,7 @@ const parseQuickSale = (text) => {
   };
 };
 
-function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum }) {
+function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum, inventory=[], saveInv, sales=[], saveSal }) {
   const [txt,   setTxt]   = useState("");
   const [draft, setDraft] = useState(null);
   const [err,   setErr]   = useState("");
@@ -4571,18 +4576,52 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum }) {
     setErr("");
     if (!draft.product?.trim()) { setErr("Falta la descripción del producto."); return; }
     if (!draft.total || isNaN(Number(draft.total)) || Number(draft.total)<=0) { setErr("Falta el precio total."); return; }
-    const abono = Math.min(Number(draft.abono)||0, Number(draft.total));
-    const o = {
-      id: uid(), orderNumber: parseInt(draft.orderNumber)||nextOrderNum,
-      customer: draft.customer?.trim() || "Cliente", phone: draft.phone||"",
-      product: draft.product.trim(), total: Number(draft.total),
-      payments: abono>0 ? [{id:uid(), date:today(), amount:abono, method:draft.method,
-        amountBs: methodCur(draft.method)==="Bs" ? abono*rate : null, rate}] : [],
-      status: "pendiente", storeId: profile.id,
-      createdAt: new Date().toISOString(), createdDate: today(), viaTexto: true,
-    };
-    await saveOrders([...orders, o]);
-    setDraft(null); setTxt(""); setDone(true);
+    const total = Number(draft.total);
+    const abono = Math.min(Number(draft.abono)||0, total);
+    const costo = Math.max(0, Number(draft.cost)||0);
+    const prod  = inventory.find(p=>p.id===draft.prodId) || null;
+    const pagado = abono >= total - 0.01;   // pagó completo → es VENTA, no apartado
+    const isBs = methodCur(draft.method)==="Bs";
+
+    // Si eligió un producto del inventario, descontar 1 unidad
+    let newInv = null, serials = [];
+    if (prod && saveInv) {
+      newInv = inventory.map(p=>({...p}));
+      const pi = newInv.find(p=>p.id===prod.id);
+      if (pi && !pi.isService && (pi.serials||[]).length) {
+        const ord = [...pi.serials].sort((a,b)=>(isAutoCode(a)?0:1)-(isAutoCode(b)?0:1));
+        serials = ord.slice(0,1); pi.serials = ord.slice(1);
+      }
+    }
+
+    if (pagado && saveSal) {
+      // Pago completo → VENTA cerrada (con su ganancia)
+      const sale = {
+        id: uid(), saleId: uid(), date: today(), note: draft.customer?.trim() || "",
+        paymentMethod: draft.method, registeredBy: profile.id, storeId: profile.id,
+        productId: prod?.id || null, productName: draft.product.trim(), cat: prod?.cat || "Otro",
+        cost: costo, price: total, qty: 1, total, profit: total - costo,
+        totalBs: isBs ? total*rate : null, serials,
+        frameType:null, crystalType:null, lab:null, labCost:0, rx:null,
+        createdAt: new Date().toISOString(),
+      };
+      await saveSal([...sales, sale]);
+    } else {
+      // Queda debiendo → apartado (guardando el costo para la ganancia al cerrarlo)
+      const o = {
+        id: uid(), orderNumber: parseInt(draft.orderNumber)||nextOrderNum,
+        customer: draft.customer?.trim() || "Cliente", phone: draft.phone||"",
+        product: draft.product.trim(), total,
+        cost: costo, productId: prod?.id || null, serials,
+        payments: abono>0 ? [{id:uid(), date:today(), amount:abono, method:draft.method,
+          amountBs: isBs ? abono*rate : null, rate}] : [],
+        status: "pendiente", storeId: profile.id,
+        createdAt: new Date().toISOString(), createdDate: today(), viaTexto: true,
+      };
+      await saveOrders([...orders, o]);
+    }
+    if (newInv) await saveInv(newInv);
+    setDraft(null); setTxt(""); setDone(pagado ? "venta" : "apartado");
     setTimeout(()=>setDone(false), 3500);
   };
 
@@ -4592,7 +4631,7 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum }) {
     <div className="card" style={{borderColor:"#14402a"}}>
       <div style={{fontSize:13,fontWeight:700,color:"#34d399",marginBottom:4}}>⚡ Registro rápido — escanea la factura o escribe la venta</div>
       <div style={{fontSize:11,color:"#1a4a50",marginBottom:10}}>Toma foto de la factura y el sistema la lee, o escríbela: "Lentes Nike azul, fotocromático. Se vendió a 200$. Abonó 100 en efectivo. Cliente María Pérez 0414 1234567"</div>
-      {done && <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#34d399",marginBottom:10}}>✓ Guardado — la orden quedó registrada en su lugar</div>}
+      {done && <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#34d399",marginBottom:10}}>{done==="venta" ? "✓ Venta registrada — ya cuenta en ganancias" : "✓ Apartado guardado — se cierra al completar el pago"}</div>}
       {!draft ? (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           <input ref={scanRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={scanReceipt}/>
@@ -4624,6 +4663,24 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum }) {
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
           <div style={{fontSize:11,color:"#fbbf24"}}>Revisa lo que entendí — corrige lo que haga falta y guarda:</div>
           <div className="field"><label>Producto</label><input value={draft.product} onChange={e=>sd("product",e.target.value)}/></div>
+          {/* Costo: automático si eliges del inventario, o a mano (cristales, laboratorio, servicios) */}
+          <div className="rg2" style={{gap:10}}>
+            <div className="field"><label>Montura del inventario (descuenta stock y toma su costo)</label>
+              <select value={draft.prodId||""} onChange={e=>{
+                  const p = inventory.find(x=>x.id===e.target.value);
+                  setDraft(d=>({...d, prodId:e.target.value||null, cost: p?String(p.cost??""):(d.cost??"")}));
+                }}>
+                <option value="">— No es del inventario / lo escribo a mano —</option>
+                {inventory.filter(p=>p.isService||getStock(p)>0).map(p=>(
+                  <option key={p.id} value={p.id}>{p.name} — costo {fmtUSD(Number(p.cost)||0)}{p.isService?"":` · ${getStock(p)} pz`}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field"><label>💰 Costo (lo que te costó a ti)</label>
+              <input type="number" min="0" step="0.01" placeholder="0.00" value={draft.cost??""} onChange={e=>sd("cost",e.target.value)} disabled={!!draft.prodId}/>
+              {!Number(draft.cost) && <span style={{fontSize:10,color:"#fbbf24"}}>⚠️ Sin costo, la ganancia saldrá en $0</span>}
+            </div>
+          </div>
           <div className="rg2" style={{gap:10}}>
             <div className="field"><label>Cliente</label><input value={draft.customer} onChange={e=>sd("customer",e.target.value)} placeholder="Nombre del cliente"/></div>
             <div className="field"><label>Teléfono</label><PhoneInput value={draft.phone} onChange={v=>sd("phone",v)}/></div>
@@ -4642,7 +4699,7 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum }) {
             {methodCur(draft.method)==="Bs" && Number(draft.abono)>0 && <span style={{color:"#fbbf24",fontFamily:"'JetBrains Mono',monospace"}}>Abono = Bs {(Number(draft.abono)*rate).toLocaleString("es-VE",{maximumFractionDigits:0})}</span>}
             {bal>0
               ? <span style={{color:"#fbbf24"}}>Queda debiendo <strong>{fmtUSD(bal)}</strong> — se registra como apartado pendiente</span>
-              : <span style={{color:"#34d399"}}>✓ Pagado completo — quedará listo para entregar</span>}
+              : <span style={{color:"#34d399"}}>✓ Pagado completo — se registra como <strong>VENTA</strong>{Number(draft.cost)>0?` · ganancia ${fmtUSD((Number(draft.total)||0)-(Number(draft.cost)||0))}`:""}</span>}
           </div>
           {err&&<div style={{fontSize:12,color:"#f87171"}}>⚠️ {err}</div>}
           <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
@@ -4656,7 +4713,7 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum }) {
 }
 
 // ── Apartados: clientes que pagan por partes y retiran al completar ───────────
-function ApartadosTab({ orders, saveOrders, rate, profile, isMobile }) {
+function ApartadosTab({ orders, saveOrders, rate, profile, isMobile, inventory=[], saveInv, sales=[], saveSal }) {
   const [showNew,  setShowNew]  = useState(false);
   const [payFor,   setPayFor]   = useState(null); // orden a abonar
   const [filter,   setFilter]   = useState("activos"); // activos | pagados | entregados | todos
@@ -4742,7 +4799,22 @@ function ApartadosTab({ orders, saveOrders, rate, profile, isMobile }) {
   const markDelivered = async o => {
     if (orderBalance(o) > 0) return;
     if (!confirm(`¿Entregar la orden #${o.orderNumber} a ${o.customer}?`)) return;
-    await saveOrders(orders.map(x => x.id===o.id ? {...x, status:"entregado", deliveredAt:today()} : x));
+    // Al entregar, la venta se cierra: se registra con su ganancia (total − costo).
+    if (saveSal && !o.saleRegistered) {
+      const costo = Math.max(0, Number(o.cost)||0);
+      const total = Number(o.total)||0;
+      const lastM = (o.payments||[]).slice(-1)[0]?.method || "efectivo";
+      await saveSal([...sales, {
+        id: uid(), saleId: uid(), date: today(), note: o.customer || "",
+        paymentMethod: lastM, registeredBy: profile.id, storeId: o.storeId || profile.id,
+        productId: o.productId || null, productName: o.product || "Apartado", cat: "Otro",
+        cost: costo, price: total, qty: 1, total, profit: total - costo,
+        totalBs: methodCur(lastM)==="Bs" ? total*rate : null, serials: o.serials || [],
+        frameType:null, crystalType:null, lab:null, labCost:0, rx:null,
+        fromOrderId: o.id, createdAt: new Date().toISOString(),
+      }]);
+    }
+    await saveOrders(orders.map(x => x.id===o.id ? {...x, status:"entregado", deliveredAt:today(), saleRegistered:true} : x));
   };
   const removeOrder = async o => {
     if (!confirm(`¿Eliminar la orden #${o.orderNumber} de ${o.customer}? Se borra su historial de abonos.`)) return;
@@ -4766,7 +4838,8 @@ function ApartadosTab({ orders, saveOrders, rate, profile, isMobile }) {
         <button className="btn-p" onClick={()=>{setShowNew(true);setErr("");}}><IPlus/>Nuevo apartado</button>
       </div>
 
-      <QuickEntry orders={orders} saveOrders={saveOrders} rate={rate} profile={profile} nextOrderNum={nextOrderNum}/>
+      <QuickEntry orders={orders} saveOrders={saveOrders} rate={rate} profile={profile} nextOrderNum={nextOrderNum}
+        inventory={inventory} saveInv={saveInv} sales={sales} saveSal={saveSal}/>
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11}}>
         <div className="card-sm" style={{textAlign:"center"}}>
