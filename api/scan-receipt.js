@@ -17,6 +17,8 @@ Devuelve SOLO un objeto JSON válido, sin texto adicional, con estas claves:
 - saldo: saldo pendiente en dólares (número), o null
 - method: método de pago, uno de: "efectivo","zelle","usdt","pagoMovil","transferencia". Si dice "punto"/"cashea"/"pago movil" usa "pagoMovil". Si no se distingue, usa "efectivo".
 - rx: fórmula óptica resumida en una línea si aparece (OD/OI esfera-cilindro-eje, ADD), o "".
+- date: fecha de la factura en formato YYYY-MM-DD si aparece escrita, o "". Ojo: en Venezuela se escribe día/mes/año.
+- marca: si en la factura aparece escrita la MARCA de la montura (por ejemplo VENETO, GIO, GIO SOBRELENTE, ZIBA, SEEY, SEEY KIDS, SUGAR, PICCOLI, ACETATO, TR), devuélvela tal cual está escrita; si no aparece, "".
 Los montos en la factura están en dólares (USD) salvo que se indique Bs. No inventes datos: si un campo no está, usa "" o null.`;
 
 const USER_TEXT = "Lee esta factura de óptica y devuelve el JSON con los campos indicados. Responde únicamente con el objeto JSON.";

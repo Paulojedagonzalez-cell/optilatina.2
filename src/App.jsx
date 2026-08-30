@@ -4708,7 +4708,32 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum, inventory
     setErr("");
     if (txt.trim().length < 8) { setErr("Escribe la venta con más detalle."); return; }
     const d = parseQuickSale(txt);
-    setDraft({...d, orderNumber: nextOrderNum, fecha: today()});
+    const hit = detectarProducto(`${d.product} ${txt}`);
+    setDraft({...d, orderNumber: nextOrderNum, fecha: today(),
+      prodId: hit?.id || null, cost: hit ? String(hit.cost ?? "") : "", _auto: !!hit});
+  };
+
+  // ── Reconocer la marca escrita en la factura y enlazarla al inventario ──
+  // René escribe la marca (VENETO, GIO, ZIBA…) en la factura; buscamos ese
+  // nombre dentro del texto y enlazamos el producto para descontar el stock.
+  const detectarProducto = (texto) => {
+    const t = " " + (texto||"").toUpperCase().replace(/[^A-Z0-9$() ]/g," ").replace(/\s+/g," ") + " ";
+    const candidatos = inventory
+      .filter(p => !p.isService && getStock(p) > 0)
+      .map(p => {
+        // "SEEY KIDS ($17)" → clave de búsqueda "SEEY KIDS"
+        const clave = (p.name||"").toUpperCase().replace(/\(.*?\)/g,"").replace(/[^A-Z0-9 ]/g," ").replace(/\s+/g," ").trim();
+        if (!clave || clave.length < 2) return null;   // "TR" es válido
+        if (!t.includes(" "+clave+" ")) return null;
+        // Nombre completo (con lo del paréntesis) → coincidencia más confiable
+        const full = (p.name||"").toUpperCase().replace(/[^A-Z0-9 ]/g," ").replace(/\s+/g," ").trim();
+        const bonus = full && full!==clave && t.includes(" "+full+" ") ? 100 : 0;
+        return {p, len: clave.length + bonus};
+      })
+      .filter(Boolean)
+      // El nombre más largo gana: "GIO SOBRELENTE" antes que "GIO"
+      .sort((a,b) => b.len - a.len);
+    return candidatos.length ? candidatos[0].p : null;
   };
 
   // ── Controles para que no se cuelen ventas repetidas ni de meses viejos ──
@@ -4746,7 +4771,13 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum, inventory
       }
       const d = json.data || {};
       const extras = [d.rx, d.cedula ? `C.I. ${d.cedula}` : ""].filter(Boolean).join(" · ");
+      // Reconocer la marca que René escribió en la factura → enlaza inventario
+      const hit = detectarProducto(`${d.marca||""} ${d.product||""} ${d.note||""}`);
       setDraft({
+        prodId: hit?.id || null,
+        cost:   hit ? String(hit.cost ?? "") : "",
+        _auto:  !!hit,
+        fecha:  (typeof d.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.date)) ? d.date : today(),
         product:  [d.product, extras].filter(Boolean).join(" · "),
         customer: d.customer || "",
         phone:    d.phone ? (String(d.phone).startsWith("+") ? String(d.phone) : `+58 ${d.phone}`) : "",
@@ -4882,8 +4913,12 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum, inventory
             </div>
           </div>
           {draft.prodId
-            ? <div style={{fontSize:11,color:"#34d399"}}>✓ Se descontará 1 unidad de <strong>{inventory.find(p=>p.id===draft.prodId)?.name}</strong> del inventario</div>
-            : <div style={{fontSize:11,color:"#fbbf24"}}>⚠️ No elegiste montura del inventario — <strong>el stock NO se va a descontar</strong>. Elígela arriba si la montura salió de tu inventario.</div>
+            ? <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:8,padding:"8px 12px",fontSize:11.5,color:"#34d399"}}>
+                {draft._auto ? "🔎 Reconocí la marca en la factura: " : "✓ "}
+                <strong>{inventory.find(p=>p.id===draft.prodId)?.name}</strong> — se descontará 1 unidad del inventario
+                {draft._auto && <span style={{color:"#2a7a55"}}> (si no es esa, cámbiala arriba)</span>}
+              </div>
+            : <div style={{fontSize:11,color:"#fbbf24"}}>⚠️ No reconocí ninguna marca del inventario — <strong>el stock NO se va a descontar</strong>. Elígela arriba si la montura salió de tu inventario.</div>
           }
           <div className="rg2" style={{gap:10}}>
             <div className="field"><label>Cliente</label><input value={draft.customer} onChange={e=>sd("customer",e.target.value)} placeholder="Nombre del cliente"/></div>
