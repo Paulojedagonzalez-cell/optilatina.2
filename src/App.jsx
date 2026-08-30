@@ -3824,6 +3824,7 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
   const [distId,setDistId]=useState("");        // distribuidor elegido para el pedido
   const [showDist,setShowDist]=useState(false);  // modal de gestión de distribuidores
   const [showBulk,setShowBulk]=useState(false);  // modal de precio de venta masivo
+  const [showConteo,setShowConteo]=useState(false); // conteo físico del inventario
   const [orden,setOrden]=useState("nombre");     // nombre | margen-alto | margen-bajo
   const [pedidoQty,setPedidoQty]=useState({});   // cuánto pedir de cada producto (editable)
   // Margen del inventario: cuánto deja cada producto sobre su precio de venta
@@ -3870,6 +3871,7 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Inventario</h1>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}>
+          <button className="btn-g" onClick={()=>setShowConteo(true)} style={{background:"#1e1608",borderColor:"#4a3510",color:"#fbbf24"}}>📋 Conteo físico</button>
           <button className="btn-g" onClick={()=>setShowBulk(true)} style={{background:"#0a2018",borderColor:"#14402a",color:"#34d399"}}>💲 Precios de venta</button>
           <button className="btn-g" onClick={()=>setShowDist(true)} style={{background:"#0a1830",borderColor:"#1a2a4a",color:"#7aa0e0"}}>🏢 Distribuidores</button>
           <button className="btn-g" onClick={()=>setInvModal("scan")} style={{background:"linear-gradient(135deg,#3a2c08,#6b5010)",borderColor:"#4a3510",color:"#fbbf24"}}>📸 Escanear recibo</button>
@@ -4027,6 +4029,104 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
       </div>
       {showDist && <DistributorsModal distributors={distributors} saveDistributors={saveDistributors} onClose={()=>setShowDist(false)} />}
       {showBulk && <BulkPriceModal inventory={inventory} saveInv={saveInv} onClose={()=>setShowBulk(false)} rate={rate} />}
+      {showConteo && <ConteoModal inventory={inventory} saveInv={saveInv} onClose={()=>setShowConteo(false)} rate={rate} />}
+    </div>
+  );
+}
+
+// ── Conteo físico: cuadrar el inventario con lo que hay de verdad en la tienda ─
+function ConteoModal({ inventory, saveInv, onClose, rate }) {
+  const items = inventory.filter(p=>!p.isService).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  const [real, setReal] = useState({});     // conteo real por producto
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(null);
+  const set = (id,v) => setReal(p=>({...p,[id]:v}));
+
+  const contados = items.filter(p => real[p.id]!=="" && real[p.id]!==undefined);
+  const difs = contados.map(p => ({p, sis:getStock(p), rl:Math.max(0,parseInt(real[p.id])||0)}))
+                       .map(x => ({...x, dif:x.rl-x.sis}))
+                       .filter(x => x.dif!==0);
+  const faltan = difs.filter(x=>x.dif<0).reduce((s,x)=>s+Math.abs(x.dif),0);
+  const sobran = difs.filter(x=>x.dif>0).reduce((s,x)=>s+x.dif,0);
+  const valorFaltante = difs.filter(x=>x.dif<0).reduce((s,x)=>s+Math.abs(x.dif)*(Number(x.p.cost)||0),0);
+
+  const aplicar = async () => {
+    if (saving || !difs.length) return;
+    if (!window.confirm(`Vas a ajustar ${difs.length} producto(s) al conteo real.\n\n${faltan?`Se quitarán ${faltan} unidad(es) que ya no están.\n`:""}${sobran?`Se agregarán ${sobran} unidad(es) encontradas.\n`:""}\n¿Continuar?`)) return;
+    setSaving(true);
+    const upd = inventory.map(p => {
+      const d = difs.find(x=>x.p.id===p.id); if (!d) return p;
+      let serials = [...(p.serials||[])];
+      if (d.dif < 0) {
+        // Quitar primero los códigos automáticos (los que no son seriales reales)
+        const orden = serials.sort((a,b)=>(isAutoCode(a)?0:1)-(isAutoCode(b)?0:1));
+        serials = orden.slice(Math.abs(d.dif));
+      } else {
+        serials = [...serials, ...genAutoCodes(d.dif)];
+      }
+      return {...p, serials};
+    });
+    try { await saveInv(upd); setDone({n:difs.length, faltan, sobran}); setTimeout(onClose, 2200); }
+    catch { setSaving(false); }
+  };
+
+  return (
+    <div className="ov" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="modal" style={{maxWidth:640}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+          <div style={{fontSize:17,fontWeight:700,color:"#fff"}}>📋 Conteo físico</div>
+          <button style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:22}} onClick={onClose}>×</button>
+        </div>
+        {done ? (
+          <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:10,padding:"16px",fontSize:14,color:"#34d399",textAlign:"center"}}>
+            ✓ Inventario cuadrado — {done.n} producto(s) ajustados
+            <div style={{fontSize:12,color:"#2a7a55",marginTop:6}}>{done.faltan?`−${done.faltan} unidad(es)`:""}{done.faltan&&done.sobran?" · ":""}{done.sobran?`+${done.sobran} unidad(es)`:""}</div>
+          </div>
+        ) : (<>
+          <div style={{fontSize:11.5,color:"#1a4a50",marginBottom:12,lineHeight:1.5}}>
+            Cuenta lo que <strong>de verdad</strong> tienes en la tienda y escríbelo aquí. El sistema ajusta solo.
+            Deja en blanco lo que no cuentes ahora — no se toca.
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:7,maxHeight:"48vh",overflowY:"auto",paddingRight:2}}>
+            {items.map(p=>{
+              const sis = getStock(p);
+              const v = real[p.id];
+              const rl = v===""||v===undefined ? null : Math.max(0,parseInt(v)||0);
+              const dif = rl===null ? null : rl - sis;
+              return (
+                <div key={p.id} style={{background:"#050f12",border:`1px solid ${dif?(dif<0?"#4a2510":"#14402a"):"#0a2028"}`,borderRadius:10,padding:"9px 11px",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                  <div style={{flex:1,minWidth:150}}>
+                    <div style={{fontSize:12.5,color:"#b0c0d8"}}>{p.name}</div>
+                    <div style={{fontSize:10.5,color:"#2a5060"}}>sistema dice <strong style={{color:"#60a5fa"}}>{sis} pz</strong>{Number(p.cost)>0?` · costo ${fmtUSD(Number(p.cost))}`:""}</div>
+                  </div>
+                  <input type="number" min="0" step="1" placeholder="contar" value={v??""} onChange={e=>set(p.id,e.target.value)}
+                    style={{width:82,background:"#050e10",border:`1px solid ${dif?(dif<0?"#5a3510":"#14503a"):"#0d2a30"}`,borderRadius:6,padding:"7px 9px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:13,outline:"none",textAlign:"center"}}/>
+                  <div style={{width:96,textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:11.5,whiteSpace:"nowrap",
+                    color: dif===null?"#1e3050" : dif===0?"#34d399" : dif<0?"#fbbf24":"#2dcfe8"}}>
+                    {dif===null ? "—" : dif===0 ? "✓ cuadra" : dif<0 ? `faltan ${Math.abs(dif)}` : `sobran ${dif}`}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {difs.length>0 && (
+            <div style={{background:"#040d10",border:"1px solid #0a2028",borderRadius:10,padding:"10px 13px",marginTop:11,fontSize:11.5,color:"#8aa0c8",display:"flex",gap:14,flexWrap:"wrap"}}>
+              <span>{difs.length} producto(s) con diferencia</span>
+              {faltan>0 && <span style={{color:"#fbbf24"}}>−{faltan} pz que ya no están{valorFaltante>0?` (${fmtUSD(valorFaltante)} de costo)`:""}</span>}
+              {sobran>0 && <span style={{color:"#2dcfe8"}}>+{sobran} pz encontradas</span>}
+            </div>
+          )}
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:12,alignItems:"center",gap:8,flexWrap:"wrap"}}>
+            <div style={{fontSize:11,color:"#1a4a50"}}>{contados.length} de {items.length} contados</div>
+            <div style={{display:"flex",gap:8}}>
+              <button className="btn-g" onClick={onClose}>Cancelar</button>
+              <button className="btn-p" onClick={aplicar} disabled={saving||!difs.length} style={{minWidth:150}}>
+                <ICheck/>{saving?"Ajustando…":difs.length?`Ajustar ${difs.length}`:"Sin diferencias"}
+              </button>
+            </div>
+          </div>
+        </>)}
+      </div>
     </div>
   );
 }
