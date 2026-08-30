@@ -605,10 +605,10 @@ const IEyeOff = () => <Svg d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.26
 // Distribuidores guardados (contactos para enviar el pedido de reposición).
 // Sembrados con lo leído de los recibos — el usuario revisa/edita/agrega.
 const DEFAULT_DISTRIBUTORS = [
-  {id:"d_innova",   name:"Innova Vision",  phone:"04147418755", email:"innovavisionca@gmail.com"},
-  {id:"d_optiam",   name:"Optiamérica",    phone:"04145363320", email:""},
-  {id:"d_optiview", name:"Optiview 2020",  phone:"04140728411", email:""},
-  {id:"d_ziba",     name:"ZIBA",           phone:"04246988395", email:"blancamontilla1972@gmail.com"},
+  {id:"d_innova",   name:"Innova Vision",  contact:"Rixio",  phone:"04147418755", email:"innovavisionca@gmail.com"},
+  {id:"d_optiam",   name:"Optiamérica",    contact:"Rixio",  phone:"04145363320", email:""},
+  {id:"d_optiview", name:"Optiview 2020",  contact:"",       phone:"04140728411", email:""},
+  {id:"d_ziba",     name:"ZIBA",           contact:"Blanca", phone:"04246988395", email:"blancamontilla1972@gmail.com"},
 ];
 
 // Perfil "conserje" de solo lectura para revisión/mantenimiento del sistema.
@@ -3825,6 +3825,7 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
   const [showDist,setShowDist]=useState(false);  // modal de gestión de distribuidores
   const [showBulk,setShowBulk]=useState(false);  // modal de precio de venta masivo
   const [orden,setOrden]=useState("nombre");     // nombre | margen-alto | margen-bajo
+  const [pedidoQty,setPedidoQty]=useState({});   // cuánto pedir de cada producto (editable)
   // Margen del inventario: cuánto deja cada producto sobre su precio de venta
   const margenDe = p => (Number(p.price)>0 ? ((Number(p.price)-Number(p.cost))/Number(p.price))*100 : null);
   const conMargen = inventory.filter(p=>!p.isService && Number(p.price)>0 && Number(p.cost)>0);
@@ -3844,8 +3845,22 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
 
   // Control automatico de reposicion: productos en o bajo su umbral
   const porAgotarse = inventory.filter(isLow).sort((a,b)=>getStock(a)-getStock(b));
-  const pedidoMsg = `📦 Pedido de reposición — OptiLatina\n${today()}\n\n` +
-    porAgotarse.map(p=>`• ${p.name} — quedan ${getStock(p)} (reponer)`).join("\n");
+  // Saludo según la hora del día (buenos días / buenas tardes / buenas noches)
+  const saludo = (()=>{ const h=new Date().getHours(); return h<12?"Buenos días":h<19?"Buenas tardes":"Buenas noches"; })();
+  // Cantidad a pedir de cada producto: editable, con sugerencia inicial
+  const sugerido = p => Math.max(6, (lowAt(p)||3)*3 - getStock(p));
+  const cantDe = p => { const v = pedidoQty[p.id]; return v===undefined || v==="" ? sugerido(p) : Math.max(0, parseInt(v)||0); };
+  // Nombre para el saludo: el del contacto si lo guardaste, si no el del distribuidor
+  const nombreContacto = ((dist?.contact||"").trim() || (dist?.name||"").trim()).split(/\s+/)[0] || "";
+  const lineasPedido = porAgotarse.filter(p=>cantDe(p)>0);
+  const totalPiezas  = lineasPedido.reduce((s,p)=>s+cantDe(p),0);
+  const costoEstimado= lineasPedido.reduce((s,p)=>s+cantDe(p)*(Number(p.cost)||0),0);
+  const pedidoMsg =
+    `${saludo}${nombreContacto?`, ${nombreContacto}`:""}! 👋\n` +
+    `Le escribo de *OptiLatina*. Quisiéramos hacer el siguiente pedido:\n\n` +
+    lineasPedido.map(p=>`• *${cantDe(p)}* × ${p.name}`).join("\n") +
+    (lineasPedido.length ? `\n\n📦 Total: ${totalPiezas} pieza(s)` : "") +
+    `\n\n¿Me confirma disponibilidad y el monto, por favor? Gracias 🙏\n\n_Pedido generado el ${new Date().toLocaleDateString("es-VE",{day:"2-digit",month:"long",year:"numeric"})}_`;
   const copyPedido = async () => {
     try { await navigator.clipboard.writeText(pedidoMsg); setCopied(true); setTimeout(()=>setCopied(false),2500); } catch {}
   };
@@ -3882,13 +3897,38 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
                 className="btn-p" style={{textDecoration:"none",fontSize:12,padding:"7px 13px",background:"linear-gradient(135deg,#b23121,#d93025)"}}>📧 Gmail{dist?.email?` → ${dist.name}`:""}</a>
             </div>
           </div>
-          <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+          {/* Cuánto pedir de cada uno — editable antes de enviar */}
+          <div style={{fontSize:11,color:"#c9a84a",marginBottom:8}}>Escribe cuánto quieres pedir de cada producto (ya te sugiero una cantidad):</div>
+          <div style={{display:"flex",flexDirection:"column",gap:7}}>
             {porAgotarse.map(p=>(
-              <span key={p.id} style={{background:"#2a1e08",border:"1px solid #4a3510",borderRadius:8,padding:"5px 11px",fontSize:11,color:"#fbbf24",cursor:"pointer"}} onClick={()=>setInvModal(p)} title="Editar / reponer">
-                {p.name} — <strong>{getStock(p)===0?"AGOTADO":`${getStock(p)} pz`}</strong>
-              </span>
+              <div key={p.id} style={{background:"#1e1608",border:"1px solid #3a2a0c",borderRadius:9,padding:"8px 11px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                <div style={{flex:1,minWidth:140}}>
+                  <div style={{fontSize:12.5,color:"#fbbf24",fontWeight:600,cursor:"pointer"}} onClick={()=>setInvModal(p)} title="Editar producto">{p.name}</div>
+                  <div style={{fontSize:10.5,color:"#a08020"}}>
+                    {getStock(p)===0?"AGOTADO":`quedan ${getStock(p)} pz`}{Number(p.cost)>0?` · costo ${fmtUSD(Number(p.cost))}`:""}
+                  </div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:11,color:"#a08020"}}>pedir</span>
+                  <input type="number" min="0" step="1" value={pedidoQty[p.id]??sugerido(p)}
+                    onChange={e=>setPedidoQty(q=>({...q,[p.id]:e.target.value}))}
+                    style={{width:66,background:"#050e10",border:"1px solid #4a3510",borderRadius:6,padding:"6px 8px",color:"#fbbf24",fontFamily:"'JetBrains Mono',monospace",fontSize:13,outline:"none",textAlign:"center"}}/>
+                  <span style={{fontSize:11,color:"#a08020"}}>pz</span>
+                </div>
+              </div>
             ))}
           </div>
+          {totalPiezas>0 && (
+            <div style={{fontSize:11.5,color:"#c9a84a",marginTop:9,display:"flex",gap:14,flexWrap:"wrap"}}>
+              <span>📦 Pides <strong>{totalPiezas}</strong> pieza(s)</span>
+              {costoEstimado>0 && <span>💵 Costo estimado: <strong>{fmtUSD(costoEstimado)}</strong> ({fmtBs(costoEstimado,rate)})</span>}
+            </div>
+          )}
+          {/* Vista previa del mensaje que se va a enviar */}
+          <details style={{marginTop:10}}>
+            <summary style={{fontSize:11,color:"#a08020",cursor:"pointer"}}>👁️ Ver el mensaje que se enviará</summary>
+            <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:9,padding:"11px 13px",marginTop:7,fontSize:11.5,color:"#b0c0d8",whiteSpace:"pre-wrap",lineHeight:1.55}}>{pedidoMsg}</div>
+          </details>
         </div>
       )}
       <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:11}}>
@@ -4081,7 +4121,7 @@ function DistributorsModal({ distributors=[], saveDistributors, onClose }) {
   const save = async () => {
     if (!saveDistributors) { onClose(); return; }
     setSaving(true);
-    const clean = list.filter(d=>(d.name||"").trim()).map(d=>({id:d.id,name:d.name.trim(),phone:(d.phone||"").trim(),email:(d.email||"").trim()}));
+    const clean = list.filter(d=>(d.name||"").trim()).map(d=>({id:d.id,name:d.name.trim(),contact:(d.contact||"").trim(),phone:(d.phone||"").trim(),email:(d.email||"").trim()}));
     try { await saveDistributors(clean); } catch {}
     setSaving(false); onClose();
   };
@@ -4099,8 +4139,12 @@ function DistributorsModal({ distributors=[], saveDistributors, onClose }) {
             <div key={d.id} style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:12,padding:"12px"}}>
               <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
                 <div style={{flex:1,display:"flex",flexDirection:"column",gap:7}}>
-                  <div className="field"><label style={{fontSize:9}}>Nombre</label>
-                    <input placeholder="Ej: Innova Vision" value={d.name} onChange={e=>upd(d.id,"name",e.target.value)} style={{padding:"6px 9px",fontSize:12}}/></div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+                    <div className="field"><label style={{fontSize:9}}>Empresa</label>
+                      <input placeholder="Ej: Innova Vision" value={d.name} onChange={e=>upd(d.id,"name",e.target.value)} style={{padding:"6px 9px",fontSize:12}}/></div>
+                    <div className="field"><label style={{fontSize:9}}>Nombre del contacto (para el saludo)</label>
+                      <input placeholder="Ej: Carlos" value={d.contact||""} onChange={e=>upd(d.id,"contact",e.target.value)} style={{padding:"6px 9px",fontSize:12}}/></div>
+                  </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
                     <div className="field"><label style={{fontSize:9}}>WhatsApp</label>
                       <input placeholder="0414 1234567" value={d.phone} onChange={e=>upd(d.id,"phone",e.target.value)} style={{padding:"6px 9px",fontSize:12,fontFamily:"'JetBrains Mono',monospace"}}/></div>
