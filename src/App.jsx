@@ -2512,7 +2512,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
             <span style={{fontSize:12,color:"#e8c96a",textDecoration:"underline"}}>Resolver en Gestión →</span>
           </div>
         )}
-        {tab==="dash"     && <DashTab    {...{todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos,weekAbonos,todayApartProf,weekApartProf,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders,fixedExpenses,expenses}} />}
+        {tab==="dash"     && <DashTab    {...{todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos,weekAbonos,todayApartProf,weekApartProf,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders,fixedExpenses,expenses,saveOrders,saveInv,sales,saveSal,profile}} />}
         {tab==="stats"    && <StatsTab   {...{sales:filteredSales,orders,expenses,rate,isMobile,profile,fixedExpenses}} />}
         {tab==="week"     && <WeekTab    {...{byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles,isMobile}} />}
         {tab==="finanzas" && <FinanzasTab {...{sales:filteredSales,orders,expenses,investments,inventory,rate,saveExpenses,saveInvestments,profile,isMobile,fixedExpenses,saveFixedExpenses}} />}
@@ -2521,7 +2521,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
         {tab==="cierre"   && <CierreTab {...{sales,expenses,orders,rate,dynProfiles,profile}} />}
         {tab==="inv"      && <InvTab     {...{inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,isMobile,distributors,saveDistributors}} />}
         {tab==="compras"  && <ComprasTab {...{purchases,savePurchases,rate,isMobile}} />}
-        {tab==="history"  && <HistTab    {...{byDate,sortedDates,setDD,storeFilter,sales,clearSales,isOwner:profile.id==="owner"}} />}
+        {tab==="history"  && <HistTab    {...{byDate,sortedDates,setDD,storeFilter,sales,clearSales,isOwner:profile.id==="owner",orders,rate}} />}
         {tab==="miperfil" && <ProfileSettingsTab profile={profile} dynProfiles={dynProfiles} saveDynProfiles={saveDynProfiles}/>}
         {tab==="ajustes"  && profile.id==="owner" && <GestionTab {...{profilesData,savePD,payments,savePayments,dynProfiles,saveDynProfiles,setViewAs,switchTo,recovery}} />}
       </main>
@@ -3488,7 +3488,7 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile, fixe
   );
 }
 
-function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos=0,weekAbonos=0,todayApartProf=0,weekApartProf=0,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders=[],fixedExpenses=[],expenses=[]}) {
+function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos=0,weekAbonos=0,todayApartProf=0,weekApartProf=0,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders=[],fixedExpenses=[],expenses=[],saveOrders,saveInv,sales=[],saveSal,profile}) {
   const last7=sortedDates.slice(0,7).reverse();
   const pendientes = orders.filter(o=>o.status!=="entregado" && orderBalance(o)>0);
   const porPagar    = pendientes.reduce((s,o)=>s+orderBalance(o),0);
@@ -3546,6 +3546,13 @@ function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos=0,w
           </div>
         ))}
       </div>
+
+      {/* Registro rápido a la mano: escanear factura / escribir la venta desde el Inicio */}
+      {saveOrders && profile && (
+        <QuickEntry orders={orders} saveOrders={saveOrders} rate={rate} profile={profile}
+          nextOrderNum={(orders||[]).reduce((m,o)=>Math.max(m,o.orderNumber||0),0)+1}
+          inventory={inventory} saveInv={saveInv} sales={sales} saveSal={saveSal}/>
+      )}
 
       {/* Falta por pagar: gente con apartados/creditos que aun no completan su pago */}
       <div className="card" style={{background:"#2a1e08",borderColor:"#4a3510",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
@@ -5526,7 +5533,30 @@ function ComprasTab({purchases=[], savePurchases, rate}) {
 }
 
 // ── History Tab ───────────────────────────────────────────────────────────────
-function HistTab({byDate,sortedDates,setDD,sales=[],clearSales,isOwner=false}) {
+function HistTab({byDate,sortedDates,setDD,sales=[],clearSales,isOwner=false,orders=[],rate}) {
+  const [view,setView] = useState("dias");   // "dias" | "clientes"
+  const [q,setQ] = useState("");
+  // Historial por CLIENTE: junta ventas + apartados para saber quién ya compró,
+  // cuánto ha gastado y cuándo fue su última compra (útil cuando vuelve).
+  const clientes = useMemo(() => {
+    const m = new Map();
+    const push = (nombre, tel, fecha, monto, prod, pendiente) => {
+      const nom = (nombre||"").trim(); if (!nom) return;
+      const k = nom.toLowerCase();
+      const c = m.get(k) || {nombre:nom, tel:"", compras:0, total:0, ultima:"", productos:[], pendiente:0};
+      c.compras += 1; c.total += Number(monto)||0; c.pendiente += Number(pendiente)||0;
+      if (tel && !c.tel) c.tel = tel;
+      if (fecha > c.ultima) c.ultima = fecha;
+      if (prod) c.productos.unshift({fecha, prod, monto:Number(monto)||0});
+      m.set(k, c);
+    };
+    sales.forEach(s => push(s.note, "", s.date, s.total, s.productName, 0));
+    orders.forEach(o => push(o.customer, o.phone, o.createdDate || (o.createdAt||"").slice(0,10), o.total, o.product, orderBalance(o)));
+    return [...m.values()].sort((a,b)=>(b.ultima||"").localeCompare(a.ultima||""));
+  }, [sales, orders]);
+  const filtrados = clientes.filter(c => !q || c.nombre.toLowerCase().includes(q.toLowerCase()) || (c.tel||"").includes(q));
+  const recurrentes = clientes.filter(c=>c.compras>1).length;
+
   const handleClear = async () => {
     const n = sales.length;
     if (!n) return;
@@ -5538,6 +5568,50 @@ function HistTab({byDate,sortedDates,setDD,sales=[],clearSales,isOwner=false}) {
   return (
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
       <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Historial</h1>
+      <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+        {[["dias","📅 Por día"],["clientes",`👥 Clientes (${clientes.length})`]].map(([id,l])=>(
+          <button key={id} onClick={()=>setView(id)}
+            style={{background:view===id?"#0c2e35":"transparent",border:`1px solid ${view===id?"#0e7a8c":"#141e30"}`,color:view===id?"#2dcfe8":"#2a4060",borderRadius:20,padding:"6px 16px",fontSize:13,fontFamily:"'Outfit',sans-serif",cursor:"pointer"}}>{l}</button>
+        ))}
+      </div>
+
+      {view==="clientes" ? (
+        <>
+          <div style={{fontSize:11.5,color:"#1a4a50",lineHeight:1.5}}>Cada cliente que ya compró, cuánto ha gastado y cuándo fue su última compra. {recurrentes>0 && <strong style={{color:"#34d399"}}>{recurrentes} cliente(s) ya volvieron a comprar.</strong>}</div>
+          <input placeholder="Buscar cliente o teléfono…" value={q} onChange={e=>setQ(e.target.value)}
+            style={{background:"#0c1220",border:"1px solid #141e30",borderRadius:8,padding:"9px 13px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:13,maxWidth:320}}/>
+          {filtrados.length===0
+            ? <div className="card" style={{textAlign:"center",color:"#141e2e",padding:"50px 0"}}>Sin clientes registrados todavía</div>
+            : filtrados.map(c=>(
+                <div key={c.nombre} className="card">
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontSize:15,fontWeight:600,color:"#b0c0d8",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                        {c.nombre}
+                        {c.compras>1 && <span style={{background:"#0c2e35",border:"1px solid #0e7a8c",borderRadius:20,padding:"1px 9px",fontSize:10,color:"#2dcfe8"}}>🔁 {c.compras} compras</span>}
+                        {c.pendiente>0.01 && <span style={{background:"#2a1e08",border:"1px solid #4a3510",borderRadius:20,padding:"1px 9px",fontSize:10,color:"#fbbf24"}}>debe {fmtUSD(c.pendiente)}</span>}
+                      </div>
+                      <div style={{fontSize:12,color:"#1e3050",marginTop:2}}>
+                        Última compra: {c.ultima ? new Date(c.ultima+"T12:00").toLocaleDateString("es-MX",{year:"numeric",month:"long",day:"numeric"}) : "—"}
+                        {c.tel?` · ${c.tel}`:""}
+                      </div>
+                      {c.productos.slice(0,3).map((p,i)=>(
+                        <div key={i} style={{fontSize:11,color:"#2a5060",marginTop:3}}>• {p.prod} — {fmtUSD(p.monto)}</div>
+                      ))}
+                    </div>
+                    <div style={{textAlign:"right",display:"flex",alignItems:"center",gap:10}}>
+                      <div>
+                        <div style={{fontSize:10,color:"#1e3050"}}>TOTAL COMPRADO</div>
+                        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,color:"#34d399"}}>{fmtUSD(c.total)}</div>
+                      </div>
+                      {phoneDigits(c.tel) && <a href={`https://wa.me/${phoneDigits(c.tel).startsWith("58")?phoneDigits(c.tel):phoneDigits(c.tel).replace(/^0/,"58")}`} target="_blank" rel="noreferrer" className="btn-g" style={{textDecoration:"none",fontSize:12,padding:"6px 11px"}}>📱</a>}
+                    </div>
+                  </div>
+                </div>
+              ))
+          }
+        </>
+      ) : (<>
       {sortedDates.length===0 ? <div className="card" style={{textAlign:"center",color:"#141e2e",padding:"60px 0"}}>Sin ventas registradas</div>
         : sortedDates.map(date=>{
             const ds=byDate[date],rev=ds.reduce((s,v)=>s+v.total,0),prof=ds.reduce((s,v)=>s+v.profit,0),items=ds.reduce((s,v)=>s+v.qty,0);
@@ -5573,6 +5647,7 @@ function HistTab({byDate,sortedDates,setDD,sales=[],clearSales,isOwner=false}) {
           <div style={{fontSize:10,color:"#1a4a50",marginTop:6}}>Solo tú (dueño) ves esto. Borra las ventas registradas; no toca inventario ni compras.</div>
         </div>
       )}
+      </>)}
     </div>
   );
 }
