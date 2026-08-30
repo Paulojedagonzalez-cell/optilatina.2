@@ -4608,8 +4608,18 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum, inventory
     setErr("");
     if (txt.trim().length < 8) { setErr("Escribe la venta con más detalle."); return; }
     const d = parseQuickSale(txt);
-    setDraft({...d, orderNumber: nextOrderNum});
+    setDraft({...d, orderNumber: nextOrderNum, fecha: today()});
   };
+
+  // ── Controles para que no se cuelen ventas repetidas ni de meses viejos ──
+  const norm = s => (s||"").toLowerCase().replace(/\s+/g," ").trim();
+  // Repetida: mismo cliente y mismo total (en apartados o ventas ya registradas)
+  const dupProbable = draft ? (
+    orders.find(o => norm(o.customer)===norm(draft.customer) && Math.abs((Number(o.total)||0)-(Number(draft.total)||0))<0.01 && norm(draft.customer))
+    || sales.find(s => norm(s.note)===norm(draft.customer) && Math.abs((Number(s.total)||0)-(Number(draft.total)||0))<0.01 && norm(draft.customer))
+  ) : null;
+  const fechaOtroMes = draft?.fecha && draft.fecha.slice(0,7) !== today().slice(0,7);
+  const fechaFutura  = draft?.fecha && draft.fecha > today();
   const sd = (k,v) => setDraft(p=>({...p,[k]:v}));
 
   // Escanear la factura con IA de visión (el servidor guarda la clave)
@@ -4657,12 +4667,21 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum, inventory
     setErr("");
     if (!draft.product?.trim()) { setErr("Falta la descripción del producto."); return; }
     if (!draft.total || isNaN(Number(draft.total)) || Number(draft.total)<=0) { setErr("Falta el precio total."); return; }
+    // Antes de guardar: avisar si parece repetida o si la fecha es de otro mes
+    if (!draft._forzar) {
+      const avisos = [];
+      if (dupProbable) avisos.push(`Ya existe un registro de "${dupProbable.customer}" por ${fmtUSD(Number(dupProbable.total)||0)} (orden #${dupProbable.orderNumber}). ¿Es una venta distinta?`);
+      if (fechaOtroMes)  avisos.push(`La fecha ${draft.fecha} NO es de este mes (${today().slice(0,7)}). Entrará en el cierre de ${draft.fecha.slice(0,7)}.`);
+      if (avisos.length && !window.confirm("⚠️ Revisa antes de guardar:\n\n• " + avisos.join("\n• ") + "\n\n¿Guardar de todas formas?")) return;
+    }
     const total = Number(draft.total);
     const abono = Math.min(Number(draft.abono)||0, total);
     const costo = Math.max(0, Number(draft.cost)||0);
     const prod  = inventory.find(p=>p.id===draft.prodId) || null;
     const pagado = abono >= total - 0.01;   // pagó completo → es VENTA, no apartado
     const isBs = methodCur(draft.method)==="Bs";
+    // Fecha real de la factura (define a qué cierre mensual pertenece)
+    const fecha = draft.fecha || today();
 
     // Si eligió un producto del inventario, descontar 1 unidad
     let newInv = null, serials = [];
@@ -4678,7 +4697,7 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum, inventory
     if (pagado && saveSal) {
       // Pago completo → VENTA cerrada (con su ganancia)
       const sale = {
-        id: uid(), saleId: uid(), date: today(), note: draft.customer?.trim() || "",
+        id: uid(), saleId: uid(), date: fecha, note: draft.customer?.trim() || "",
         paymentMethod: draft.method, registeredBy: profile.id, storeId: profile.id,
         productId: prod?.id || null, productName: draft.product.trim(), cat: prod?.cat || "Otro",
         cost: costo, price: total, qty: 1, total, profit: total - costo,
@@ -4694,10 +4713,10 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum, inventory
         customer: draft.customer?.trim() || "Cliente", phone: draft.phone||"",
         product: draft.product.trim(), total,
         cost: costo, productId: prod?.id || null, serials,
-        payments: abono>0 ? [{id:uid(), date:today(), amount:abono, method:draft.method,
+        payments: abono>0 ? [{id:uid(), date:fecha, amount:abono, method:draft.method,
           amountBs: isBs ? abono*rate : null, rate}] : [],
         status: "pendiente", storeId: profile.id,
-        createdAt: new Date().toISOString(), createdDate: today(), viaTexto: true,
+        createdAt: new Date().toISOString(), createdDate: fecha, viaTexto: true,
       };
       await saveOrders([...orders, o]);
     }
@@ -4762,9 +4781,26 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum, inventory
               {!Number(draft.cost) && <span style={{fontSize:10,color:"#fbbf24"}}>⚠️ Sin costo, la ganancia saldrá en $0</span>}
             </div>
           </div>
+          {draft.prodId
+            ? <div style={{fontSize:11,color:"#34d399"}}>✓ Se descontará 1 unidad de <strong>{inventory.find(p=>p.id===draft.prodId)?.name}</strong> del inventario</div>
+            : <div style={{fontSize:11,color:"#fbbf24"}}>⚠️ No elegiste montura del inventario — <strong>el stock NO se va a descontar</strong>. Elígela arriba si la montura salió de tu inventario.</div>
+          }
           <div className="rg2" style={{gap:10}}>
             <div className="field"><label>Cliente</label><input value={draft.customer} onChange={e=>sd("customer",e.target.value)} placeholder="Nombre del cliente"/></div>
             <div className="field"><label>Teléfono</label><PhoneInput value={draft.phone} onChange={v=>sd("phone",v)}/></div>
+          </div>
+          {/* Fecha de la factura: define a qué cierre mensual pertenece */}
+          <div className="rg2" style={{gap:10}}>
+            <div className="field"><label>📅 Fecha de la factura</label>
+              <input type="date" value={draft.fecha||today()} max={today()} onChange={e=>sd("fecha",e.target.value)}/>
+              {fechaOtroMes && <span style={{fontSize:10,color:"#fbbf24"}}>⚠️ Es de otro mes — irá al cierre de {(draft.fecha||"").slice(0,7)}</span>}
+              {fechaFutura && <span style={{fontSize:10,color:"#f87171"}}>⚠️ Fecha futura</span>}
+            </div>
+            {dupProbable && (
+              <div style={{background:"#2a1e08",border:"1px solid #4a3510",borderRadius:8,padding:"8px 11px",fontSize:11,color:"#fbbf24",alignSelf:"end"}}>
+                ⚠️ <strong>¿Repetida?</strong> Ya hay un registro de {dupProbable.customer} por {fmtUSD(Number(dupProbable.total)||0)}{dupProbable.orderNumber?` (orden #${dupProbable.orderNumber})`:""}.
+              </div>
+            )}
           </div>
           <div className="rg3" style={{gap:10}}>
             <div className="field"><label>Total (USD)</label><input type="number" min="0" step="0.01" value={draft.total??""} onChange={e=>sd("total",e.target.value)}/></div>
