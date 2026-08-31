@@ -1,8 +1,16 @@
 {
-  "_backupAt": "2026-08-30T11:43:08.861Z",
+  "_backupAt": "2026-08-31T13:19:46.232Z",
   "inventory": [
     {
       "id": "inv_acetato_optiview",
+      "minStock": 3,
+      "price": 66,
+      "storeId": null,
+      "isService": false,
+      "cat": "Montura",
+      "cost": 22,
+      "name": "ACETATO (Optiview)",
+      "updatedAt": "2026-08-29T20:38:19.712Z",
       "serials": [
         "U-inv_acetato_optiview-0",
         "U-inv_acetato_optiview-1",
@@ -49,21 +57,14 @@
         "U-inv_acetato_optiview-42",
         "U-inv_acetato_optiview-43"
       ],
-      "price": 66,
-      "storeId": null,
-      "cat": "Montura",
-      "cost": 22,
-      "name": "ACETATO (Optiview)",
-      "photo": null,
-      "updatedAt": "2026-08-29T20:38:19.712Z",
-      "isService": false,
       "description": "Cargado de Optiview #000439",
-      "minStock": 3,
-      "createdAt": "2026-07-05T17:17:23.094Z"
+      "createdAt": "2026-07-05T17:17:23.094Z",
+      "photo": null
     },
     {
       "id": "inv_gio",
-      "storeId": null,
+      "cost": 16,
+      "updatedAt": "2026-08-29T20:38:19.712Z",
       "serials": [
         "U-inv_gio-0",
         "U-inv_gio-1",
@@ -118,20 +119,26 @@
         "U-inv_gio-50",
         "U-inv_gio-51"
       ],
-      "description": "Cargado de Innova Vision #2502",
-      "isService": false,
-      "updatedAt": "2026-08-29T20:38:19.712Z",
-      "minStock": 3,
-      "price": 48,
       "name": "GIO",
-      "cost": 16,
+      "price": 48,
+      "createdAt": "2026-07-05T17:17:23.094Z",
       "cat": "Montura",
+      "description": "Cargado de Innova Vision #2502",
       "photo": null,
-      "createdAt": "2026-07-05T17:17:23.094Z"
+      "storeId": null,
+      "minStock": 3,
+      "isService": false
     },
     {
       "id": "inv_gio_sobrelente",
+      "createdAt": "2026-07-05T17:17:23.094Z",
+      "photo": null,
       "storeId": null,
+      "name": "GIO SOBRELENTE",
+      "updatedAt": "2026-08-29T20:38:19.712Z",
+      "minStock": 3,
+      "cost": 20,
+      "isService": false,
       "serials": [
         "U-inv_gio_sobrelente-0",
         "U-inv_gio_sobrelente-1",
@@ -175,22 +182,21 @@
         "U-inv_gio_sobrelente-39",
         "U-inv_gio_sobrelente-40"
       ],
-      "price": 60,
-      "photo": null,
-      "createdAt": "2026-07-05T17:17:23.094Z",
-      "minStock": 3,
       "description": "Cargado de Innova Vision #2502",
-      "name": "GIO SOBRELENTE",
-      "cost": 20,
       "cat": "Montura",
-      "isService": false,
-      "updatedAt": "2026-08-29T20:38:19.712Z"
+      "price": 60
     },
     {
       "id": "inv_piccoli",
-      "cost": 17,
+      "cat": "Montura",
+      "price": 51,
       "storeId": null,
+      "description": "Cargado de Despacho #0000271",
       "name": "PICCOLI",
+      "minStock": 3,
+      "isService": false,
+      "cost": 17,
+      "updatedAt": "2026-08-29T20:38:19.712Z",
       "serials": [
         "U-inv_piccoli-0",
         "U-inv_piccoli-1",
@@ -202,17 +208,19 @@
         "U-inv_piccoli-7",
         "U-inv_piccoli-8"
       ],
-      "description": "Cargado de Despacho #0000271",
-      "isService": false,
-      "updatedAt": "2026-08-29T20:38:19.712Z",
-      "minStock": 3,
-      "price": 51,
-      "cat": "Montura",
-      "photo": null,
-      "createdAt": "2026-07-05T17:17:23.094Z"
+      "createdAt": "2026-07-05T17:17:23.094Z",
+      "photo": null
     },
     {
       "id": "inv_seey",
+      "updatedAt": "2026-08-29T20:38:19.712Z",
+      "cat": "Montura",
+      "price": 0,
+      "storeId": null,
+      "name": "SEEY",
+      "minStock": 3,
+      "createdAt": "2026-07-05T17:17:23.094Z",
+      "cost": 30,
       "serials": [
         "U-inv_seey-0",
         "U-inv_seey-1",
@@ -238,70 +246,59 @@
         "U-inv_seey-21",
         "U-inv_seey-22"
       ],
-      "price": 0,
-      "storeId": null,
-      "cat": "Montura",
-      "cost": 30,
-      "name": "SEEY",
-      "updatedAt": "2026-08-29T20:38:19.712Z",
-      "photo": null,
       "isService": false,
-      "description": "Cargado de Despacho #0002067",
-      "minStock": 3,
-      "createdAt": "2026-07-05T17:17:23.094Z"
+      "photo": null,
+      "description": "Cargado de Despacho #0002067"
     },
     {
       "id": "inv_seey_kids_10",
-      "isService": false,
+      "minStock": 3,
+      "createdAt": "2026-07-05T17:17:23.094Z",
+      "name": "SEEY KIDS ($10)",
+      "storeId": null,
+      "cost": 10,
+      "cat": "Montura",
+      "price": 30,
       "updatedAt": "2026-08-29T20:38:19.712Z",
+      "description": "Cargado de Despacho #0002066",
+      "isService": false,
+      "photo": null,
       "serials": [
         "U-inv_seey_kids_10-0",
         "U-inv_seey_kids_10-1",
         "U-inv_seey_kids_10-2",
         "U-inv_seey_kids_10-3"
-      ],
-      "storeId": null,
-      "cat": "Montura",
-      "minStock": 3,
-      "createdAt": "2026-07-05T17:17:23.094Z",
-      "photo": null,
-      "cost": 10,
-      "name": "SEEY KIDS ($10)",
-      "description": "Cargado de Despacho #0002066",
-      "price": 30
+      ]
     },
     {
       "id": "inv_seey_kids_17",
-      "cost": 17,
-      "name": "SEEY KIDS ($17)",
+      "photo": null,
+      "createdAt": "2026-07-05T17:17:23.094Z",
       "description": "Cargado de Despacho #0002066",
-      "updatedAt": "2026-08-29T20:38:19.712Z",
-      "isService": false,
-      "price": 55,
       "storeId": null,
+      "updatedAt": "2026-08-29T20:38:19.712Z",
+      "minStock": 3,
+      "isService": false,
       "serials": [
         "U-inv_seey_kids_17-0",
         "U-inv_seey_kids_17-1",
         "U-inv_seey_kids_17-2"
       ],
+      "cost": 17,
+      "name": "SEEY KIDS ($17)",
       "cat": "Montura",
-      "photo": null,
-      "minStock": 3,
-      "createdAt": "2026-07-05T17:17:23.094Z"
+      "price": 55
     },
     {
       "id": "inv_sugar",
-      "cost": 18,
-      "name": "SUGAR",
       "cat": "Montura",
-      "price": 55,
-      "description": "Cargado de Despacho #0002065",
-      "updatedAt": "2026-08-29T20:38:19.712Z",
       "isService": false,
-      "photo": null,
-      "minStock": 3,
-      "createdAt": "2026-07-05T17:17:23.094Z",
+      "price": 55,
       "storeId": null,
+      "name": "SUGAR",
+      "description": "Cargado de Despacho #0002065",
+      "cost": 18,
+      "createdAt": "2026-07-05T17:17:23.094Z",
       "serials": [
         "U-inv_sugar-0",
         "U-inv_sugar-1",
@@ -323,13 +320,23 @@
         "U-inv_sugar-17",
         "U-inv_sugar-18",
         "U-inv_sugar-19"
-      ]
+      ],
+      "photo": null,
+      "updatedAt": "2026-08-29T20:38:19.712Z",
+      "minStock": 3
     },
     {
       "id": "inv_tr_optiview",
-      "description": "Cargado de Optiview #000439",
-      "price": 45,
+      "createdAt": "2026-07-05T17:17:23.094Z",
+      "photo": null,
       "storeId": null,
+      "name": "TR (Optiview)",
+      "updatedAt": "2026-08-29T20:38:19.712Z",
+      "minStock": 3,
+      "cost": 15,
+      "isService": false,
+      "description": "Cargado de Optiview #000439",
+      "cat": "Montura",
       "serials": [
         "U-inv_tr_optiview-0",
         "U-inv_tr_optiview-1",
@@ -380,26 +387,18 @@
         "U-inv_tr_optiview-46",
         "U-inv_tr_optiview-47"
       ],
-      "photo": null,
-      "updatedAt": "2026-08-29T20:38:19.712Z",
-      "isService": false,
-      "name": "TR (Optiview)",
-      "cost": 15,
-      "cat": "Montura",
-      "minStock": 3,
-      "createdAt": "2026-07-05T17:17:23.094Z"
+      "price": 45
     },
     {
       "id": "inv_veneto",
+      "photo": null,
       "cat": "Montura",
       "createdAt": "2026-07-05T17:17:23.094Z",
-      "name": "VENETO",
-      "cost": 22,
-      "updatedAt": "2026-08-29T20:38:19.712Z",
-      "isService": false,
-      "photo": null,
-      "minStock": 3,
+      "storeId": null,
       "description": "Cargado de Innova Vision #2499",
+      "updatedAt": "2026-08-29T20:38:19.712Z",
+      "minStock": 3,
+      "isService": false,
       "serials": [
         "U-inv_veneto-1",
         "U-inv_veneto-2",
@@ -497,19 +496,19 @@
         "U-inv_veneto-94",
         "U-inv_veneto-restore94"
       ],
+      "name": "VENETO",
       "price": 70,
-      "storeId": null
+      "cost": 22
     },
     {
       "id": "inv_ziba",
-      "cat": "Montura",
-      "createdAt": "2026-07-05T17:17:23.094Z",
-      "description": "Cargado de ZIBA Nota #1",
-      "minStock": 3,
-      "photo": null,
       "price": 60,
-      "cost": 20,
-      "updatedAt": "2026-08-29T20:38:19.712Z",
+      "minStock": 3,
+      "storeId": null,
+      "isService": false,
+      "description": "Cargado de ZIBA Nota #1",
+      "cat": "Montura",
+      "name": "ZIBA",
       "serials": [
         "U-inv_ziba-0",
         "U-inv_ziba-1",
@@ -571,16 +570,18 @@
         "U-inv_ziba-57",
         "U-inv_ziba-58"
       ],
-      "name": "ZIBA",
-      "isService": false,
-      "storeId": null
+      "cost": 20,
+      "updatedAt": "2026-08-29T20:38:19.712Z",
+      "createdAt": "2026-07-05T17:17:23.094Z",
+      "photo": null
     }
   ],
   "sales": [],
   "orders": [
     {
       "id": "1xu52ebzspxmterj71g",
-      "status": "pendiente",
+      "orderNumber": 210,
+      "viaTexto": true,
       "payments": [
         {
           "id": "6u724ih1sfumterj71g",
@@ -591,15 +592,14 @@
           "rate": 791.67
         }
       ],
-      "total": 35,
-      "viaTexto": true,
+      "createdDate": "2026-08-29",
       "createdAt": "2026-08-29T19:17:49.540Z",
-      "orderNumber": 210,
-      "customer": "Eliezer Camargo",
       "phone": "+58 04121699203",
+      "status": "pendiente",
+      "total": 35,
+      "customer": "Eliezer Camargo",
       "product": "Montura Filano negro pasta, traspaso · C.I. 14.448.446",
-      "storeId": "rene",
-      "createdDate": "2026-08-29"
+      "storeId": "rene"
     },
     {
       "id": "2gx910wnye3mtes8vce",
@@ -613,23 +613,26 @@
           "rate": 791.67
         }
       ],
-      "createdAt": "2026-08-29T19:37:47.438Z",
       "viaTexto": true,
-      "product": "Progresivo Foto AR · OD +2.75 -2.50 87°, OI +1.75 -0.75 75°, ADD +2.75 · C.I. 14.734.514",
+      "phone": "",
+      "createdDate": "2026-08-29",
+      "createdAt": "2026-08-29T19:37:47.438Z",
       "orderNumber": 180,
-      "customer": "Yamile Sirina",
+      "total": 180,
       "status": "pendiente",
       "storeId": "rene",
-      "createdDate": "2026-08-29",
-      "total": 180,
-      "phone": ""
+      "product": "Progresivo Foto AR · OD +2.75 -2.50 87°, OI +1.75 -0.75 75°, ADD +2.75 · C.I. 14.734.514",
+      "customer": "Yamile Sirina"
     },
     {
       "id": "2mb9t4sp569mtesecf9",
+      "status": "pendiente",
       "customer": "Jorge Ortega",
       "createdAt": "2026-08-29T19:42:02.853Z",
       "createdDate": "2026-08-29",
-      "viaTexto": true,
+      "total": 230,
+      "storeId": "rene",
+      "product": "Progresivo Foto Blue · OD -4.00 / OI -4.00, ADD 3.00 · C.I. 7766755",
       "payments": [
         {
           "id": "7fcs4g1jdnfmtesecf9",
@@ -640,17 +643,19 @@
           "rate": 791.67
         }
       ],
+      "viaTexto": true,
       "orderNumber": 174,
-      "total": 230,
-      "storeId": "rene",
-      "status": "pendiente",
-      "phone": "+58 04147977138",
-      "product": "Progresivo Foto Blue · OD -4.00 / OI -4.00, ADD 3.00 · C.I. 7766755"
+      "phone": "+58 04147977138"
     },
     {
       "id": "34n7xkn7qu9mternrdu",
-      "createdAt": "2026-08-29T19:21:22.530Z",
-      "viaTexto": true,
+      "phone": "",
+      "status": "pendiente",
+      "customer": "Mirta Arrieta",
+      "total": 95,
+      "createdDate": "2026-08-29",
+      "storeId": "rene",
+      "product": "Lente bifocal Kriptok · OD +2.50 -2.75 x99, OI blanco, ADD +3.00 · C.I. V-1443329",
       "payments": [
         {
           "id": "utjlpcb606qmternrdu",
@@ -661,18 +666,14 @@
           "rate": 791.67
         }
       ],
+      "viaTexto": true,
       "orderNumber": 205,
-      "customer": "Mirta Arrieta",
-      "total": 95,
-      "createdDate": "2026-08-29",
-      "storeId": "rene",
-      "status": "pendiente",
-      "phone": "",
-      "product": "Lente bifocal Kriptok · OD +2.50 -2.75 x99, OI blanco, ADD +3.00 · C.I. V-1443329"
+      "createdAt": "2026-08-29T19:21:22.530Z"
     },
     {
       "id": "4pgfc1wkg5amtes74vi",
       "phone": "+58 584126867835",
+      "createdDate": "2026-08-29",
       "orderNumber": 184,
       "payments": [
         {
@@ -684,19 +685,17 @@
           "rate": 791.67
         }
       ],
-      "status": "pendiente",
       "viaTexto": true,
-      "customer": "Amanda Yoris",
-      "total": 110,
-      "product": "Lente montura pasta color azul Veneto, VS Blue · OD -2.75 -3.50 15° / OI -2.75 -0.75 15° · C.I. 26200147",
-      "createdDate": "2026-08-29",
       "storeId": "rene",
-      "createdAt": "2026-08-29T19:36:26.478Z"
+      "product": "Lente montura pasta color azul Veneto, VS Blue · OD -2.75 -3.50 15° / OI -2.75 -0.75 15° · C.I. 26200147",
+      "total": 110,
+      "createdAt": "2026-08-29T19:36:26.478Z",
+      "customer": "Amanda Yoris",
+      "status": "pendiente"
     },
     {
       "id": "67jqqwlirwhmtes50q9",
-      "phone": "+58 04128532766",
-      "orderNumber": 189,
+      "viaTexto": true,
       "payments": [
         {
           "id": "mg4co58bjfmtes50q9",
@@ -707,20 +706,19 @@
           "rate": 791.67
         }
       ],
-      "status": "pendiente",
-      "viaTexto": true,
-      "customer": "Paula Huerta",
-      "total": 150,
-      "product": "VS Blue - Montura D3589 54-16-140 · OD -2.00 -2.00 160; OI -0.50 -1.75 10; DNP 33/33; Altura 34 · C.I. 31.646.963",
+      "createdAt": "2026-08-29T19:34:47.793Z",
       "createdDate": "2026-08-29",
-      "storeId": "rene",
-      "createdAt": "2026-08-29T19:34:47.793Z"
+      "total": 150,
+      "status": "pendiente",
+      "orderNumber": 189,
+      "customer": "Paula Huerta",
+      "phone": "+58 04128532766",
+      "product": "VS Blue - Montura D3589 54-16-140 · OD -2.00 -2.00 160; OI -0.50 -1.75 10; DNP 33/33; Altura 34 · C.I. 31.646.963",
+      "storeId": "rene"
     },
     {
       "id": "6f0t1zdx9wamtes9r63",
-      "createdAt": "2026-08-29T19:38:28.683Z",
-      "createdDate": "2026-08-29",
-      "status": "pendiente",
+      "viaTexto": true,
       "payments": [
         {
           "id": "l5ykabyhfdmtes9r63",
@@ -731,17 +729,18 @@
           "rate": 791.67
         }
       ],
-      "viaTexto": true,
       "product": "Bifocal Kriptek, montura metal gris Blassview · OD +0.50 -3.00 90°, OI -1.75 95°, ADD +3.00 · C.I. 5170403",
-      "phone": "",
-      "total": 140,
-      "customer": "Edgar Cairibhard",
       "storeId": "rene",
-      "orderNumber": 178
+      "status": "pendiente",
+      "orderNumber": 178,
+      "total": 140,
+      "createdAt": "2026-08-29T19:38:28.683Z",
+      "createdDate": "2026-08-29",
+      "phone": "",
+      "customer": "Edgar Cairibhard"
     },
     {
       "id": "7fmvfixq33smtern6le",
-      "viaTexto": true,
       "payments": [
         {
           "id": "acvuaevu9pmtern6le",
@@ -752,25 +751,25 @@
           "rate": 791.67
         }
       ],
-      "customer": "Carmen Arteaga",
-      "createdDate": "2026-08-29",
-      "total": 140,
+      "viaTexto": true,
+      "product": "Lente Foto Blue con montura BLM.810449-71 color negro, metal · OD -1.00 x225; OI -1.50 x45; DNP 29/29; ALT 30 · C.I. 31250333",
       "storeId": "rene",
-      "createdAt": "2026-08-29T19:20:55.586Z",
-      "orderNumber": 206,
       "status": "pendiente",
+      "total": 140,
+      "orderNumber": 206,
+      "createdAt": "2026-08-29T19:20:55.586Z",
+      "createdDate": "2026-08-29",
       "phone": "+58 04246199830",
-      "product": "Lente Foto Blue con montura BLM.810449-71 color negro, metal · OD -1.00 x225; OI -1.50 x45; DNP 29/29; ALT 30 · C.I. 31250333"
+      "customer": "Carmen Arteaga"
     },
     {
       "id": "8p9aj3toj4bmtes1oq3",
-      "product": "Lentes VS AB, montura metal color morado aro cerrado · OD -3.50 -1.00 5° / OI -3.25 -0.75 150°, DNP 30/31, ADD - · C.I. 34899450",
-      "createdAt": "2026-08-29T19:32:12.267Z",
+      "orderNumber": 196,
+      "customer": "Nurisbel Leal",
       "createdDate": "2026-08-29",
-      "phone": "+58 04121040991",
-      "status": "pendiente",
-      "storeId": "rene",
       "total": 90,
+      "status": "pendiente",
+      "viaTexto": true,
       "payments": [
         {
           "id": "699ct0aaescmtes1oq3",
@@ -781,16 +780,22 @@
           "rate": 791.67
         }
       ],
-      "orderNumber": 196,
-      "viaTexto": true,
-      "customer": "Nurisbel Leal"
+      "createdAt": "2026-08-29T19:32:12.267Z",
+      "storeId": "rene",
+      "product": "Lentes VS AB, montura metal color morado aro cerrado · OD -3.50 -1.00 5° / OI -3.25 -0.75 150°, DNP 30/31, ADD - · C.I. 34899450",
+      "phone": "+58 04121040991"
     },
     {
       "id": "8v1g568lojsmtesahko",
-      "customer": "Genesis Diaz",
+      "orderNumber": 177,
+      "total": 130,
+      "product": "VS Blue - Lente montura pasta, puente 16 · OD -0.50 -1.00 x6 / OI +0.50 -3.50 x180 · C.I. 23.594.212",
       "storeId": "rene",
-      "viaTexto": true,
+      "createdDate": "2026-08-29",
+      "customer": "Genesis Diaz",
+      "phone": "+58 04246377873",
       "createdAt": "2026-08-29T19:39:02.904Z",
+      "viaTexto": true,
       "payments": [
         {
           "id": "qpptp1nfrqmtesahko",
@@ -801,20 +806,15 @@
           "rate": 791.67
         }
       ],
-      "product": "VS Blue - Lente montura pasta, puente 16 · OD -0.50 -1.00 x6 / OI +0.50 -3.50 x180 · C.I. 23.594.212",
-      "createdDate": "2026-08-29",
-      "phone": "+58 04246377873",
-      "orderNumber": 177,
-      "total": 130,
       "status": "pendiente"
     },
     {
       "id": "9j5qtvbyrjimtes3di0",
-      "createdDate": "2026-08-29",
-      "phone": "",
       "total": 155,
       "createdAt": "2026-08-29T19:33:31.032Z",
+      "orderNumber": 192,
       "storeId": "rene",
+      "product": "Lente progresivo Blue, montura ZK6825 55-18-140 · OD +1.00 OI +1.00 ADD +1.50 · C.I. 14449359",
       "payments": [
         {
           "id": "l8lhuaar3tmtes3di0",
@@ -825,18 +825,14 @@
           "rate": 791.67
         }
       ],
-      "status": "pendiente",
       "viaTexto": true,
-      "orderNumber": 192,
-      "product": "Lente progresivo Blue, montura ZK6825 55-18-140 · OD +1.00 OI +1.00 ADD +1.50 · C.I. 14449359",
-      "customer": "Nelyon Ramirez"
+      "createdDate": "2026-08-29",
+      "phone": "",
+      "customer": "Nelyon Ramirez",
+      "status": "pendiente"
     },
     {
       "id": "9qn0cupgmf9mtesfx1g",
-      "createdAt": "2026-08-29T19:43:16.228Z",
-      "storeId": "rene",
-      "createdDate": "2026-08-29",
-      "product": "Montura de promoción + cristales CR-39 · OD -0.50, OI -0.75, DNP D 30 / DNP I 31 · C.I. 31.055.395",
       "total": 45,
       "payments": [
         {
@@ -849,14 +845,19 @@
         }
       ],
       "viaTexto": true,
-      "customer": "Evenio Nava",
-      "status": "pendiente",
+      "product": "Montura de promoción + cristales CR-39 · OD -0.50, OI -0.75, DNP D 30 / DNP I 31 · C.I. 31.055.395",
+      "storeId": "rene",
       "phone": "+58 04120180550",
-      "orderNumber": 172
+      "orderNumber": 172,
+      "customer": "Evenio Nava",
+      "createdDate": "2026-08-29",
+      "createdAt": "2026-08-29T19:43:16.228Z",
+      "status": "pendiente"
     },
     {
       "id": "a9sykp7l36pmteshujh",
-      "createdAt": "2026-08-29T19:44:46.301Z",
+      "total": 150,
+      "viaTexto": true,
       "payments": [
         {
           "id": "7hm3br58vsemteshujh",
@@ -867,25 +868,25 @@
           "rate": 791.67
         }
       ],
-      "phone": "+58 04146208223",
-      "status": "pendiente",
-      "viaTexto": true,
-      "customer": "Yolima Carruyo",
-      "orderNumber": 168,
-      "total": 150,
       "product": "Bifocal AB invisible, montura VN701 54-19-140 P70 · OD -0.50 x50; OI Plano; ADD +1.75",
       "storeId": "rene",
-      "createdDate": "2026-08-29"
+      "createdAt": "2026-08-29T19:44:46.301Z",
+      "phone": "+58 04146208223",
+      "createdDate": "2026-08-29",
+      "customer": "Yolima Carruyo",
+      "status": "pendiente",
+      "orderNumber": 168
     },
     {
       "id": "alcamz13pnmtesiak7",
-      "orderNumber": 167,
+      "storeId": "rene",
+      "product": "Bifocal invisible · OD -1.00 x65 / OI +0.50 -0.75 x110, ADD +3.00 · C.I. 9.779.528",
+      "customer": "Maritza Galban",
+      "status": "pendiente",
+      "total": 160,
+      "createdDate": "2026-08-29",
       "createdAt": "2026-08-29T19:45:07.063Z",
       "phone": "+58 04146200723",
-      "customer": "Maritza Galban",
-      "createdDate": "2026-08-29",
-      "storeId": "rene",
-      "viaTexto": true,
       "payments": [
         {
           "id": "uy8siwaytodmtesiak7",
@@ -896,15 +897,18 @@
           "rate": 791.67
         }
       ],
-      "status": "pendiente",
-      "product": "Bifocal invisible · OD -1.00 x65 / OI +0.50 -0.75 x110, ADD +3.00 · C.I. 9.779.528",
-      "total": 160
+      "viaTexto": true,
+      "orderNumber": 167
     },
     {
       "id": "alnszazx3rpmtesdiem",
-      "total": 160,
       "product": "Lente progresivo fotocromático blue, montura Vulk transparente · OD Plano / OI Plano, ADD +1.75 · C.I. 13.000.970",
+      "storeId": "rene",
+      "customer": "Minerba Epiayu",
       "status": "pendiente",
+      "total": 160,
+      "createdDate": "2026-08-29",
+      "createdAt": "2026-08-29T19:41:23.950Z",
       "payments": [
         {
           "id": "aps4nd4g33imtesdiem",
@@ -915,21 +919,18 @@
           "rate": 791.67
         }
       ],
-      "createdDate": "2026-08-29",
       "viaTexto": true,
-      "storeId": "rene",
-      "customer": "Minerba Epiayu",
       "phone": "+58 04127519264",
-      "createdAt": "2026-08-29T19:41:23.950Z",
       "orderNumber": 176
     },
     {
       "id": "bbqv16bt974mtes7yp4",
-      "createdDate": "2026-08-29",
-      "phone": "+58 04140609367",
-      "total": 160,
+      "product": "Lente progresivo, montura pasta rosada marca Vento · OD +1.75 -2.00 x100, OI +1.75 -1.00 x90, ADD +3.00 · C.I. 3118056",
       "storeId": "rene",
-      "createdAt": "2026-08-29T19:37:05.128Z",
+      "status": "pendiente",
+      "orderNumber": 183,
+      "createdDate": "2026-08-29",
+      "viaTexto": true,
       "payments": [
         {
           "id": "bzebxik9ny6mtes7yp4",
@@ -940,14 +941,15 @@
           "rate": 791.67
         }
       ],
-      "status": "pendiente",
-      "viaTexto": true,
-      "orderNumber": 183,
-      "product": "Lente progresivo, montura pasta rosada marca Vento · OD +1.75 -2.00 x100, OI +1.75 -1.00 x90, ADD +3.00 · C.I. 3118056",
-      "customer": "Duilia Carrizo"
+      "customer": "Duilia Carrizo",
+      "total": 160,
+      "createdAt": "2026-08-29T19:37:05.128Z",
+      "phone": "+58 04140609367"
     },
     {
       "id": "cbf7ycjqswrmtes2k71",
+      "total": 150,
+      "viaTexto": true,
       "payments": [
         {
           "id": "1jsgs45neqvmtes2k71",
@@ -958,24 +960,23 @@
           "rate": 791.67
         }
       ],
-      "viaTexto": true,
-      "orderNumber": 194,
-      "customer": "Stephany Graterol",
       "status": "pendiente",
-      "createdDate": "2026-08-29",
-      "product": "Lentes fotocromáticos blue, montura D3686 54-18-142 · OD +0.75 -0.75 x4; OI +1.25 -3.0 x2; ADD 3 · C.I. 24370471",
       "phone": "+58 4146740140",
+      "orderNumber": 194,
+      "product": "Lentes fotocromáticos blue, montura D3686 54-18-142 · OD +0.75 -0.75 x4; OI +1.25 -3.0 x2; ADD 3 · C.I. 24370471",
+      "storeId": "rene",
+      "customer": "Stephany Graterol",
       "createdAt": "2026-08-29T19:32:53.053Z",
-      "total": 150,
-      "storeId": "rene"
+      "createdDate": "2026-08-29"
     },
     {
       "id": "dujgewv4tfumtermc6u",
-      "orderNumber": 208,
+      "createdDate": "2026-08-29",
       "total": 70,
-      "createdAt": "2026-08-29T19:20:16.182Z",
-      "customer": "Elixa Moran",
       "phone": "+58 04246561835",
+      "customer": "Elixa Moran",
+      "createdAt": "2026-08-29T19:20:16.182Z",
+      "orderNumber": 208,
       "viaTexto": true,
       "payments": [
         {
@@ -987,19 +988,16 @@
           "rate": 791.67
         }
       ],
-      "status": "pendiente",
+      "product": "Lente bifocal Kriptok, montura Filano gris de pasta · OD +1.50, OI +2.50, ADD +3.00 · C.I. 4.591.714",
       "storeId": "rene",
-      "createdDate": "2026-08-29",
-      "product": "Lente bifocal Kriptok, montura Filano gris de pasta · OD +1.50, OI +2.50, ADD +3.00 · C.I. 4.591.714"
+      "status": "pendiente"
     },
     {
       "id": "eouokzv8abmtesgr8t",
       "createdDate": "2026-08-29",
-      "status": "pendiente",
       "customer": "Selianny Fernández",
-      "product": "Lente VS AR, montura RB8007 45 19-130 P40 pasta · OD -2.50 x10°, OI -2.00 x180",
       "orderNumber": 171,
-      "phone": "+58 04127729305",
+      "total": 115,
       "payments": [
         {
           "id": "0s4mk7ozp89rmtesgr8t",
@@ -1010,15 +1008,15 @@
           "rate": 791.67
         }
       ],
-      "total": 115,
       "viaTexto": true,
+      "status": "pendiente",
+      "createdAt": "2026-08-29T19:43:55.373Z",
+      "product": "Lente VS AR, montura RB8007 45 19-130 P40 pasta · OD -2.50 x10°, OI -2.00 x180",
       "storeId": "rene",
-      "createdAt": "2026-08-29T19:43:55.373Z"
+      "phone": "+58 04127729305"
     },
     {
       "id": "f5tj0mqo70imtes5fd7",
-      "phone": "+58 04127320443",
-      "product": "Traspaso - Montura Radiant 1415DC 54-16-140, color trans · C.I. 18.483.384",
       "payments": [
         {
           "id": "n9zyk8i4e5mtes5fd7",
@@ -1029,23 +1027,26 @@
           "rate": 791.67
         }
       ],
-      "status": "pendiente",
       "viaTexto": true,
-      "storeId": "rene",
-      "customer": "Escarla Ramirez",
+      "orderNumber": 188,
+      "phone": "+58 04127320443",
       "createdDate": "2026-08-29",
       "total": 50,
       "createdAt": "2026-08-29T19:35:06.763Z",
-      "orderNumber": 188
+      "status": "pendiente",
+      "product": "Traspaso - Montura Radiant 1415DC 54-16-140, color trans · C.I. 18.483.384",
+      "storeId": "rene",
+      "customer": "Escarla Ramirez"
     },
     {
       "id": "fsnzsk8skl7mtes6no8",
-      "orderNumber": 185,
-      "createdAt": "2026-08-29T19:36:04.184Z",
       "total": 135,
+      "createdDate": "2026-08-29",
+      "createdAt": "2026-08-29T19:36:04.184Z",
+      "orderNumber": 185,
+      "phone": "+58 04126276196",
       "customer": "Geiny Urdaneta",
       "viaTexto": true,
-      "phone": "+58 04126276196",
       "payments": [
         {
           "id": "a41afc75yzpmtes6no8",
@@ -1056,23 +1057,13 @@
           "rate": 791.67
         }
       ],
-      "status": "pendiente",
+      "product": "Lentes bifocales fotocromáticos, montura propia azul, material Nylon · OD -0.50 x90; OI -0.50 x75; DNP 31/31; ALT 18 · C.I. 15562062",
       "storeId": "rene",
-      "createdDate": "2026-08-29",
-      "product": "Lentes bifocales fotocromáticos, montura propia azul, material Nylon · OD -0.50 x90; OI -0.50 x75; DNP 31/31; ALT 18 · C.I. 15562062"
+      "status": "pendiente"
     },
     {
       "id": "gbfmo31dgvfmteribfs",
-      "product": "Lente progresivo foto blue, montura Veneto ref VNA6875417140 color vino · OD +1.50 / OI +1.00 / ADD +1.75 · C.I. 13563186",
-      "createdAt": "2026-08-29T19:17:08.584Z",
-      "createdDate": "2026-08-29",
-      "storeId": "rene",
-      "status": "pendiente",
-      "customer": "Laurie Sanchez",
-      "phone": "+58 04247726189",
-      "total": 222,
       "viaTexto": true,
-      "orderNumber": 211,
       "payments": [
         {
           "id": "aqo6szcadsmteribfs",
@@ -1082,20 +1073,26 @@
           "amountBs": 66341.946,
           "rate": 791.67
         }
-      ]
+      ],
+      "orderNumber": 211,
+      "phone": "+58 04247726189",
+      "storeId": "rene",
+      "product": "Lente progresivo foto blue, montura Veneto ref VNA6875417140 color vino · OD +1.50 / OI +1.00 / ADD +1.75 · C.I. 13563186",
+      "total": 222,
+      "createdDate": "2026-08-29",
+      "status": "pendiente",
+      "createdAt": "2026-08-29T19:17:08.584Z",
+      "customer": "Laurie Sanchez"
     },
     {
       "id": "hmcspo2cvlvmtes5z4j",
-      "createdDate": "2026-08-29",
+      "createdAt": "2026-08-29T19:35:32.371Z",
+      "product": "Progresivo Blue, montura One View pasta trans · OD +1.25, OI +1.75, ADD +2.50 · C.I. 8.500.600",
       "storeId": "rene",
       "total": 150,
       "phone": "+58 04122334366",
-      "product": "Progresivo Blue, montura One View pasta trans · OD +1.25, OI +1.75, ADD +2.50 · C.I. 8.500.600",
-      "createdAt": "2026-08-29T19:35:32.371Z",
-      "status": "pendiente",
-      "orderNumber": 187,
       "customer": "Esther Melendez",
-      "viaTexto": true,
+      "status": "pendiente",
       "payments": [
         {
           "id": "f4vz8mkoc8umtes5z4j",
@@ -1105,15 +1102,14 @@
           "amountBs": null,
           "rate": 791.67
         }
-      ]
+      ],
+      "viaTexto": true,
+      "orderNumber": 187,
+      "createdDate": "2026-08-29"
     },
     {
       "id": "jnqthqhr93jmtes0766",
       "phone": "+58 04246181989",
-      "createdAt": "2026-08-29T19:31:02.862Z",
-      "customer": "Gladys Sanchez",
-      "createdDate": "2026-08-29",
-      "viaTexto": true,
       "payments": [
         {
           "id": "f51rynatoavmtes0766",
@@ -1124,23 +1120,20 @@
           "rate": 791.67
         }
       ],
-      "total": 220,
-      "storeId": "rene",
-      "orderNumber": 199,
+      "viaTexto": true,
+      "createdDate": "2026-08-29",
+      "createdAt": "2026-08-29T19:31:02.862Z",
       "status": "pendiente",
-      "product": "Lente progresivo Foto AR, montura Sugar pasta · OD +1.00 / OI +1.00 ADD +2.75 · C.I. 9.713.854"
+      "orderNumber": 199,
+      "total": 220,
+      "product": "Lente progresivo Foto AR, montura Sugar pasta · OD +1.00 / OI +1.00 ADD +2.75 · C.I. 9.713.854",
+      "storeId": "rene",
+      "customer": "Gladys Sanchez"
     },
     {
       "id": "kpq5ailhohpmterog6n",
-      "createdDate": "2026-08-29",
-      "storeId": "rene",
-      "createdAt": "2026-08-29T19:21:54.672Z",
-      "product": "VS Foto Blue - Lentes montura pasta gris · OD -3.00, OI -3.50, ADD -, DNP 32/31, Altura 25 · C.I. 32303509",
-      "total": 162,
-      "orderNumber": 204,
-      "customer": "Egkarly Nava",
+      "phone": "",
       "viaTexto": true,
-      "status": "pendiente",
       "payments": [
         {
           "id": "d87vx5puvzmterog6n",
@@ -1151,19 +1144,21 @@
           "rate": 791.67
         }
       ],
-      "phone": ""
+      "createdAt": "2026-08-29T19:21:54.672Z",
+      "total": 162,
+      "createdDate": "2026-08-29",
+      "status": "pendiente",
+      "product": "VS Foto Blue - Lentes montura pasta gris · OD -3.00, OI -3.50, ADD -, DNP 32/31, Altura 25 · C.I. 32303509",
+      "storeId": "rene",
+      "customer": "Egkarly Nava",
+      "orderNumber": 204
     },
     {
       "id": "l2vkjiydizfmtergvnv",
-      "status": "pendiente",
-      "product": "VS Blue - Montura Veneto pasta negro, lente antireflejo · OD +4.00 -0.25 165; OI -3.50 -0.75 10; ADD - · C.I. 16.609.463",
-      "orderNumber": 214,
-      "total": 155,
-      "phone": "+58 04246307051",
-      "storeId": "rene",
       "createdAt": "2026-08-29T19:16:01.483Z",
       "createdDate": "2026-08-29",
-      "customer": "Marcella Sevilla",
+      "total": 155,
+      "viaTexto": true,
       "payments": [
         {
           "id": "jd4k0hv1pqamtergvnv",
@@ -1174,17 +1169,16 @@
           "rate": 791.67
         }
       ],
-      "viaTexto": true
+      "product": "VS Blue - Montura Veneto pasta negro, lente antireflejo · OD +4.00 -0.25 165; OI -3.50 -0.75 10; ADD - · C.I. 16.609.463",
+      "storeId": "rene",
+      "phone": "+58 04246307051",
+      "orderNumber": 214,
+      "customer": "Marcella Sevilla",
+      "status": "pendiente"
     },
     {
       "id": "ltooo7qyn3mterzn8e",
-      "createdAt": "2026-08-29T19:30:37.022Z",
       "orderNumber": 200,
-      "customer": "Mery Godoy",
-      "storeId": "rene",
-      "phone": "+58 04246660352",
-      "total": 130,
-      "createdDate": "2026-08-29",
       "payments": [
         {
           "id": "tbun8p30o7mterzn8e",
@@ -1196,18 +1190,25 @@
         }
       ],
       "viaTexto": true,
+      "createdDate": "2026-08-29",
+      "storeId": "rene",
       "product": "Lente progresivo AR, montura Dama Animal Print Shein · OD +1.50 / OI +1.50, ADD +2.00 · C.I. 11.280.863",
-      "status": "pendiente"
+      "status": "pendiente",
+      "phone": "+58 04246660352",
+      "total": 130,
+      "customer": "Mery Godoy",
+      "createdAt": "2026-08-29T19:30:37.022Z"
     },
     {
       "id": "lttcsblgjmtesj444",
-      "total": 40,
       "orderNumber": 165,
-      "phone": "",
-      "viaTexto": true,
-      "createdDate": "2026-08-29",
-      "status": "pendiente",
+      "total": 40,
+      "product": "Traspaso - Montura ref. LS3202541340 color rosada marca Rivont · C.I. 27.304.143",
       "storeId": "rene",
+      "createdDate": "2026-08-29",
+      "phone": "",
+      "customer": "Abigail Gonzalez",
+      "viaTexto": true,
       "payments": [
         {
           "id": "zmhfida3gymtesj444",
@@ -1219,20 +1220,12 @@
         }
       ],
       "createdAt": "2026-08-29T19:45:45.364Z",
-      "product": "Traspaso - Montura ref. LS3202541340 color rosada marca Rivont · C.I. 27.304.143",
-      "customer": "Abigail Gonzalez"
+      "status": "pendiente"
     },
     {
       "id": "oe6nkihsonmtesh2ct",
-      "createdDate": "2026-08-29",
-      "storeId": "rene",
-      "createdAt": "2026-08-29T19:44:09.774Z",
-      "product": "Liberty DS 1.56 foto progresivo · OD -0.50 -1.00 170° / OI -0.50 -0.75 175° ADD +1.00 · C.I. 16.730.691",
       "total": 322,
-      "customer": "Karina Ejiz",
-      "orderNumber": 170,
       "viaTexto": true,
-      "status": "pendiente",
       "payments": [
         {
           "id": "fhiqntgniz9mtesh2cu",
@@ -1243,12 +1236,27 @@
           "rate": 791.67
         }
       ],
-      "phone": "+58 04143673350"
+      "phone": "+58 04143673350",
+      "status": "pendiente",
+      "product": "Liberty DS 1.56 foto progresivo · OD -0.50 -1.00 170° / OI -0.50 -0.75 175° ADD +1.00 · C.I. 16.730.691",
+      "storeId": "rene",
+      "orderNumber": 170,
+      "createdDate": "2026-08-29",
+      "createdAt": "2026-08-29T19:44:09.774Z",
+      "customer": "Karina Ejiz"
     },
     {
       "id": "ofg8h0zmf6mtes4e73",
-      "viaTexto": true,
+      "phone": "+58 04126911569",
+      "customer": "Maria Gonzalez",
+      "storeId": "rene",
+      "product": "Lente progresivo Foto AR, montura dorada G.O · OD +2.00, OI +1.50, ADD +2.00 · C.I. 13.300994",
+      "orderNumber": 190,
+      "status": "pendiente",
+      "createdDate": "2026-08-29",
+      "total": 195,
       "createdAt": "2026-08-29T19:34:18.591Z",
+      "viaTexto": true,
       "payments": [
         {
           "id": "colk020t2ojmtes4e73",
@@ -1258,22 +1266,14 @@
           "amountBs": null,
           "rate": 791.67
         }
-      ],
-      "createdDate": "2026-08-29",
-      "customer": "Maria Gonzalez",
-      "orderNumber": 190,
-      "total": 195,
-      "storeId": "rene",
-      "status": "pendiente",
-      "phone": "+58 04126911569",
-      "product": "Lente progresivo Foto AR, montura dorada G.O · OD +2.00, OI +1.50, ADD +2.00 · C.I. 13.300994"
+      ]
     },
     {
       "id": "ojvwazvm0xcmtes17by",
-      "createdAt": "2026-08-29T19:31:49.726Z",
-      "createdDate": "2026-08-29",
       "total": 150,
-      "viaTexto": true,
+      "createdDate": "2026-08-29",
+      "storeId": "rene",
+      "product": "Lente progresivo Foto AR, montura propia (pasta, color azul) · OD +1.00 -1.00 90° / OI +0.50 -1.00 15° ADD +2.50 · C.I. 10.087.330",
       "payments": [
         {
           "id": "s4u1tln2nqfmtes17by",
@@ -1284,22 +1284,24 @@
           "rate": 791.67
         }
       ],
-      "phone": "+58 04244426753",
-      "customer": "Alonzo Espinoza",
-      "status": "pendiente",
-      "storeId": "rene",
+      "viaTexto": true,
       "orderNumber": 197,
-      "product": "Lente progresivo Foto AR, montura propia (pasta, color azul) · OD +1.00 -1.00 90° / OI +0.50 -1.00 15° ADD +2.50 · C.I. 10.087.330"
+      "phone": "+58 04244426753",
+      "createdAt": "2026-08-29T19:31:49.726Z",
+      "customer": "Alonzo Espinoza",
+      "status": "pendiente"
     },
     {
       "id": "poexzjqudcmtes3q2r",
-      "product": "VS Blue - Montura Gio color azul, aro cerrado · OD -0.25 x45; OI -0.50 x5; DNP 33/32; ALT 24 · C.I. 18.821.398",
       "phone": "+58 04246135618",
-      "status": "pendiente",
-      "customer": "Mail Rodriguez",
-      "storeId": "rene",
-      "viaTexto": true,
       "createdDate": "2026-08-29",
+      "storeId": "rene",
+      "product": "VS Blue - Montura Gio color azul, aro cerrado · OD -0.25 x45; OI -0.50 x5; DNP 33/32; ALT 24 · C.I. 18.821.398",
+      "customer": "Mail Rodriguez",
+      "orderNumber": 191,
+      "status": "pendiente",
+      "createdAt": "2026-08-29T19:33:47.331Z",
+      "total": 120,
       "payments": [
         {
           "id": "3xykxk8lcf7mtes3q2r",
@@ -1310,19 +1312,13 @@
           "rate": 791.67
         }
       ],
-      "total": 120,
-      "createdAt": "2026-08-29T19:33:47.331Z",
-      "orderNumber": 191
+      "viaTexto": true
     },
     {
       "id": "qja3iskg2epmterp0ip",
-      "createdAt": "2026-08-29T19:22:21.025Z",
-      "orderNumber": 203,
-      "customer": "Oscar Avila",
+      "product": "Lente progresivo Foto AR, montura ZKY negro · OD +1.50 / OI Plano, ADD +2.75 · C.I. 11.257.841",
       "storeId": "rene",
-      "phone": "+58 04246159601",
-      "createdDate": "2026-08-29",
-      "total": 170,
+      "status": "pendiente",
       "payments": [
         {
           "id": "gv7j4xfsa5gmterp0ip",
@@ -1333,17 +1329,21 @@
           "rate": 791.67
         }
       ],
-      "product": "Lente progresivo Foto AR, montura ZKY negro · OD +1.50 / OI Plano, ADD +2.75 · C.I. 11.257.841",
       "viaTexto": true,
-      "status": "pendiente"
+      "orderNumber": 203,
+      "total": 170,
+      "customer": "Oscar Avila",
+      "createdDate": "2026-08-29",
+      "phone": "+58 04246159601",
+      "createdAt": "2026-08-29T19:22:21.025Z"
     },
     {
       "id": "qjr2s2lu4p9mtesjosq",
-      "customer": "Alí Rubio",
-      "product": "Lente progresivo con AR, montura Looking Good LD1394 55-18-140 color negro · OD +1.00 / OI +1.00, ADD +2.00 · C.I. 7775819",
-      "createdAt": "2026-08-29T19:46:12.170Z",
-      "viaTexto": true,
+      "total": 165,
       "createdDate": "2026-08-29",
+      "orderNumber": 164,
+      "storeId": "rene",
+      "product": "Lente progresivo con AR, montura Looking Good LD1394 55-18-140 color negro · OD +1.00 / OI +1.00, ADD +2.00 · C.I. 7775819",
       "payments": [
         {
           "id": "hnj0zqlcocwmtesjosq",
@@ -1354,24 +1354,17 @@
           "rate": 791.67
         }
       ],
-      "storeId": "rene",
-      "status": "pendiente",
+      "viaTexto": true,
+      "createdAt": "2026-08-29T19:46:12.170Z",
       "phone": "+58 04247660928",
-      "total": 165,
-      "orderNumber": 164
+      "customer": "Alí Rubio",
+      "status": "pendiente"
     },
     {
       "id": "rwtzi3cylgmteshggs",
-      "total": 180,
       "orderNumber": 169,
-      "phone": "+58 04125137222",
       "createdDate": "2026-08-29",
-      "storeId": "rene",
-      "status": "pendiente",
-      "customer": "Eduardo Barreto",
       "viaTexto": true,
-      "product": "Lente progresivo fotocromático con montura, referencia ANS 287.1, color gris, pasta · OD +1.50, OI +2.00, ADD +1.50 · C.I. 9.787.803",
-      "createdAt": "2026-08-29T19:44:28.060Z",
       "payments": [
         {
           "id": "3p73jxi4d0amteshggs",
@@ -1381,14 +1374,22 @@
           "amountBs": 71250.3,
           "rate": 791.67
         }
-      ]
+      ],
+      "storeId": "rene",
+      "product": "Lente progresivo fotocromático con montura, referencia ANS 287.1, color gris, pasta · OD +1.50, OI +2.00, ADD +1.50 · C.I. 9.787.803",
+      "status": "pendiente",
+      "customer": "Eduardo Barreto",
+      "phone": "+58 04125137222",
+      "total": 180,
+      "createdAt": "2026-08-29T19:44:28.060Z"
     },
     {
       "id": "s5a8o8wt7mkmtes22lg",
-      "storeId": "rene",
       "createdDate": "2026-08-29",
-      "viaTexto": true,
       "phone": "+58 04146031464",
+      "product": "Traspaso de montura DS2012 46-15-135 P45 · C.I. 23758999",
+      "storeId": "rene",
+      "orderNumber": 195,
       "payments": [
         {
           "id": "j7sm6bei2chmtes22lg",
@@ -1399,17 +1400,15 @@
           "rate": 791.67
         }
       ],
-      "product": "Traspaso de montura DS2012 46-15-135 P45 · C.I. 23758999",
+      "viaTexto": true,
       "total": 55,
-      "customer": "Fundy Reinoso",
       "createdAt": "2026-08-29T19:32:30.244Z",
-      "status": "pendiente",
-      "orderNumber": 195
+      "customer": "Fundy Reinoso",
+      "status": "pendiente"
     },
     {
       "id": "spqlb3hwoekmterhoxe",
-      "createdDate": "2026-08-29",
-      "customer": "Gladys Castro",
+      "viaTexto": true,
       "payments": [
         {
           "id": "zj23rmn11aamterhoxe",
@@ -1420,26 +1419,20 @@
           "rate": 791.67
         }
       ],
-      "viaTexto": true,
-      "status": "pendiente",
       "phone": "+58 04146739038",
-      "product": "Lente progresivo Foto AR · OD +0.50 -1.00 80 / OI +0.50 -0.75 90 ADD +2.50 · C.I. 6197353",
-      "orderNumber": 213,
       "createdAt": "2026-08-29T19:16:39.410Z",
+      "status": "pendiente",
       "total": 205,
-      "storeId": "rene"
+      "orderNumber": 213,
+      "product": "Lente progresivo Foto AR · OD +0.50 -1.00 80 / OI +0.50 -0.75 90 ADD +2.50 · C.I. 6197353",
+      "storeId": "rene",
+      "createdDate": "2026-08-29",
+      "customer": "Gladys Castro"
     },
     {
       "id": "ssntjavsid9mtes0t70",
-      "product": "Lentes de contacto · C.I. 16349882",
-      "orderNumber": 198,
-      "status": "pendiente",
-      "storeId": "rene",
-      "phone": "+58 04146523170",
       "customer": "Ronni Chirinos",
-      "createdAt": "2026-08-29T19:31:31.404Z",
       "viaTexto": true,
-      "total": 20,
       "payments": [
         {
           "id": "5oup8nj1bxamtes0t70",
@@ -1450,15 +1443,26 @@
           "rate": 791.67
         }
       ],
-      "createdDate": "2026-08-29"
+      "createdAt": "2026-08-29T19:31:31.404Z",
+      "createdDate": "2026-08-29",
+      "total": 20,
+      "status": "pendiente",
+      "phone": "+58 04146523170",
+      "orderNumber": 198,
+      "storeId": "rene",
+      "product": "Lentes de contacto · C.I. 16349882"
     },
     {
       "id": "t516eth0kefmtesiqig",
-      "createdAt": "2026-08-29T19:45:27.736Z",
+      "phone": "",
+      "createdDate": "2026-08-29",
       "orderNumber": 166,
       "customer": "Aliz González",
+      "status": "pendiente",
+      "total": 120,
       "storeId": "rene",
-      "phone": "",
+      "product": "VS Foto AR - Montura metal negro/rosella · OD -0.25 -0.25 60° / OI -0.50 -0.25 165° · C.I. 27304143",
+      "createdAt": "2026-08-29T19:45:27.736Z",
       "payments": [
         {
           "id": "tqx1kjlry3kmtesiqig",
@@ -1469,18 +1473,11 @@
           "rate": 791.67
         }
       ],
-      "createdDate": "2026-08-29",
-      "total": 120,
-      "product": "VS Foto AR - Montura metal negro/rosella · OD -0.25 -0.25 60° / OI -0.50 -0.25 165° · C.I. 27304143",
-      "viaTexto": true,
-      "status": "pendiente"
+      "viaTexto": true
     },
     {
       "id": "ukx028cpmfmtes9bf1",
-      "customer": "Marianyeli Fernandez",
-      "orderNumber": 179,
-      "product": "VS blue, montura VN722 52-19-140 · OD -0.50 x180 / OI -0.50 x10, DNP 30/29, ALT 29 · C.I. 37.455.647",
-      "createdAt": "2026-08-29T19:38:08.269Z",
+      "status": "pendiente",
       "payments": [
         {
           "id": "nckvwiozm2hmtes9bf1",
@@ -1492,16 +1489,20 @@
         }
       ],
       "viaTexto": true,
+      "createdAt": "2026-08-29T19:38:08.269Z",
+      "product": "VS blue, montura VN722 52-19-140 · OD -0.50 x180 / OI -0.50 x10, DNP 30/29, ALT 29 · C.I. 37.455.647",
       "storeId": "rene",
-      "status": "pendiente",
-      "createdDate": "2026-08-29",
+      "orderNumber": 179,
+      "total": 130,
+      "customer": "Marianyeli Fernandez",
       "phone": "",
-      "total": 130
+      "createdDate": "2026-08-29"
     },
     {
       "id": "wah9ii6r6xmtesduwu",
-      "createdDate": "2026-08-29",
-      "customer": "Mariangela Villalobos",
+      "status": "pendiente",
+      "createdAt": "2026-08-29T19:41:40.158Z",
+      "viaTexto": true,
       "payments": [
         {
           "id": "bmbu63m4hjtmtesduwu",
@@ -1512,26 +1513,17 @@
           "rate": 791.67
         }
       ],
-      "viaTexto": true,
-      "status": "pendiente",
-      "product": "VS Foto Blue - montura GM29 54-17-140 P70 · OD -1.00 x10° / OI -1.00 x175°, DNP 33/33, ADD - · C.I. 19.459.042",
-      "phone": "+58 04121382971",
-      "createdAt": "2026-08-29T19:41:40.158Z",
       "orderNumber": 175,
-      "total": 160,
-      "storeId": "rene"
+      "phone": "+58 04121382971",
+      "product": "VS Foto Blue - montura GM29 54-17-140 P70 · OD -1.00 x10° / OI -1.00 x175°, DNP 33/33, ADD - · C.I. 19.459.042",
+      "storeId": "rene",
+      "customer": "Mariangela Villalobos",
+      "createdDate": "2026-08-29",
+      "total": 160
     },
     {
       "id": "wtbx9l1sjfrmt924bfj",
-      "status": "pendiente",
-      "total": 100,
-      "product": "Lentes con montura BLM.810449-71, color negro, marca Cielo, metal. Lente Keto Blue · OD -1.00 x225 / OI -1.50 x45; DNP D 20 DNP I 29 ALT 30 · C.I. 31250333",
-      "createdDate": "2026-08-25",
-      "storeId": "rene",
-      "phone": "+58 0426799830",
-      "createdAt": "2026-08-25T19:27:34.111Z",
       "viaTexto": true,
-      "orderNumber": 206,
       "payments": [
         {
           "id": "bzun6j7bz8nmt924bfj",
@@ -1542,20 +1534,19 @@
           "rate": 785.07
         }
       ],
-      "customer": "Carma Arriaga"
+      "createdAt": "2026-08-25T19:27:34.111Z",
+      "status": "pendiente",
+      "phone": "+58 0426799830",
+      "createdDate": "2026-08-25",
+      "total": 100,
+      "orderNumber": 206,
+      "customer": "Carma Arriaga",
+      "product": "Lentes con montura BLM.810449-71, color negro, marca Cielo, metal. Lente Keto Blue · OD -1.00 x225 / OI -1.50 x45; DNP D 20 DNP I 29 ALT 30 · C.I. 31250333",
+      "storeId": "rene"
     },
     {
       "id": "xbsjvgtj6qpmterlc7f",
-      "status": "pendiente",
-      "total": 190,
-      "phone": "+58 04140608367",
-      "createdDate": "2026-08-29",
-      "product": "Progresivo Blue · OD +1.75 -0.75 100° / OI +1.25 -1.00 30°, ADD +3.00 · C.I. 7961573",
-      "customer": "Francina Yory",
-      "createdAt": "2026-08-29T19:19:29.547Z",
       "viaTexto": true,
-      "orderNumber": 209,
-      "storeId": "rene",
       "payments": [
         {
           "id": "egsso0tisymterlc7f",
@@ -1565,20 +1556,22 @@
           "amountBs": null,
           "rate": 791.67
         }
-      ]
+      ],
+      "orderNumber": 209,
+      "createdDate": "2026-08-29",
+      "createdAt": "2026-08-29T19:19:29.547Z",
+      "total": 190,
+      "status": "pendiente",
+      "phone": "+58 04140608367",
+      "storeId": "rene",
+      "product": "Progresivo Blue · OD +1.75 -0.75 100° / OI +1.25 -1.00 30°, ADD +3.00 · C.I. 7961573",
+      "customer": "Francina Yory"
     },
     {
       "id": "xe1jybsuo8mtes2zmp",
-      "status": "pendiente",
-      "total": 180,
-      "phone": "+58 04246144621",
-      "createdDate": "2026-08-29",
-      "product": "Lentes bifocal foto AR, montura metal · OD -3.00; OI -3.00 -3.00 x165; DNP D 35 DNP I 34 Alt 24 · C.I. 5822980",
       "customer": "Felipe Urdaneta",
-      "createdAt": "2026-08-29T19:33:13.057Z",
-      "viaTexto": true,
+      "product": "Lentes bifocal foto AR, montura metal · OD -3.00; OI -3.00 -3.00 x165; DNP D 35 DNP I 34 Alt 24 · C.I. 5822980",
       "storeId": "rene",
-      "orderNumber": 193,
       "payments": [
         {
           "id": "9p5kxw2wp9imtes2zmp",
@@ -1588,16 +1581,17 @@
           "amountBs": null,
           "rate": 791.67
         }
-      ]
+      ],
+      "viaTexto": true,
+      "createdAt": "2026-08-29T19:33:13.057Z",
+      "status": "pendiente",
+      "orderNumber": 193,
+      "phone": "+58 04246144621",
+      "total": 180,
+      "createdDate": "2026-08-29"
     },
     {
       "id": "xuagj39gdtsmtesfh0p",
-      "total": 165,
-      "phone": "+58 04127240234",
-      "createdDate": "2026-08-29",
-      "status": "pendiente",
-      "storeId": "rene",
-      "viaTexto": true,
       "payments": [
         {
           "id": "slm4y9say8mtesfh0p",
@@ -1608,15 +1602,27 @@
           "rate": 791.67
         }
       ],
+      "viaTexto": true,
+      "status": "pendiente",
       "createdAt": "2026-08-29T19:42:55.465Z",
-      "product": "Lente progresivo AB, montura pasta color Trans marca Gio · OD +1.50; OI +2.00 -1.00 165°; ADD +2.50 · C.I. 11.285.841",
       "orderNumber": 173,
-      "customer": "Denise Ferrer"
+      "storeId": "rene",
+      "product": "Lente progresivo AB, montura pasta color Trans marca Gio · OD +1.50; OI +2.00 -1.00 165°; ADD +2.50 · C.I. 11.285.841",
+      "total": 165,
+      "phone": "+58 04127240234",
+      "customer": "Denise Ferrer",
+      "createdDate": "2026-08-29"
     },
     {
       "id": "yjj9qyr2cg9mterpdk3",
-      "customer": "Alexander Gil",
+      "storeId": "rene",
       "product": "VS Blue - Lente Realvision, aro cerrado pasta, color azul · OD -0.50 x100; OI -1.00 x75; DNP D 34 / DNP I 33; ALT 26 · C.I. 21.144.459",
+      "customer": "Alexander Gil",
+      "status": "pendiente",
+      "total": 90,
+      "createdDate": "2026-08-29",
+      "createdAt": "2026-08-29T19:22:37.923Z",
+      "phone": "+58 04245066644",
       "payments": [
         {
           "id": "7kmnbldyfhomterpdk3",
@@ -1627,13 +1633,7 @@
           "rate": 791.67
         }
       ],
-      "createdDate": "2026-08-29",
       "viaTexto": true,
-      "storeId": "rene",
-      "status": "pendiente",
-      "createdAt": "2026-08-29T19:22:37.923Z",
-      "phone": "+58 04245066644",
-      "total": 90,
       "orderNumber": 202
     }
   ],
@@ -1642,10 +1642,10 @@
     {
       "id": "fhqranyl99mroizrfw",
       "month": "2026-07",
-      "cat": "alquiler",
       "date": "2026-07-17",
-      "note": "",
       "amount": 550,
+      "cat": "alquiler",
+      "note": "",
       "createdAt": "2026-07-17T05:57:03.021Z"
     }
   ],
