@@ -2047,10 +2047,14 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
   const costoDistrib= Math.max(0, mCOGS - mLab) + doneApart.reduce((s,o)=>s+(o.cost||0),0);   // lo que pagas al distribuidor
   const ventaRetail = Math.max(0, mRevenue - mLab) + doneApart.reduce((s,o)=>s+(o.total||0),0); // lo que cobras al cliente
   const utilidadMerc= ventaRetail - costoDistrib;
-  const margenUtil  = ventaRetail>0  ? (utilidadMerc/ventaRetail*100) : 0;   // ganancia ÷ venta
-  const markupRetail= costoDistrib>0 ? (utilidadMerc/costoDistrib*100) : 0;  // ganancia ÷ costo (markup)
+  const markupRetail= costoDistrib>0 ? (utilidadMerc/costoDistrib*100) : 0;  // ganancia ÷ costo (markup / "a retail")
   const costoPct    = ventaRetail>0  ? (costoDistrib/ventaRetail*100) : 0;   // costo ÷ venta
   const hayMerc     = ventaRetail>0 || costoDistrib>0;
+  // Márgenes de rentabilidad (P&L) sobre los ingresos del mes:
+  //  · Bruto = ganancia antes de gastos fijos · "margen de utilidad" = lo mismo
+  //  · Neto  = lo que queda después de los gastos fijos
+  const margenBruto = mRevenue>0 ? (mGross/mRevenue*100) : 0;
+  const margenNeto  = mRevenue>0 ? (mNet/mRevenue*100)  : 0;
 
   const allMonths = [...new Set([
     ...sales.map(s=>s.date.slice(0,7)),
@@ -2190,31 +2194,25 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
           <Card l="Costo mercancía + laboratorio" usd={mCOGS} c="#fbbf24" sub="Base invertida + lab pagado — no es ganancia"/>
           <Card l="Ganancia bruta"   usd={mGross}   c="#34d399" sub="Ingresos − base invertida"/>
         </div>
-        <div className="rg3" style={{marginBottom:16}}>
+        <div className="rg2" style={{marginBottom:16}}>
           <Card l="Gastos fijos del mes" usd={mExpenses} c="#f87171"/>
           <Card l="Ganancia neta"   usd={mNet}  c={mNet>=0?"#a78bfa":"#f87171"} sub="Ganancia bruta − gastos fijos"/>
-          <div className="card-sm" style={{borderLeft:"3px solid #0e7a8c50",background:"#040d10"}}>
-            <div style={{fontSize:10,color:"#1a4a50",marginBottom:4,textTransform:"uppercase"}}>Margen neto</div>
-            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:22,fontWeight:700,color:"#2dcfe8"}}>
-              {mRevenue>0 ? `${((mNet/mRevenue)*100).toFixed(1)}%` : "—"}
-            </div>
-          </div>
         </div>
 
-        {/* ── Márgenes detallados del mes (sobre mercancía) ── */}
+        {/* ── Márgenes detallados del mes — SOLO socios (René / Paul) ── */}
+        {isSocio(profile) && (
         <div style={{background:"#040d10",border:"1px solid #0a2028",borderRadius:12,padding:"14px",marginBottom:16}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:6,marginBottom:4}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:6,marginBottom:12}}>
             <div style={{fontSize:11,fontWeight:700,color:"#8aa0b8",textTransform:"uppercase",letterSpacing:".07em"}}>📐 Márgenes del mes</div>
-            <div style={{fontSize:11,color:"#1a4a50",fontFamily:"'JetBrains Mono',monospace"}}>
-              {hayMerc ? <>{fmtUSD(ventaRetail)} retail − {fmtUSD(costoDistrib)} costo = <span style={{color:"#34d399"}}>{fmtUSD(utilidadMerc)}</span></> : "sin ventas aún"}
-            </div>
+            <div style={{fontSize:10,color:"#2a4060",display:"flex",alignItems:"center",gap:4}}>🔒 Solo socios</div>
           </div>
-          <div style={{fontSize:11,color:"#1a4a50",marginBottom:12}}>Sobre el producto vendido (sin contar laboratorio, que es pasa-manos)</div>
-          <div className="rg3">
+
+          {/* Precio del producto: del costo del distribuidor al retail */}
+          <div style={{fontSize:10,color:"#1a4a50",textTransform:"uppercase",letterSpacing:".05em",marginBottom:7}}>Precio del producto</div>
+          <div className="rg2" style={{marginBottom:6}}>
             {[
-              {l:"Costo distribuidor", pct:costoPct,     c:"#fbbf24", hint:"Lo que pagas al distribuidor · % de la venta", amt:fmtUSD(costoDistrib)},
-              {l:"Margen de utilidad", pct:margenUtil,   c:"#34d399", hint:"Lo que ganas · ganancia ÷ venta", amt:null},
-              {l:"Margen a retail",    pct:markupRetail, c:"#2dcfe8", hint:"Cuánto marcas sobre el costo (markup) · ganancia ÷ costo", amt:null},
+              {l:"Costo distribuidor", pct:costoPct,     c:"#fbbf24", hint:"Lo que le pagas al distribuidor (% de la venta)", amt:fmtUSD(costoDistrib)},
+              {l:"Margen a retail",    pct:markupRetail, c:"#2dcfe8", hint:"Cuánto marcas sobre el costo · markup (ganancia ÷ costo)", amt:null},
             ].map(m=>(
               <div key={m.l} style={{background:"#071418",border:`1px solid ${m.c}25`,borderRadius:10,padding:"12px"}}>
                 <div style={{fontSize:10,color:"#1a4a50",textTransform:"uppercase",letterSpacing:".05em",marginBottom:5}}>{m.l}</div>
@@ -2224,7 +2222,29 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
               </div>
             ))}
           </div>
+
+          {/* Rentabilidad del mes: antes y después de los gastos fijos */}
+          <div style={{fontSize:10,color:"#1a4a50",textTransform:"uppercase",letterSpacing:".05em",margin:"12px 0 7px"}}>Rentabilidad del mes</div>
+          <div className="rg2">
+            {[
+              {l:"Margen bruto", pct:margenBruto, c:"#34d399", hint:"Ganancia antes de gastos fijos (= margen de utilidad)"},
+              {l:"Margen neto",  pct:margenNeto,  c:margenNeto>=0?"#a78bfa":"#f87171", hint:"Lo que queda después de los gastos fijos"},
+            ].map(m=>(
+              <div key={m.l} style={{background:"#071418",border:`1px solid ${m.c}25`,borderRadius:10,padding:"12px"}}>
+                <div style={{fontSize:10,color:"#1a4a50",textTransform:"uppercase",letterSpacing:".05em",marginBottom:5}}>{m.l}</div>
+                <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:22,fontWeight:800,color:m.c}}>{mRevenue>0 ? `${m.pct.toFixed(1)}%` : "—"}</div>
+                <div style={{fontSize:10,color:"#1a4a50",marginTop:5,lineHeight:1.4}}>{m.hint}</div>
+              </div>
+            ))}
+          </div>
+
+          {hayMerc && (
+            <div style={{fontSize:10,color:"#1a4050",fontFamily:"'JetBrains Mono',monospace",marginTop:10,textAlign:"right"}}>
+              {fmtUSD(ventaRetail)} retail − {fmtUSD(costoDistrib)} costo = <span style={{color:"#34d399"}}>{fmtUSD(utilidadMerc)}</span> de ganancia en producto
+            </div>
+          )}
         </div>
+        )}
 
         {/* Split 55/45 — solo lo ven los socios (owner / René) */}
         {isSocio(profile) && mNet > 0 && (
