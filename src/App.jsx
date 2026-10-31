@@ -2037,6 +2037,21 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
   const mCobradoTotal= mRevenue + mAbonos;
   const mEfectivoNeto= mCobradoTotal - mExpenses;
 
+  // ── Márgenes del mes (sobre MERCANCÍA: costo distribuidor vs retail) ──
+  // El laboratorio es pasa-manos (se cobra y se paga igual), así que se excluye
+  // para que los márgenes reflejen solo el producto.
+  const mLab        = mSales.reduce((s,v)=>s+(v.labCost||0),0);
+  // Apartados que quedaron pagados este mes: su venta (total) y su costo.
+  const doneApart   = orders.filter(o=>o.cost!=null && orderBalance(o)<=0.01 && (o.payments||[]).length)
+    .filter(o=>((o.payments||[]).reduce((m,p)=>(p.date>m?p.date:m),"")).slice(0,7)===viewMonth);
+  const costoDistrib= Math.max(0, mCOGS - mLab) + doneApart.reduce((s,o)=>s+(o.cost||0),0);   // lo que pagas al distribuidor
+  const ventaRetail = Math.max(0, mRevenue - mLab) + doneApart.reduce((s,o)=>s+(o.total||0),0); // lo que cobras al cliente
+  const utilidadMerc= ventaRetail - costoDistrib;
+  const margenUtil  = ventaRetail>0  ? (utilidadMerc/ventaRetail*100) : 0;   // ganancia ÷ venta
+  const markupRetail= costoDistrib>0 ? (utilidadMerc/costoDistrib*100) : 0;  // ganancia ÷ costo (markup)
+  const costoPct    = ventaRetail>0  ? (costoDistrib/ventaRetail*100) : 0;   // costo ÷ venta
+  const hayMerc     = ventaRetail>0 || costoDistrib>0;
+
   const allMonths = [...new Set([
     ...sales.map(s=>s.date.slice(0,7)),
     ...expenses.map(e=>emonth(e)),
@@ -2183,6 +2198,31 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
             <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:22,fontWeight:700,color:"#2dcfe8"}}>
               {mRevenue>0 ? `${((mNet/mRevenue)*100).toFixed(1)}%` : "—"}
             </div>
+          </div>
+        </div>
+
+        {/* ── Márgenes detallados del mes (sobre mercancía) ── */}
+        <div style={{background:"#040d10",border:"1px solid #0a2028",borderRadius:12,padding:"14px",marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:6,marginBottom:4}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#8aa0b8",textTransform:"uppercase",letterSpacing:".07em"}}>📐 Márgenes del mes</div>
+            <div style={{fontSize:11,color:"#1a4a50",fontFamily:"'JetBrains Mono',monospace"}}>
+              {hayMerc ? <>{fmtUSD(ventaRetail)} retail − {fmtUSD(costoDistrib)} costo = <span style={{color:"#34d399"}}>{fmtUSD(utilidadMerc)}</span></> : "sin ventas aún"}
+            </div>
+          </div>
+          <div style={{fontSize:11,color:"#1a4a50",marginBottom:12}}>Sobre el producto vendido (sin contar laboratorio, que es pasa-manos)</div>
+          <div className="rg3">
+            {[
+              {l:"Costo distribuidor", pct:costoPct,     c:"#fbbf24", hint:"Lo que pagas al distribuidor · % de la venta", amt:fmtUSD(costoDistrib)},
+              {l:"Margen de utilidad", pct:margenUtil,   c:"#34d399", hint:"Lo que ganas · ganancia ÷ venta", amt:null},
+              {l:"Margen a retail",    pct:markupRetail, c:"#2dcfe8", hint:"Cuánto marcas sobre el costo (markup) · ganancia ÷ costo", amt:null},
+            ].map(m=>(
+              <div key={m.l} style={{background:"#071418",border:`1px solid ${m.c}25`,borderRadius:10,padding:"12px"}}>
+                <div style={{fontSize:10,color:"#1a4a50",textTransform:"uppercase",letterSpacing:".05em",marginBottom:5}}>{m.l}</div>
+                <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:22,fontWeight:800,color:m.c}}>{hayMerc ? `${m.pct.toFixed(1)}%` : "—"}</div>
+                {m.amt && hayMerc && <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:1}}>{m.amt}</div>}
+                <div style={{fontSize:10,color:"#1a4a50",marginTop:5,lineHeight:1.4}}>{m.hint}</div>
+              </div>
+            ))}
           </div>
         </div>
 

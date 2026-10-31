@@ -9,3 +9,5 @@ FORMATO OPTILATINA.xlsx
 backup-firestore-*.json
 
 .claude/
+
+reset-dia1.mjs
