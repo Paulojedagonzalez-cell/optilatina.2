@@ -1181,32 +1181,18 @@ function LoginScreen({ onSelect, dynProfiles }) {
 }
 
 // ── Store View (pantalla tienda) ──────────────────────────────────────────────
-function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, orders, saveOrders, saveInv, saveSal, expenses = [], saveExpenses, refreshData, onLogout }) {
-  const [lines,      setLines]     = useState([]);
-  const [note,       setNote]      = useState("");
-  const [method,     setMethod]    = useState("cash");
+function StoreView({ profile, inventory, sales, rate, payments, orders, saveOrders, saveInv, saveSal, expenses = [], saveExpenses, refreshData, onLogout }) {
+  const isMobile = useIsMobile();
   const [showApart,  setShowApart] = useState(false);
-  const [showInv,    setShowInv]   = useState(false);  // ver inventario (sin editar precios)
-  const [showGasto,  setShowGasto] = useState(false);  // registrar gasto no fijo
-  const [gasto,      setGasto]     = useState({cat:"otro", amount:"", date:today(), note:""});
+  const [showGasto,  setShowGasto] = useState(false);
+  const [gasto,      setGasto]     = useState({title:"", amount:"", date:today(), note:""});
   const [gastoBusy,  setGastoBusy] = useState(false);
   const [gastoOk,    setGastoOk]   = useState(false);
   const [success,    setSuccess]   = useState(null);
-  const [catF,       setCatF]      = useState("Todos");
-  const [addStockM,  setAddStockM] = useState(false);
-  // Prescription modal
-  const [rxLine,     setRxLine]    = useState(null); // line id that needs Rx
-  const [rx,         setRx]        = useState({od:{sphere:"",cylinder:"",axis:""},oi:{sphere:"",cylinder:"",axis:""},add:""});
-  const [frameType,  setFrameType] = useState(FRAME_TYPES[0]);
-  const [crystalType,setCrystalType]=useState(CRYSTAL_TYPES[0]);
-  const [labCost,    setLabCost]   = useState("");
-  const [lab,        setLab]       = useState(LAB_LIST[0]);
-  const [camera,     setCamera]    = useState(false); // camera modal
   const [submitting, setSubmitting]= useState(false); // evita registrar la venta 2 veces por doble toque
-  const [showManual, setShowManual]= useState(false); // catálogo manual — respaldo, colapsado por defecto
   // Venta por foto del ticket físico: cámara/galería → la IA lo lee → se
   // confirma (recreando el ticket) → se guarda. Es la vía principal en tienda.
-  const [saleDraft,  setSaleDraft] = useState(null);   // {items:[{id,rawName,productId,qty}], method, note}
+  const [saleDraft,  setSaleDraft] = useState(null);   // {customer,phone,monturaRaw,monturaId,cristal,total,abono,method}
   const [saleErr,    setSaleErr]   = useState("");
   const [saleReading,setSaleReading]=useState(false);
   const saleCamRef = useRef(null);
@@ -1220,74 +1206,10 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
     {id:"transferencia", label:"Transferencia", icon:"🏦", currency:"Bs",  detail:payments?.bank?.account ? `${payments.bank.bank} · ${payments.bank.account} · ${payments.bank.name}` : null},
     {id:"cashea",        label:"Cashea",        icon:"🛒", currency:"USD", detail:"Compra a crédito (BNPL)"},
   ];
-  const selMethod = METHODS.find(m=>m.id===method);
 
-  const todaySales = sales.filter(s => s.date===today());
-  const todayRev   = todaySales.reduce((s,v)=>s+v.total,0);
-
-  const resolved = lines.map(r => {
-    const p = inventory.find(x=>x.id===r.productId);
-    if (!p) return {...r,product:null,subtotal:0,profit:0};
-    return {...r,product:p,subtotal:p.price*r.qty,profit:(p.price-p.cost)*r.qty};
-  });
-  const total  = resolved.reduce((s,r)=>s+r.subtotal,0);
-  const profit = resolved.reduce((s,r)=>s+r.profit,0);
-  const valid  = resolved.length>0 && resolved.every(r=>r.product && r.qty>0);
-  const stockWarn = resolved.filter(r=>r.product && !r.product.isService && r.qty>getStock(r.product));
-
-  const toggleProduct = p => {
-    const has = lines.find(l=>l.productId===p.id);
-    if (has) setLines(l=>l.filter(r=>r.productId!==p.id));
-    else setLines(l=>[...l,{id:uid(),productId:p.id,qty:1}]);
-  };
-  const changeQty = (id,v) => setLines(l=>l.map(r=>r.id===id?{...r,qty:Math.max(1,v)}:r));
-
-  const handleSale = async () => {
-    if (!valid || stockWarn.length>0 || submitting) return;
-    setSubmitting(true);
-    const saleId=uid(), newSales=[...sales];
-    const labC = Number(labCost)||0;
-    const newInv = inventory.map(p=>({...p}));
-    resolved.forEach(r=>{
-      const prodInv = newInv.find(p=>p.id===r.product.id);
-      let assignedSerials = [];
-      if (prodInv && !prodInv.isService && prodInv.serials) {
-        // Consumir primero las unidades sin codigo; los seriales reales
-        // se conservan en stock hasta que se vendan especificamente
-        const ordered = [...prodInv.serials].sort((a,b)=>(isAutoCode(a)?0:1)-(isAutoCode(b)?0:1));
-        assignedSerials = ordered.slice(0, r.qty);
-        prodInv.serials = ordered.slice(r.qty);
-      }
-      const lineLabCost = labC / resolved.length;
-      const isBs = methodCur(method) === "Bs"; // Pago Móvil / Transferencia = Bs
-      newSales.push({
-        id:uid(), saleId, date:today(), note, paymentMethod:method,
-        registeredBy:profile.id, storeId:profile.id,
-        productId:r.product.id, productName:r.product.name, cat:r.product.cat,
-        cost:r.product.cost, price:r.product.price, qty:r.qty,
-        total:r.subtotal + lineLabCost, profit:r.profit,
-        totalBs: isBs ? (r.subtotal + lineLabCost) * rate : null, // monto en Bs (pago móvil / transferencia)
-        serials:assignedSerials,
-        frameType, crystalType, lab, labCost:lineLabCost,
-        rx: (r.product.cat==="Lente"||r.product.cat==="Lente de contacto") ? rx : null,
-      });
-    });
-    try {
-      await saveSal(newSales); await saveInv(newInv);
-      setSuccess({total: total+labC, profit});
-      setTimeout(()=>{setSuccess(null);setLines([]);setNote("");setMethod("cash");setLabCost("");setRx({od:{sphere:"",cylinder:"",axis:""},oi:{sphere:"",cylinder:"",axis:""},add:""});},3000);
-    } catch (e) {
-      console.error("Error registrando venta:", e);
-      alert("No se pudo registrar la venta. Revisa tu conexión e intenta de nuevo.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // ── Venta por foto del ticket físico ────────────────────────────────────────
+  // ── Leer la factura con IA ──────────────────────────────────────────────────
   // El personal ya llenó el ticket en papel; solo toma la foto. La IA lo lee y
-  // se muestra recreado (como el ticket original) para confirmar antes de
-  // guardar — nunca se escribe de nuevo a mano.
+  // se muestra recreado para confirmar antes de guardar — nunca se escribe de nuevo.
   const scanSaleTicket = async (e) => {
     const files = Array.from(e.target.files || []);
     e.target.value = "";
@@ -1312,10 +1234,10 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
       }
       const json = await res.json().catch(() => ({}));
       if (res.status === 503 || json.error === "not_configured") {
-        setSaleErr("El lector de tickets todavía no está activado. Pídeselo al administrador."); return;
+        setSaleErr("El lector de facturas todavía no está activado. Pídeselo al administrador."); return;
       }
       if (!res.ok || !json.ok) {
-        setSaleErr(json.message || "No se pudo leer el ticket. Intenta con mejor luz/enfoque."); return;
+        setSaleErr(json.message || "No se pudo leer la factura. Intenta con mejor luz/enfoque, o escríbela a mano."); return;
       }
       const d = json.data || {};
       const matched = d.montura ? fuzzyMatchProduct(d.montura, inventory) : null;
@@ -1331,10 +1253,17 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
       });
     } catch (err) {
       console.error("scanSaleTicket error:", err);
-      setSaleErr(`No se pudo procesar la foto (${err?.message || "error"}). Intenta de nuevo o usa el modo manual.`);
+      setSaleErr(`No se pudo procesar la foto (${err?.message || "error"}). Intenta de nuevo o escribe la factura a mano.`);
     } finally {
       setSaleReading(false);
     }
+  };
+
+  // Respaldo: si la IA no lee la factura o no hay foto, escribir la venta a mano
+  // reusando el MISMO formulario de confirmación (se elige la montura del inventario).
+  const openManualDraft = () => {
+    setSaleErr("");
+    setSaleDraft({ customer:"", phone:"", monturaRaw:"", monturaId:"", cristal:"", total:"", abono:"", method:"cash" });
   };
 
   // Cálculos del borrador del ticket (una montura + cristal)
@@ -1370,7 +1299,6 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
         const order = {
           id: uid(), orderNumber: num, customer: saleDraft.customer.trim(), phone: saleDraft.phone || "",
           product: prodDesc, total: dTotal,
-          // Guardamos el costo para reconocer la ganancia cuando el apartado quede pagado
           cost: draftMontura.cost || 0, productId: draftMontura.id, cat: draftMontura.cat,
           payments: dAbono > 0 ? [{ id: uid(), date: today(), amount: dAbono, method: saleDraft.method, amountBs: isBs ? dAbono * rate : null, rate }] : [],
           status: "pendiente", storeId: profile.id, createdAt: new Date().toISOString(), createdDate: today(), viaTicket: true,
@@ -1400,53 +1328,17 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
     }
   };
 
-  const isMobile = useIsMobile();
-
-  const [searchQ, setSearchQ] = useState("");
-  const filteredInv = useMemo(() => inventory.filter(p => {
-    if (p.isService ? false : getStock(p) < 1) return false;
-    if (searchQ) return p.name.toLowerCase().includes(searchQ.toLowerCase());
-    return catF === "Todos" || p.cat === catF;
-  }), [inventory, searchQ, catF]);
-
-  // Payment methods breakdown for today
-  const todayByMethod = METHODS.map(m => ({
-    ...m,
-    rev: todaySales.filter(s=>s.paymentMethod===m.id||(m.id==="cash"&&s.paymentMethod==="efectivo")).reduce((s,v)=>s+v.total,0)
-  })).filter(m=>m.rev>0);
-
-  // Quick inventory adjust state
-  const [adjustProd, setAdjustProd] = useState(null);
-  const [adjustQty,  setAdjustQty]  = useState(1);
-  const [adjustMode, setAdjustMode] = useState("add"); // "add" | "remove"
-
-  const handleAdjust = async () => {
-    if (!adjustProd) return;
-    const newInv = inventory.map(p => {
-      if (p.id !== adjustProd.id || p.isService) return p;
-      const current = p.serials || [];
-      if (adjustMode === "add") {
-        // Add N generic serials
-        const news = Array.from({length:adjustQty}, (_,i) => `AJ-${Date.now()}-${i}`);
-        return {...p, serials:[...current,...news]};
-      } else {
-        return {...p, serials: current.slice(0, Math.max(0, current.length - adjustQty))};
-      }
-    });
-    await saveInv(newInv);
-    setAdjustProd(null);
-  };
-
-  // Registrar un gasto NO fijo (variable) desde la tienda
+  // Registrar un gasto de tienda (compra suelta) — queda como "de tienda" en Finanzas
   const saveGasto = async () => {
     const amt = Number(gasto.amount);
     if (!amt || amt <= 0 || gastoBusy || !saveExpenses) return;
     setGastoBusy(true);
-    const rec = { id: uid(), cat: gasto.cat, amount: amt, month: (gasto.date||today()).slice(0,7), date: gasto.date||today(), note: gasto.note||"" };
+    const d = gasto.date || today();
+    const rec = { id: uid(), type:"tienda", cat:"tienda", title: (gasto.title||"").trim() || "Gasto de tienda", amount: amt, month: d.slice(0,7), date: d, note: gasto.note||"" };
     try {
       await saveExpenses([...expenses, rec]);
       setGastoOk(true);
-      setGasto({cat:"otro", amount:"", date:today(), note:""});
+      setGasto({title:"", amount:"", date:today(), note:""});
       setTimeout(()=>{ setGastoOk(false); setShowGasto(false); }, 1400);
     } catch (e) {
       console.error("Error registrando gasto:", e);
@@ -1456,85 +1348,45 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
     }
   };
 
+  const pendientes = (orders||[]).filter(o=>o.status!=="entregado"&&orderBalance(o)>0);
+
   return (
-    <div style={{fontFamily:"'Outfit',sans-serif",background:"#040d10",color:"#e2e8f4",display:"flex",flexDirection:"column",height:isMobile?"auto":"100dvh",minHeight:isMobile?"100svh":"100dvh",overflow:isMobile?"auto":"hidden"}}>
+    <div style={{fontFamily:"'Outfit',sans-serif",background:"#040d10",color:"#e2e8f4",display:"flex",flexDirection:"column",minHeight:"100svh"}}>
       <style>{CSS}</style>
 
+      {/* Apartados (créditos) */}
       {showApart && (
         <div style={{position:"fixed",inset:0,background:"#040d10",zIndex:200,overflow:"auto",padding:"calc(env(safe-area-inset-top, 0px) + 14px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px)"}}>
           <div style={{maxWidth:920,margin:"0 auto"}}>
-            <button className="btn-g" onClick={()=>setShowApart(false)} style={{marginBottom:14,padding:"11px 18px",fontSize:14}}>← Volver a ventas</button>
+            <button className="btn-g" onClick={()=>setShowApart(false)} style={{marginBottom:14,padding:"11px 18px",fontSize:14}}>← Volver a facturas</button>
             <ApartadosTab orders={orders||[]} saveOrders={saveOrders} rate={rate} profile={profile} isMobile={isMobile}
               inventory={inventory} saveInv={saveInv} sales={sales} saveSal={saveSal}/>
           </div>
         </div>
       )}
 
-      {/* Inventario (solo consulta + ajuste de stock, sin editar precios) */}
-      {showInv && (
-        <div style={{position:"fixed",inset:0,background:"#040d10",zIndex:90,overflow:"auto",padding:"calc(env(safe-area-inset-top, 0px) + 14px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px)"}}>
-          <div style={{maxWidth:920,margin:"0 auto"}}>
-            <button className="btn-g" onClick={()=>setShowInv(false)} style={{marginBottom:14,padding:"11px 18px",fontSize:14}}>← Volver a ventas</button>
-            <h1 style={{fontSize:22,fontWeight:800,color:"#fff"}}>📦 Inventario</h1>
-            <div style={{color:"#1a4a50",fontSize:12,margin:"4px 0 14px"}}>Consulta de existencias. Ajusta el stock con ⚙️. Los <strong>precios</strong> los define la administración.</div>
-            <div className="card" style={{padding:0,overflow:"auto"}}>
-              <table>
-                <thead><tr>
-                  <th>Producto</th>
-                  <th style={{textAlign:"center"}}>Unidades</th>
-                  <th>Categoría</th>
-                  <th style={{textAlign:"right"}}>Precio venta</th>
-                  <th></th>
-                </tr></thead>
-                <tbody>
-                  {inventory.length===0 ? <tr><td colSpan={5} style={{textAlign:"center",color:"#1e3050",padding:"26px 0"}}>Sin productos</td></tr>
-                    : [...inventory].sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(p=>{
-                      const u=getStock(p);
-                      return (
-                        <tr key={p.id}>
-                          <td style={{color:"#b0c0d8",fontWeight:500}}>{p.name}</td>
-                          <td style={{textAlign:"center"}}>
-                            {p.isService ? <span className="badge bb">Servicio</span>
-                              : u===0 ? <span className="badge br">Agotado</span>
-                              : <span style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,fontSize:15,color:u<3?"#fbbf24":"#34d399"}}>{u}<span style={{fontSize:10,color:"#1a4a50",fontWeight:400}}> u</span></span>}
-                          </td>
-                          <td><span className="badge bb">{p.cat}</span></td>
-                          <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#60a5fa"}}>{fmtUSD(p.price)}<div style={{fontSize:10,color:"#fbbf24"}}>{fmtBs(p.price,rate)}</div></td>
-                          <td style={{textAlign:"right"}}>{!p.isService && <button className="btn-g" style={{padding:"5px 9px"}} title="Ajustar stock" onClick={()=>{setAdjustProd(p);setAdjustQty(1);setAdjustMode("add");}}>⚙️</button>}</td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Registrar gasto NO fijo */}
+      {/* Registrar gasto de tienda */}
       {showGasto && (
         <div className="ov" onClick={e=>{if(e.target===e.currentTarget)setShowGasto(false);}}>
           <div className="modal" style={{maxWidth:400}}>
             <div style={{fontSize:17,fontWeight:700,color:"#fff",marginBottom:4,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              💸 Registrar gasto
+              🛒 Registrar gasto de tienda
               <button style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:20}} onClick={()=>setShowGasto(false)}>×</button>
             </div>
-            <div style={{fontSize:12,color:"#1a4a50",marginBottom:16}}>Gastos del día de la tienda (compras, limpieza, transporte, etc.).</div>
+            <div style={{fontSize:12,color:"#1a4a50",marginBottom:16}}>Compras/pagos sueltos de la tienda (bolsas, limpieza, transporte, etc.).</div>
             {gastoOk ? (
               <div style={{background:"#0f2820",border:"1px solid #1a4a30",borderRadius:10,padding:"18px",fontSize:14,color:"#34d399",textAlign:"center"}}>✓ Gasto registrado</div>
             ) : (<>
               <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                <div className="field"><label>Concepto</label>
-                  <select value={gasto.cat} onChange={e=>setGasto(g=>({...g,cat:e.target.value}))}>
-                    {EXPENSE_CATS.map(c=><option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
-                  </select>
+                <div className="field"><label>¿En qué fue el gasto?</label>
+                  <input autoFocus placeholder="Ej: bolsas para entregas" value={gasto.title} onChange={e=>setGasto(g=>({...g,title:e.target.value}))}/>
                 </div>
                 <div className="rg2" style={{gap:10}}>
-                  <div className="field"><label>Monto (USD)</label><input autoFocus type="number" min="0" step="0.01" placeholder="0.00" value={gasto.amount} onChange={e=>setGasto(g=>({...g,amount:e.target.value}))}/></div>
+                  <div className="field"><label>Monto (USD)</label><input type="number" min="0" step="0.01" placeholder="0.00" value={gasto.amount} onChange={e=>setGasto(g=>({...g,amount:e.target.value}))}/></div>
                   <div className="field"><label>Fecha</label><input type="date" value={gasto.date} onChange={e=>setGasto(g=>({...g,date:e.target.value}))}/></div>
                 </div>
                 {gasto.amount>0 && <div style={{fontSize:11,color:"#fbbf24",fontFamily:"'JetBrains Mono',monospace"}}>= {fmtBs(Number(gasto.amount),rate)}</div>}
-                <div className="field"><label>Nota (opcional)</label><input placeholder="Ej: bolsas, limpieza, flete…" value={gasto.note} onChange={e=>setGasto(g=>({...g,note:e.target.value}))}/></div>
+                <div className="field"><label>Nota (opcional)</label><input placeholder="Detalle…" value={gasto.note} onChange={e=>setGasto(g=>({...g,note:e.target.value}))}/></div>
               </div>
               <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
                 <button className="btn-g" onClick={()=>setShowGasto(false)}>Cancelar</button>
@@ -1545,10 +1397,11 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
         </div>
       )}
 
+      {/* Éxito */}
       {success && (
-        <div className="popin" style={{position:"fixed",inset:0,background:"rgba(2,8,10,.95)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:10}}>
+        <div style={{position:"fixed",inset:0,background:"rgba(4,13,16,.97)",zIndex:300,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10,textAlign:"center",padding:"20px"}}>
           <div style={{fontSize:72}}>{success.apartado ? "🧾" : "✅"}</div>
-          <div style={{fontSize:26,fontWeight:800,color:success.apartado?"#e8c96a":"#34d399"}}>{success.apartado ? "¡Apartado guardado!" : "¡Venta registrada!"}</div>
+          <div style={{fontSize:26,fontWeight:800,color:success.apartado?"#e8c96a":"#34d399"}}>{success.apartado ? "¡Apartado guardado!" : "¡Factura registrada!"}</div>
           <div style={{fontSize:18,color:"#1a5060"}}>Total <span style={{color:"#fff",fontFamily:"'JetBrains Mono',monospace"}}>{fmtUSD(success.total)}</span></div>
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,color:"#fbbf24"}}>{fmtBs(success.total,rate)}</div>
           {success.apartado && success.saldo>0 && <div style={{fontSize:14,color:"#fbbf24",marginTop:4}}>Saldo pendiente: <strong>{fmtUSD(success.saldo)}</strong>{success.cliente?` · ${success.cliente}`:""}</div>}
@@ -1557,10 +1410,8 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
 
       {/* ── HEADER ── */}
       <div style={{background:"#050f12",borderBottom:"1px solid #0a2028",padding:isMobile?"calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px":"12px 20px",flexShrink:0}}>
-        {/* Row 1: Logo + Store info + Back */}
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
-            {/* Store logo or default */}
             <div style={{width:isMobile?38:44,height:isMobile?38:44,borderRadius:isMobile?8:10,overflow:"hidden",flexShrink:0,border:`2px solid ${profile.color}40`}}>
               {profile.storeLogo
                 ? <img src={profile.storeLogo} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="logo"/>
@@ -1568,546 +1419,120 @@ function StoreView({ profile, inventory, sales, rate, payments, dynProfiles, ord
               }
             </div>
             <div>
-              <div style={{fontSize:isMobile?14:16,fontWeight:800,color:"#fff",letterSpacing:"-.01em",display:"flex",alignItems:"center",gap:6}}>{profile.storeName||"OptiLatina"}</div>
+              <div style={{fontSize:isMobile?14:16,fontWeight:800,color:"#fff",letterSpacing:"-.01em"}}>{profile.storeName||"OptiLatina"}</div>
               <div style={{fontSize:isMobile?11:13,fontWeight:600,color:profile.color,marginTop:1}}>{profile.address}</div>
             </div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
-            <button className="btn-p" style={{fontSize:11,padding:"6px 10px",display:"flex",alignItems:"center",gap:4,background:"linear-gradient(135deg,#7a5a0a,#b8860b)"}} onClick={()=>setShowApart(true)}>🧾{isMobile?"":" Apartados"}{orders?.filter(o=>o.status!=="entregado"&&orderBalance(o)>0).length>0&&<span style={{background:"#2a1e08",borderRadius:10,padding:"0 6px",fontSize:10}}>{orders.filter(o=>o.status!=="entregado"&&orderBalance(o)>0).length}</span>}</button>
-            <button className="btn-p" style={{fontSize:11,padding:"6px 10px",display:"flex",alignItems:"center",gap:4}} onClick={()=>setShowInv(true)}>📦{isMobile?"":" Inventario"}</button>
-            <button className="btn-p" style={{fontSize:11,padding:"6px 10px",display:"flex",alignItems:"center",gap:4,background:"linear-gradient(135deg,#5a2a0a,#8a3a10)"}} onClick={()=>{setGasto({cat:"otro",amount:"",date:today(),note:""});setGastoOk(false);setShowGasto(true);}}>💸{isMobile?"":" Gasto"}</button>
+            <button className="btn-p" style={{fontSize:11,padding:"6px 10px",display:"flex",alignItems:"center",gap:4,background:"linear-gradient(135deg,#7a5a0a,#b8860b)"}} onClick={()=>setShowApart(true)}>🧾{isMobile?"":" Apartados"}{pendientes.length>0&&<span style={{background:"#2a1e08",borderRadius:10,padding:"0 6px",fontSize:10}}>{pendientes.length}</span>}</button>
+            <button className="btn-p" style={{fontSize:11,padding:"6px 10px",display:"flex",alignItems:"center",gap:4,background:"linear-gradient(135deg,#5a2a0a,#8a3a10)"}} onClick={()=>{setGasto({title:"",amount:"",date:today(),note:""});setGastoOk(false);setShowGasto(true);}}>🛒{isMobile?"":" Gasto"}</button>
             <RefreshBtn refreshData={refreshData} label={false} style={{padding:"6px 10px"}}/>
-            <button className="btn-p" style={{fontSize:11,padding:"6px 10px",display:"flex",alignItems:"center",gap:4}} onClick={()=>setCamera(true)}>📷{isMobile?"":" Escanear"}</button>
-            <button onClick={()=>setAddStockM(true)} className="btn-p" style={{fontSize:11,padding:"6px 10px",display:"flex",alignItems:"center",gap:4}}><IPlus/>{isMobile?"":" Stock"}</button>
             <button onClick={onLogout} className="btn-g" style={{fontSize:11,padding:"6px 10px",display:"flex",alignItems:"center",gap:4,borderColor:"#1a3040"}}>
               <ILogout/>{isMobile?"Salir":" Cambiar perfil"}
             </button>
           </div>
         </div>
-
-        {/* Row 2: Today's stats */}
-        <div style={{display:"flex",gap:isMobile?8:14,alignItems:"center",flexWrap:"wrap"}}>
-          <div style={{background:"#071c22",border:"1px solid #0a2a30",borderRadius:10,padding:"7px 14px",display:"flex",gap:16,alignItems:"center"}}>
-            <div>
-              <div style={{fontSize:9,color:"#1a4a50",letterSpacing:".07em"}}>VENTAS HOY</div>
-              <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:isMobile?15:17,fontWeight:700,color:"#2dcfe8"}}>{fmtUSD(todayRev)}</div>
-              <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:"#fbbf24"}}>{fmtBs(todayRev,rate)}</div>
-            </div>
-            <div style={{width:1,height:36,background:"#0a2a30"}}/>
-            <div>
-              <div style={{fontSize:9,color:"#1a4a50",letterSpacing:".07em"}}>TRANSACCIONES</div>
-              <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:isMobile?15:17,fontWeight:700,color:"#a78bfa"}}>{todaySales.length}</div>
-            </div>
-          </div>
-          {/* Tasa del dia (BCV, se actualiza sola) */}
-          <div style={{background:"#071c22",border:"1px solid #2a2010",borderRadius:10,padding:"7px 14px"}}>
-            <div style={{fontSize:9,color:"#7a6420",letterSpacing:".07em"}}>TASA DEL DÍA</div>
-            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:isMobile?15:17,fontWeight:700,color:"#fbbf24"}}>Bs {Number(rate).toLocaleString("es-VE",{maximumFractionDigits:2})}</div>
-            <div style={{fontSize:9,color:"#5a4a18"}}>BCV · por 1 USD</div>
-          </div>
-          {/* Payment method pills */}
-          {todayByMethod.map(m=>(
-            <div key={m.id} style={{background:"#071418",border:"1px solid #0a2028",borderRadius:8,padding:"5px 10px",display:"flex",alignItems:"center",gap:5}}>
-              <span style={{fontSize:14}}>{m.icon}</span>
-              <div>
-                <div style={{fontSize:9,color:"#1a4050"}}>{m.label}</div>
-                <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#e2e8f4",fontWeight:600}}>{fmtUSD(m.rev)}</div>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
-      {/* Modals */}
-      {camera && <CameraModal onClose={()=>setCamera(false)} onDetect={code=>{
-        const matched = inventory.find(p=>p.serials?.includes(code));
-        if (matched) {
-          setLines(l=>l.some(r=>r.productId===matched.id)?l:[...l,{id:uid(),productId:matched.id,qty:1}]);
-          setCamera(false);
-        } else {
-          setCamera(false);
-          alert(`Código: ${code}\nNo encontrado en inventario.`);
-        }
-      }}/>}
-
-      {addStockM && <InvModal item={null} inventory={inventory} saveInv={saveInv} onClose={()=>setAddStockM(false)} rate={rate}/>}
-
-      {/* Quick inventory adjust modal */}
-      {adjustProd && (
-        <div className="ov" onClick={e=>{if(e.target===e.currentTarget)setAdjustProd(null);}}>
-          <div className="modal" style={{maxWidth:360}}>
-            <div style={{fontSize:16,fontWeight:700,color:"#fff",marginBottom:16,display:"flex",justifyContent:"space-between"}}>
-              📦 Ajustar stock
-              <button style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:20}} onClick={()=>setAdjustProd(null)}>×</button>
+      {/* ── SUBIR FACTURA DE VENTA ── */}
+      <div style={{flex:1,overflowY:"auto",overflowX:"hidden",padding:isMobile?"16px 12px 28px":"28px 22px",display:"flex",justifyContent:"center"}}>
+        {!saleDraft ? (
+          <div className="card" style={{maxWidth:480,width:"100%",textAlign:"center",padding:isMobile?"26px 18px":"40px 32px",alignSelf:"flex-start"}}>
+            <div style={{fontSize:48,marginBottom:12}}>🧾📸</div>
+            <div style={{fontSize:20,fontWeight:800,color:"#fff",marginBottom:8}}>Subir factura de venta</div>
+            <div style={{fontSize:13,color:"#4a8090",lineHeight:1.6,marginBottom:22}}>
+              Toma foto de la factura que ya llenaste en papel.<br/>El sistema la lee y te la muestra para que confirmes antes de guardar.
             </div>
-            <div style={{fontSize:13,color:"#a0c8d0",marginBottom:14}}>{adjustProd.name}</div>
-            <div style={{fontSize:11,color:"#1a4a50",marginBottom:10}}>Stock actual: <strong style={{color:"#2dcfe8"}}>{getStock(adjustProd)} unidades</strong></div>
-            <div style={{display:"flex",gap:8,marginBottom:12}}>
-              {[["add","➕ Agregar"],["remove","➖ Reducir"]].map(([m,l])=>(
-                <button key={m} onClick={()=>setAdjustMode(m)} style={{flex:1,background:adjustMode===m?"#0c2e35":"transparent",border:`1px solid ${adjustMode===m?"#0e7a8c":"#0a2028"}`,borderRadius:8,padding:"8px",fontSize:12,color:adjustMode===m?"#2dcfe8":"#2a4060",cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>{l}</button>
-              ))}
-            </div>
-            <div className="field" style={{marginBottom:16}}>
-              <label>Cantidad</label>
-              <input type="number" min="1" value={adjustQty} onChange={e=>setAdjustQty(Math.max(1,parseInt(e.target.value)||1))}/>
-            </div>
-            <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-              <button className="btn-g" onClick={()=>setAdjustProd(null)}>Cancelar</button>
-              <button className="btn-p" onClick={handleAdjust}><ICheck/>Confirmar ajuste</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Prescription modal */}
-      {rxLine && (
-        <div className="ov" onClick={e=>{if(e.target===e.currentTarget)setRxLine(null);}}>
-          <div className="modal" style={{maxWidth:520}}>
-            <div style={{fontSize:16,fontWeight:700,color:"#fff",marginBottom:16,display:"flex",justifyContent:"space-between"}}>
-              🔬 Fórmula óptica
-              <button style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer"}} onClick={()=>setRxLine(null)}><IClose/></button>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
-              {[["od","OD — Ojo derecho"],["oi","OI — Ojo izquierdo"]].map(([eye,label])=>(
-                <div key={eye} style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:10,padding:"12px"}}>
-                  <div style={{fontSize:11,fontWeight:600,color:"#2dcfe8",marginBottom:10}}>{label}</div>
-                  {[["sphere","Esfera"],["cylinder","Cilindro"],["axis","Eje"]].map(([f,l])=>(
-                    <div key={f} className="field" style={{marginBottom:8}}>
-                      <label style={{fontSize:10}}>{l}</label>
-                      <input type="number" step="0.25" placeholder="0.00" value={rx[eye][f]}
-                        onChange={e=>setRx(r=>({...r,[eye]:{...r[eye],[f]:e.target.value}}))}
-                        style={{padding:"7px 10px",fontSize:13}}/>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
-              <div className="field"><label>ADD (adición)</label><input type="number" step="0.25" placeholder="0.00" value={rx.add} onChange={e=>setRx(r=>({...r,add:e.target.value}))}/></div>
-              <div className="field"><label>DP (distancia pupilar)</label><input type="number" step="0.5" placeholder="62" value={rx.pd||""} onChange={e=>setRx(r=>({...r,pd:e.target.value}))}/></div>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
-              <div className="field"><label>Tipo de montura</label>
-                <select value={frameType} onChange={e=>setFrameType(e.target.value)}>
-                  {FRAME_TYPES.map(t=><option key={t}>{t}</option>)}
-                </select>
-              </div>
-              <div className="field"><label>Tipo de cristal</label>
-                <select value={crystalType} onChange={e=>setCrystalType(e.target.value)}>
-                  {CRYSTAL_TYPES.map(t=><option key={t}>{t}</option>)}
-                </select>
-              </div>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:18}}>
-              <div className="field"><label>Laboratorio</label>
-                <select value={lab} onChange={e=>setLab(e.target.value)}>
-                  {LAB_LIST.map(t=><option key={t}>{t}</option>)}
-                </select>
-              </div>
-              <div className="field"><label>Costo laboratorio (USD)</label>
-                <input type="number" min="0" placeholder="0.00" value={labCost} onChange={e=>setLabCost(e.target.value)}/>
-              </div>
-            </div>
-            <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
-              <button className="btn-g" onClick={()=>setRxLine(null)}>Cancelar</button>
-              <button className="btn-p" onClick={()=>setRxLine(null)}><ICheck/>Guardar fórmula</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Venta por foto del ticket físico — vía principal en tienda */}
-      {!showManual && (
-        <div style={{display:isMobile?"flex":"grid",flexDirection:isMobile?"column":"unset",gridTemplateColumns:isMobile?"unset":"1fr 320px",flex:1,overflowY:isMobile?"auto":"hidden",overflowX:"hidden",gap:isMobile?0:1}}>
-          <div style={{overflowY:"auto",overflowX:"hidden",padding:isMobile?"14px 12px":"20px 22px",minWidth:0}}>
-            {!saleDraft ? (
-              <div className="card" style={{maxWidth:480,margin:"0 auto",textAlign:"center",padding:isMobile?"24px 18px":"36px 30px"}}>
-                <div style={{fontSize:44,marginBottom:10}}>🧾📸</div>
-                <div style={{fontSize:19,fontWeight:800,color:"#fff",marginBottom:8}}>Registrar venta</div>
-                <div style={{fontSize:13,color:"#4a8090",lineHeight:1.6,marginBottom:20}}>
-                  Toma foto del ticket que ya llenaste en papel.<br/>El sistema lo lee y te lo muestra para que confirmes antes de guardar.
-                </div>
-                <input ref={saleCamRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={scanSaleTicket}/>
-                <input ref={saleGalRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={scanSaleTicket}/>
-                {saleErr && <div style={{background:"#1a0a04",border:"1px solid #4a2010",borderRadius:10,padding:"11px 14px",fontSize:12,color:"#fbbf24",marginBottom:14,textAlign:"left",lineHeight:1.5}}>{saleErr}</div>}
-                {saleReading ? (
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"14px",color:"#2dcfe8",fontSize:14}}>
-                    <span style={{display:"inline-flex",animation:"spin 1s linear infinite"}}><IRefresh/></span> Leyendo el ticket…
-                  </div>
-                ) : (
-                  <div style={{display:"flex",gap:10}}>
-                    <button className="btn-p" style={{flex:1,justifyContent:"center",padding:"14px",fontSize:14}} onClick={()=>saleCamRef.current?.click()}>📷 Cámara</button>
-                    <button className="btn-p" style={{flex:1,justifyContent:"center",padding:"14px",fontSize:14,background:"linear-gradient(135deg,#0a5a6a,#0e7a8c)"}} onClick={()=>saleGalRef.current?.click()}>🖼️ Galería</button>
-                  </div>
-                )}
-                <button onClick={()=>setShowManual(true)} style={{marginTop:18,background:"transparent",border:"none",color:"#2a5a60",cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:12,textDecoration:"underline"}}>
-                  🖐️ Prefiero armar la venta manualmente
-                </button>
+            <input ref={saleCamRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={scanSaleTicket}/>
+            <input ref={saleGalRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={scanSaleTicket}/>
+            {saleErr && <div style={{background:"#1a0a04",border:"1px solid #4a2010",borderRadius:10,padding:"11px 14px",fontSize:12,color:"#fbbf24",marginBottom:14,textAlign:"left",lineHeight:1.5}}>{saleErr}</div>}
+            {saleReading ? (
+              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"14px",color:"#2dcfe8",fontSize:14}}>
+                <span style={{display:"inline-flex",animation:"spin 1s linear infinite"}}><IRefresh/></span> Leyendo la factura…
               </div>
             ) : (
-              <div className="card" style={{maxWidth:560,margin:"0 auto"}}>
-                <div style={{fontSize:16,fontWeight:700,color:"#fff",marginBottom:4}}>🧾 Confirma el ticket</div>
-                <div style={{fontSize:12,color:"#4a8090",marginBottom:16}}>Revisa que coincida con el papel — corrige lo que haga falta y guarda.</div>
-
-                {/* Cliente */}
-                <div className="rg2" style={{gap:10,marginBottom:12}}>
-                  <div className="field"><label>Cliente {esApartado && "*"}</label><input value={saleDraft.customer} onChange={e=>setDraft("customer",e.target.value)} placeholder="Nombre" style={{minWidth:0}}/></div>
-                  <div className="field"><label>Teléfono</label><input value={saleDraft.phone} onChange={e=>setDraft("phone",e.target.value)} placeholder="0412…" style={{minWidth:0}}/></div>
-                </div>
-
-                {/* Montura */}
-                {saleDraft.monturaRaw && (
-                  <div style={{fontSize:11,color:"#8a7a45",marginBottom:6,lineHeight:1.4,wordBreak:"break-word"}}>📄 En el papel: <span style={{color:"#c9a84a"}}>{saleDraft.monturaRaw}</span></div>
-                )}
-                <div className="field" style={{marginBottom:12}}>
-                  <label>Montura vendida {!draftMontura && "— elígela"}</label>
-                  <select value={saleDraft.monturaId} onChange={e=>setDraft("monturaId",e.target.value)}
-                    style={{width:"100%",minWidth:0,maxWidth:"100%",background:"#071418",border:`1px solid ${draftMontura?"#0d2a30":"#4a3510"}`,borderRadius:8,padding:"9px 10px",color:draftMontura?"#e2e8f4":"#fbbf24",fontFamily:"'Outfit',sans-serif",fontSize:13,outline:"none"}}>
-                    <option value="">👉 Elige la montura del inventario…</option>
-                    {inventory.filter(p=>!p.isService).map(p=><option key={p.id} value={p.id}>{p.name} · {getStock(p)} pz</option>)}
-                  </select>
-                  {draftStockWarn && <div style={{marginTop:5,fontSize:11,color:"#f87171"}}>⚠️ Esa montura está agotada en inventario</div>}
-                </div>
-
-                {/* Tipo de cristal */}
-                <div className="field" style={{marginBottom:14}}>
-                  <label>Tipo de cristal</label>
-                  <select value={saleDraft.cristal} onChange={e=>setDraft("cristal",e.target.value)}
-                    style={{width:"100%",minWidth:0,maxWidth:"100%",background:"#071418",border:"1px solid #0d2a30",borderRadius:8,padding:"9px 10px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:13,outline:"none"}}>
-                    <option value="">— sin especificar —</option>
-                    {CRYSTAL_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-
-                {/* Total + abono */}
-                <div className="rg2" style={{gap:10,marginBottom:8}}>
-                  <div className="field"><label>Total (USD) *</label><input type="number" min="0" step="0.01" value={saleDraft.total} onChange={e=>setDraft("total",e.target.value)} placeholder="0.00" style={{minWidth:0,fontFamily:"'JetBrains Mono',monospace"}}/></div>
-                  <div className="field"><label>Abonó (USD)</label><input type="number" min="0" step="0.01" value={saleDraft.abono} onChange={e=>setDraft("abono",e.target.value)} placeholder={dTotal?fmtUSD(dTotal).replace("$",""):"completo"} style={{minWidth:0,fontFamily:"'JetBrains Mono',monospace"}}/></div>
-                </div>
-                {dTotal>0 && <div style={{fontSize:11,color:"#7a94a8",marginBottom:12,fontFamily:"'JetBrains Mono',monospace"}}>{esApartado ? <>Saldo pendiente: <span style={{color:"#fbbf24",fontWeight:700}}>{fmtUSD(dSaldo)}</span> · se guardará como <span style={{color:"#e8c96a"}}>apartado</span></> : <span style={{color:"#34d399"}}>Pago completo (contado) ✓</span>}</div>}
-
-                {/* Método de pago */}
-                <div style={{fontSize:10,color:"#1a4a50",marginBottom:6,letterSpacing:".07em"}}>MÉTODO DE PAGO</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:5,marginBottom:16}}>
-                  {METHODS.map(m=>(
-                    <button key={m.id} onClick={()=>setDraft("method",m.id)} style={{background:saleDraft.method===m.id?"#0c2e35":"#071418",border:`1px solid ${saleDraft.method===m.id?"#0e7a8c":"#0d2a30"}`,borderRadius:8,padding:"7px 2px",cursor:"pointer",textAlign:"center"}}>
-                      <div style={{fontSize:15}}>{m.icon}</div>
-                      <div style={{fontSize:10,color:saleDraft.method===m.id?"#2dcfe8":"#1a4a50",marginTop:2}}>{m.label}</div>
-                    </button>
-                  ))}
-                </div>
-
-                <div style={{borderTop:"1px solid #0a2028",paddingTop:14,marginBottom:14}}>
-                  <div style={{fontSize:10,color:"#1a4a50"}}>{esApartado ? "TOTAL DE LA VENTA" : "TOTAL A COBRAR"}</div>
-                  <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:26,fontWeight:700,color:"#fff"}}>{fmtUSD(dTotal)}</div>
-                  <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,color:"#fbbf24",marginTop:2}}>{fmtBs(dTotal,rate)}</div>
-                </div>
-                {!draftValid && (
-                  <div style={{background:"#0a1820",border:"1px solid #0d2a40",borderRadius:10,padding:"10px 14px",marginBottom:10,fontSize:12,color:"#1a4a60"}}>
-                    {!draftMontura ? "Elige la montura del inventario." : dTotal<=0 ? "Escribe el total de la venta." : esApartado && !saleDraft.customer.trim() ? "Un apartado necesita el nombre del cliente." : "Completa los datos."}
-                  </div>
-                )}
-                <div style={{display:"flex",gap:8}}>
-                  <button className="btn-g" onClick={()=>{setSaleDraft(null);setSaleErr("");}} style={{flex:1,justifyContent:"center",padding:"13px"}}>Cancelar</button>
-                  <button onClick={saveDraftSale} disabled={!draftValid||draftStockWarn||submitting}
-                    style={{flex:2,background:draftValid&&!draftStockWarn?(esApartado?"linear-gradient(135deg,#7a5a0a,#b8860b)":"linear-gradient(135deg,#0a6070,#0e7a8c)"):"#071418",border:"none",borderRadius:10,padding:"13px",color:draftValid&&!draftStockWarn?"#fff":"#1a4a60",fontFamily:"'Outfit',sans-serif",fontSize:14,fontWeight:700,cursor:draftValid&&!draftStockWarn&&!submitting?"pointer":"default",opacity:submitting?.7:1,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                    {submitting?"Guardando…":<><ICheck/> {esApartado?"Guardar apartado":"Confirmar venta"}</>}
-                  </button>
-                </div>
+              <div style={{display:"flex",gap:10}}>
+                <button className="btn-p" style={{flex:1,justifyContent:"center",padding:"15px",fontSize:15}} onClick={()=>saleCamRef.current?.click()}>📷 Cámara</button>
+                <button className="btn-p" style={{flex:1,justifyContent:"center",padding:"15px",fontSize:15,background:"linear-gradient(135deg,#0a5a6a,#0e7a8c)"}} onClick={()=>saleGalRef.current?.click()}>🖼️ Galería</button>
               </div>
             )}
+            <button onClick={openManualDraft} style={{marginTop:18,background:"transparent",border:"none",color:"#2a5a60",cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontSize:12,textDecoration:"underline"}}>
+              ✍️ Escribir la factura a mano
+            </button>
           </div>
+        ) : (
+          <div className="card" style={{maxWidth:560,width:"100%",alignSelf:"flex-start"}}>
+            <div style={{fontSize:16,fontWeight:700,color:"#fff",marginBottom:4}}>{saleDraft.monturaRaw ? "🧾 Confirma la factura" : "✍️ Escribe la factura"}</div>
+            <div style={{fontSize:12,color:"#4a8090",marginBottom:16}}>{saleDraft.monturaRaw ? "Revisa que coincida con el papel — corrige lo que haga falta y guarda." : "Llena los datos de la venta y guarda."}</div>
 
-          {/* Sidebar: resumen de apartados + stock bajo — aprovechando el espacio */}
-          <div style={{overflow:"auto",padding:isMobile?"0 12px 14px":"18px 16px",display:"flex",flexDirection:"column",gap:14,borderLeft:isMobile?"none":"1px solid #0f1825",borderTop:isMobile?"1px solid #0f1825":"none"}}>
-            <div className="card-sm">
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                <div style={{fontSize:11,fontWeight:700,color:"#e8c96a",textTransform:"uppercase",letterSpacing:".06em"}}>🧾 Apartados</div>
-                <button className="btn-g" style={{fontSize:11,padding:"4px 10px"}} onClick={()=>setShowApart(true)}>Ver todos</button>
-              </div>
-              {(() => {
-                const pend = (orders||[]).filter(o=>o.status!=="entregado"&&orderBalance(o)>0);
-                const pendAmt = pend.reduce((s,o)=>s+orderBalance(o),0);
-                return pend.length===0 ? (
-                  <div style={{fontSize:12,color:"#1a4a50",textAlign:"center",padding:"8px 0"}}>Nadie debe nada 🎉</div>
-                ) : (
-                  <>
-                    <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:20,fontWeight:700,color:"#fbbf24"}}>{fmtUSD(pendAmt)}</div>
-                    <div style={{fontSize:11,color:"#7a6420",marginBottom:8}}>{pend.length} {pend.length===1?"cliente debe":"clientes deben"}</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                      {pend.slice(0,4).map(o=>(
-                        <div key={o.id} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#a0c8d0"}}>
-                          <span>#{o.orderNumber} {o.customer}</span>
-                          <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#fbbf24"}}>{fmtUSD(orderBalance(o))}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                );
-              })()}
+            {/* Cliente */}
+            <div className="rg2" style={{gap:10,marginBottom:12}}>
+              <div className="field"><label>Cliente {esApartado && "*"}</label><input value={saleDraft.customer} onChange={e=>setDraft("customer",e.target.value)} placeholder="Nombre" style={{minWidth:0}}/></div>
+              <div className="field"><label>Teléfono</label><input value={saleDraft.phone} onChange={e=>setDraft("phone",e.target.value)} placeholder="0412…" style={{minWidth:0}}/></div>
             </div>
 
-            <div className="card-sm">
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                <div style={{fontSize:11,fontWeight:700,color:"#60a5fa",textTransform:"uppercase",letterSpacing:".06em"}}>📦 Inventario</div>
-                <button className="btn-g" style={{fontSize:11,padding:"4px 10px"}} onClick={()=>setShowInv(true)}>Ver todo</button>
-              </div>
-              {(() => {
-                const low = inventory.filter(isLow).sort((a,b)=>getStock(a)-getStock(b));
-                return low.length===0 ? (
-                  <div style={{fontSize:12,color:"#1a4a50",textAlign:"center",padding:"8px 0"}}>Stock al día ✓</div>
-                ) : (
-                  <>
-                    <div style={{fontSize:11,color:"#f87171",marginBottom:8}}>⚠ {low.length} por agotarse</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                      {low.slice(0,5).map(p=>(
-                        <div key={p.id} onClick={()=>{setAdjustProd(p);setAdjustQty(1);setAdjustMode("add");}} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#a0c8d0",cursor:"pointer"}}>
-                          <span>{p.name}</span>
-                          <span style={{fontFamily:"'JetBrains Mono',monospace",color:getStock(p)===0?"#f87171":"#fbbf24"}}>{getStock(p)===0?"AGOTADO":`${getStock(p)} pz`}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                );
-              })()}
+            {/* Montura */}
+            {saleDraft.monturaRaw && (
+              <div style={{fontSize:11,color:"#8a7a45",marginBottom:6,lineHeight:1.4,wordBreak:"break-word"}}>📄 En el papel: <span style={{color:"#c9a84a"}}>{saleDraft.monturaRaw}</span></div>
+            )}
+            <div className="field" style={{marginBottom:12}}>
+              <label>Montura vendida {!draftMontura && "— elígela"}</label>
+              <select value={saleDraft.monturaId} onChange={e=>setDraft("monturaId",e.target.value)}
+                style={{width:"100%",minWidth:0,maxWidth:"100%",background:"#071418",border:`1px solid ${draftMontura?"#0d2a30":"#4a3510"}`,borderRadius:8,padding:"9px 10px",color:draftMontura?"#e2e8f4":"#fbbf24",fontFamily:"'Outfit',sans-serif",fontSize:13,outline:"none"}}>
+                <option value="">👉 Elige la montura del inventario…</option>
+                {inventory.filter(p=>!p.isService).map(p=><option key={p.id} value={p.id}>{p.name} · {getStock(p)} pz</option>)}
+              </select>
+              {draftStockWarn && <div style={{marginTop:5,fontSize:11,color:"#f87171"}}>⚠️ Esa montura está agotada en inventario</div>}
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Armar venta manualmente — respaldo, colapsado por defecto */}
-      {showManual && (
-      <div style={{display:"flex",flexDirection:"column",flex:1,overflow:isMobile?"auto":"hidden"}}>
-        <div style={{padding:isMobile?"10px 12px 0":"12px 16px 0",flexShrink:0}}>
-          <button className="btn-g" onClick={()=>setShowManual(false)} style={{fontSize:12,padding:"8px 14px"}}>← Volver a venta por foto</button>
-        </div>
-        <div style={{display:isMobile?"flex":"grid",flexDirection:isMobile?"column":"unset",gridTemplateColumns:isMobile?"unset":"1fr 340px",flex:1,overflow:isMobile?"auto":"hidden"}}>
-
-        {/* Catálogo */}
-        <div style={{overflow:"auto",padding:isMobile?"12px 10px":"14px 16px",borderRight:isMobile?"none":"1px solid #0f1825",borderBottom:isMobile?"1px solid #0f1825":"none",maxHeight:isMobile?"55vmax":"100%"}}>
-          {/* Search + filters */}
-          <div style={{marginBottom:10}}>
-            <input
-              placeholder="🔍 Buscar producto..."
-              value={searchQ}
-              onChange={e=>setSearchQ(e.target.value)}
-              style={{width:"100%",background:"#071418",border:"1px solid #0a2028",borderRadius:8,padding:"8px 12px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:13,outline:"none",marginBottom:8}}
-            />
-            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-              {["Todos",...CATS].map(c=>(
-                <button key={c} onClick={()=>{setCatF(c);setSearchQ("");}} style={{background:catF===c&&!searchQ?"#0f1e35":"transparent",border:`1px solid ${catF===c&&!searchQ?"#1e3a60":"#141e30"}`,color:catF===c&&!searchQ?"#60a5fa":"#2a4060",borderRadius:16,padding:isMobile?"3px 9px":"4px 12px",fontSize:isMobile?10:11,fontFamily:"'Outfit',sans-serif",cursor:"pointer",transition:"all .15s"}}>{c}</button>
-              ))}
+            {/* Tipo de cristal */}
+            <div className="field" style={{marginBottom:14}}>
+              <label>Tipo de cristal</label>
+              <select value={saleDraft.cristal} onChange={e=>setDraft("cristal",e.target.value)}
+                style={{width:"100%",minWidth:0,maxWidth:"100%",background:"#071418",border:"1px solid #0d2a30",borderRadius:8,padding:"9px 10px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:13,outline:"none"}}>
+                <option value="">— sin especificar —</option>
+                {CRYSTAL_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+              </select>
             </div>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(auto-fill,minmax(170px,1fr))",gap:isMobile?7:9}}>
-            {filteredInv.map(p=>{
-              const sel = lines.some(l=>l.productId===p.id);
-              const stock = getStock(p);
-              return (
-                <div key={p.id} style={{position:"relative"}}>
-                  <button className={`prod-card ${sel?"sel":""}`} onClick={()=>toggleProduct(p)} style={{width:"100%",textAlign:"left"}}>
-                    <div style={{fontSize:isMobile?9:10,color:sel?"#2dcfe8":"#1a4a50",marginBottom:2}}>{p.cat}</div>
-                    <div style={{fontSize:isMobile?11:12,fontWeight:600,color:sel?"#c5d8f5":"#bcc8e0",lineHeight:1.3,marginBottom:isMobile?5:7}}>{p.name}</div>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
-                      <div>
-                        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:isMobile?12:13,fontWeight:700,color:sel?"#2dcfe8":"#e2e8f4"}}>{fmtUSD(p.price)}</div>
-                        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:"#fbbf24"}}>{fmtBs(p.price,rate)}</div>
-                      </div>
-                      {!p.isService&&(
-                        <div style={{textAlign:"right"}}>
-                          <div style={{fontSize:9,color:stock<=lowAt(p)?"#f87171":stock<=lowAt(p)*2?"#fbbf24":"#1a4a50",fontWeight:600}}>{stock} pz</div>
-                          {stock<=lowAt(p) && <div style={{fontSize:8,color:"#f87171"}}>⚠ por agotarse</div>}
-                        </div>
-                      )}
-                    </div>
-                    {sel&&<div style={{marginTop:5,background:"#2dcfe820",borderRadius:5,padding:"2px 6px",fontSize:9,color:"#2dcfe8",textAlign:"center"}}>✓ En ticket</div>}
-                  </button>
-                  {/* Quick adjust button */}
-                  {!p.isService && (
-                    <button
-                      onClick={e=>{e.stopPropagation();setAdjustProd(p);setAdjustQty(1);setAdjustMode("add");}}
-                      style={{position:"absolute",top:4,right:4,width:20,height:20,borderRadius:4,background:"#0a2028",border:"1px solid #1a3040",color:"#2a5060",cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}
-                      title="Ajustar inventario">⚙</button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
 
-        {/* Ticket — scroll independiente en PC, integrado en mobile */}
-        <div style={{display:"flex",flexDirection:"column",background:"#080c14",overflow:isMobile?"visible":"hidden",minHeight:isMobile?"auto":"0"}}>
-          <div style={{padding:"15px 18px",borderBottom:"1px solid #0f1825",fontSize:12,fontWeight:600,color:"#2a4060",textTransform:"uppercase",letterSpacing:".08em"}}>Ticket</div>
-          <div style={{flex:1,overflow:"auto",padding:"10px 18px",display:"flex",flexDirection:"column",gap:8}}>
-            {lines.length===0
-              ? <div style={{color:"#141e2e",fontSize:13,textAlign:"center",marginTop:40,lineHeight:1.8}}>Toca un producto<br/>para agregarlo</div>
-              : lines.map(row=>{
-                  const res=resolved.find(r=>r.id===row.id);
-                  if(!res?.product) return null;
-                  return (
-                    <div key={row.id} className="fadein" style={{background:"#0c1422",border:"1px solid #1a2640",borderRadius:12,padding:"12px 13px"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:9}}>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:13,fontWeight:600,color:"#c5d5f5",lineHeight:1.3}}>{res.product.name}</div>
-                          <div style={{fontSize:11,color:"#2a4060",marginTop:1}}>{fmtUSD(res.product.price)} · {fmtBs(res.product.price,rate)} c/u</div>
-                        </div>
-                        <button onClick={()=>setLines(l=>l.filter(r=>r.id!==row.id))} style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",padding:"2px 4px"}}><IClose/></button>
-                      </div>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <div style={{display:"flex",alignItems:"center",gap:6}}>
-                          <button className="qty-btn" onClick={()=>changeQty(row.id,row.qty-1)}>−</button>
-                          <input
-                            type="number" min="1"
-                            value={row.qty}
-                            onChange={e=>changeQty(row.id,parseInt(e.target.value)||1)}
-                            style={{width:52,textAlign:"center",background:"#081820",border:"1px solid #0d2a40",borderRadius:8,padding:"6px 4px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:15,outline:"none"}}
-                          />
-                          <button className="qty-btn" onClick={()=>changeQty(row.id,row.qty+1)}>+</button>
-                        </div>
-                        <div style={{textAlign:"right"}}>
-                          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:15,fontWeight:600}}>{fmtUSD(res.subtotal)}</div>
-                          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24"}}>{fmtBs(res.subtotal,rate)}</div>
-                        </div>
-                      </div>
-                      {!res.product.isService && row.qty>getStock(res.product) && (
-                        <div style={{marginTop:8,background:"#2a0c0c",border:"1px solid #5a1a1a",borderRadius:8,padding:"7px 10px",fontSize:12,color:"#f87171",display:"flex",alignItems:"center",gap:6}}>
-                          ⚠️ Solo hay <strong>{getStock(res.product)}</strong> unidad(es) en inventario
-                        </div>
-                      )}
-                      {(res.product.cat==="Lente"||res.product.cat==="Montura"||res.product.cat==="Lente de contacto") && (
-                        <button onClick={()=>setRxLine(row.id)} style={{marginTop:8,width:"100%",background:"#071c22",border:"1px solid #0e3a4a",borderRadius:8,padding:"6px",fontSize:11,color:"#2dcfe8",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
-                          🔬 {rx.od.sphere||rx.oi.sphere ? "Ver fórmula ✓" : "Agregar fórmula óptica"}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })
-            }
-          </div>
-          <div style={{padding:"8px 18px 0"}}>
+            {/* Total + abono */}
+            <div className="rg2" style={{gap:10,marginBottom:8}}>
+              <div className="field"><label>Total (USD) *</label><input type="number" min="0" step="0.01" value={saleDraft.total} onChange={e=>setDraft("total",e.target.value)} placeholder="0.00" style={{minWidth:0,fontFamily:"'JetBrains Mono',monospace"}}/></div>
+              <div className="field"><label>Abonó (USD)</label><input type="number" min="0" step="0.01" value={saleDraft.abono} onChange={e=>setDraft("abono",e.target.value)} placeholder={dTotal?fmtUSD(dTotal).replace("$",""):"completo"} style={{minWidth:0,fontFamily:"'JetBrains Mono',monospace"}}/></div>
+            </div>
+            {dTotal>0 && <div style={{fontSize:11,color:"#7a94a8",marginBottom:12,fontFamily:"'JetBrains Mono',monospace"}}>{esApartado ? <>Saldo pendiente: <span style={{color:"#fbbf24",fontWeight:700}}>{fmtUSD(dSaldo)}</span> · se guardará como <span style={{color:"#e8c96a"}}>apartado</span></> : <span style={{color:"#34d399"}}>Pago completo (contado) ✓</span>}</div>}
+
+            {/* Método de pago */}
             <div style={{fontSize:10,color:"#1a4a50",marginBottom:6,letterSpacing:".07em"}}>MÉTODO DE PAGO</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:5,marginBottom:8}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:5,marginBottom:16}}>
               {METHODS.map(m=>(
-                <button key={m.id} onClick={()=>setMethod(m.id)} style={{background:method===m.id?"#0c2e35":"#071418",border:`1px solid ${method===m.id?"#0e7a8c":"#0d2a30"}`,borderRadius:8,padding:"6px 4px",cursor:"pointer",textAlign:"center",transition:"all .15s"}}>
-                  <div style={{fontSize:16}}>{m.icon}</div>
-                  <div style={{fontSize:10,color:method===m.id?"#2dcfe8":"#1a4a50",marginTop:2}}>{m.label}</div>
+                <button key={m.id} onClick={()=>setDraft("method",m.id)} style={{background:saleDraft.method===m.id?"#0c2e35":"#071418",border:`1px solid ${saleDraft.method===m.id?"#0e7a8c":"#0d2a30"}`,borderRadius:8,padding:"7px 2px",cursor:"pointer",textAlign:"center"}}>
+                  <div style={{fontSize:15}}>{m.icon}</div>
+                  <div style={{fontSize:10,color:saleDraft.method===m.id?"#2dcfe8":"#1a4a50",marginTop:2}}>{m.label}</div>
                 </button>
               ))}
             </div>
-            {selMethod?.detail && (
-              <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:8,padding:"8px 12px",fontSize:11,color:"#2dcfe8",marginBottom:6,wordBreak:"break-all"}}>
-                {selMethod.detail}
-              </div>
-            )}
-          </div>
-          <div style={{padding:"4px 18px 8px"}}>
-            <input placeholder="Nota (opcional)..." value={note} onChange={e=>setNote(e.target.value)}
-              style={{width:"100%",background:"#071418",border:"1px solid #0d2a30",borderRadius:10,padding:"9px 13px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:13}}
-            />
-          </div>
 
-          {/* Datos ópticos */}
-          {lines.some(l=>{ const p=inventory.find(x=>x.id===l.productId); return p&&(p.cat==="Lente"||p.cat==="Lente de contacto"||p.cat==="Montura"); }) && (
-            <div style={{padding:"0 18px 8px"}}>
-              <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:10,padding:"12px"}}>
-                <div style={{fontSize:10,fontWeight:600,color:"#2dcfe8",textTransform:"uppercase",letterSpacing:".07em",marginBottom:10}}>👓 Datos ópticos</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:7}}>
-                  <div>
-                    <div style={{fontSize:10,color:"#1a4050",marginBottom:3}}>TIPO MONTURA</div>
-                    <select value={frameType} onChange={e=>setFrameType(e.target.value)} style={{width:"100%",background:"#071418",border:"1px solid #0d2a30",borderRadius:7,padding:"6px 9px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:12,outline:"none"}}>
-                      {FRAME_TYPES.map(t=><option key={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <div style={{fontSize:10,color:"#1a4050",marginBottom:3}}>TIPO CRISTAL</div>
-                    <select value={crystalType} onChange={e=>setCrystalType(e.target.value)} style={{width:"100%",background:"#071418",border:"1px solid #0d2a30",borderRadius:7,padding:"6px 9px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:12,outline:"none"}}>
-                      {CRYSTAL_TYPES.map(t=><option key={t}>{t}</option>)}
-                    </select>
-                  </div>
-                </div>
-                {/* Fórmula Rx */}
-                <div style={{background:"#040d10",borderRadius:8,padding:"8px",marginBottom:7}}>
-                  <div style={{fontSize:10,color:"#1a4050",marginBottom:6}}>FÓRMULA Rx</div>
-                  {[["od","Ojo Derecho (OD)"],["oi","Ojo Izquierdo (OI)"]].map(([eye,label])=>(
-                    <div key={eye} style={{marginBottom:6}}>
-                      <div style={{fontSize:10,color:"#2dcfe8",marginBottom:4}}>{label}</div>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:5}}>
-                        {[["sphere","Esfera"],["cylinder","Cilindro"],["axis","Eje"]].map(([field,placeholder])=>(
-                          <input key={field} placeholder={placeholder} value={rx[eye][field]}
-                            onChange={e=>setRx(r=>({...r,[eye]:{...r[eye],[field]:e.target.value}}))}
-                            style={{background:"#071418",border:"1px solid #0d2a30",borderRadius:6,padding:"5px 8px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:11,outline:"none",textAlign:"center"}}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <div style={{fontSize:10,color:"#2dcfe8",whiteSpace:"nowrap"}}>ADD</div>
-                    <input placeholder="Adición" value={rx.add} onChange={e=>setRx(r=>({...r,add:e.target.value}))}
-                      style={{flex:1,background:"#071418",border:"1px solid #0d2a30",borderRadius:6,padding:"5px 8px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:11,outline:"none",textAlign:"center"}}
-                    />
-                  </div>
-                </div>
-                {/* Lab + costo lab */}
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
-                  <div>
-                    <div style={{fontSize:10,color:"#1a4050",marginBottom:3}}>LABORATORIO</div>
-                    <select value={lab} onChange={e=>setLab(e.target.value)} style={{width:"100%",background:"#071418",border:"1px solid #0d2a30",borderRadius:7,padding:"6px 9px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:11,outline:"none"}}>
-                      {LAB_LIST.map(l=><option key={l}>{l}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <div style={{fontSize:10,color:"#1a4050",marginBottom:3}}>COSTO LAB (USD)</div>
-                    <input type="number" placeholder="0.00" min="0" value={labCost} onChange={e=>setLabCost(e.target.value)}
-                      style={{width:"100%",background:"#071418",border:"1px solid #0d2a30",borderRadius:7,padding:"6px 9px",color:"#fbbf24",fontFamily:"'JetBrains Mono',monospace",fontSize:12,outline:"none"}}
-                    />
-                  </div>
-                </div>
-              </div>
+            <div style={{borderTop:"1px solid #0a2028",paddingTop:14,marginBottom:14}}>
+              <div style={{fontSize:10,color:"#1a4a50"}}>{esApartado ? "TOTAL DE LA VENTA" : "TOTAL A COBRAR"}</div>
+              <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:26,fontWeight:700,color:"#fff"}}>{fmtUSD(dTotal)}</div>
+              <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,color:"#fbbf24",marginTop:2}}>{fmtBs(dTotal,rate)}</div>
             </div>
-          )}
-
-          <div style={{padding:"14px 18px",borderTop:"1px solid #0a2028"}}>
-            <div style={{marginBottom:13}}>
-              <div style={{fontSize:10,color:"#1a4a50"}}>TOTAL A COBRAR</div>
-              {method === "bank" ? (<>
-                {/* Pago Móvil — cobro en Bs, mostrar Bs grande */}
-                <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:26,fontWeight:800,color:"#fbbf24"}}>
-                  {fmtBs(total+(Number(labCost)||0), rate)}
-                </div>
-                <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,color:"#2dcfe8",marginTop:2}}>
-                  ≈ {fmtUSD(total+(Number(labCost)||0))} USDT
-                </div>
-                <div style={{fontSize:10,color:"#1a4050",marginTop:1}}>📱 Pago Móvil / Transferencia en Bolívares</div>
-              </>) : (<>
-                <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:26,fontWeight:700,color:"#fff"}}>
-                  {fmtUSD(total+(Number(labCost)||0))}
-                </div>
-                <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,color:"#fbbf24",marginTop:2}}>
-                  {fmtBs(total+(Number(labCost)||0),rate)}
-                </div>
-              </>)}
-              {(Number(labCost)||0)>0 && <div style={{fontSize:11,color:"#f87171",marginTop:3}}>Incluye lab: {fmtUSD(Number(labCost))}</div>}
-            </div>
-            {stockWarn.length>0 && (
-              <div style={{background:"#1a0808",border:"1px solid #4a1010",borderRadius:10,padding:"10px 14px",marginBottom:10,fontSize:12,color:"#f87171"}}>
-                ⚠️ No se puede registrar — hay {stockWarn.length} producto(s) con cantidad mayor al stock disponible. Ajusta las cantidades o actualiza el inventario.
-              </div>
-            )}
-            {!valid && lines.length===0 && (
+            {!draftValid && (
               <div style={{background:"#0a1820",border:"1px solid #0d2a40",borderRadius:10,padding:"10px 14px",marginBottom:10,fontSize:12,color:"#1a4a60"}}>
-                Selecciona al menos un producto del catálogo para continuar.
+                {!draftMontura ? "Elige la montura del inventario." : dTotal<=0 ? "Escribe el total de la venta." : esApartado && !saleDraft.customer.trim() ? "Un apartado necesita el nombre del cliente." : "Completa los datos."}
               </div>
             )}
-            <button onClick={handleSale} disabled={!valid||stockWarn.length>0||submitting}
-              style={{width:"100%",background:stockWarn.length>0?"#1a0808":valid?"linear-gradient(135deg,#0a6070,#0e7a8c)":"#071418",border:stockWarn.length>0?"1px solid #4a1010":"none",borderRadius:13,padding:"15px",color:stockWarn.length>0?"#f87171":valid?"#fff":"#1a4a60",fontFamily:"'Outfit',sans-serif",fontSize:16,fontWeight:700,cursor:valid&&!stockWarn.length&&!submitting?"pointer":"default",opacity:submitting?.7:1,display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"all .2s"}}>
-              {submitting ? "Registrando…" : stockWarn.length>0 ? "⚠️ Stock insuficiente" : <><ICheck/> Registrar venta</>}
-            </button>
+            <div style={{display:"flex",gap:8}}>
+              <button className="btn-g" onClick={()=>{setSaleDraft(null);setSaleErr("");}} style={{flex:1,justifyContent:"center",padding:"13px"}}>Cancelar</button>
+              <button onClick={saveDraftSale} disabled={!draftValid||draftStockWarn||submitting}
+                style={{flex:2,background:draftValid&&!draftStockWarn?(esApartado?"linear-gradient(135deg,#7a5a0a,#b8860b)":"linear-gradient(135deg,#0a6070,#0e7a8c)"):"#071418",border:"none",borderRadius:10,padding:"13px",color:draftValid&&!draftStockWarn?"#fff":"#1a4a60",fontFamily:"'Outfit',sans-serif",fontSize:14,fontWeight:700,cursor:draftValid&&!draftStockWarn&&!submitting?"pointer":"default",opacity:submitting?.7:1,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                {submitting?"Guardando…":<><ICheck/> {esApartado?"Guardar apartado":"Guardar venta"}</>}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
-      </div>
-      )}
     </div>
   );
 }
