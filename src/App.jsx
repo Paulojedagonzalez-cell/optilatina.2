@@ -1960,7 +1960,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
         {tab==="apart"    && <ApartadosTab {...{orders,saveOrders,rate,profile,isMobile,inventory,saveInv,sales,saveSal}} />}
         {tab==="caja"     && <CajaTab    {...{sales:filteredSales,deposits,saveDeposits,rate,payments,isMobile,orders}} />}
         {tab==="cierre"   && <CierreTab {...{sales,expenses,orders,rate,dynProfiles,profile}} />}
-        {tab==="inv"      && <InvTab     {...{inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,isMobile,distributors,saveDistributors}} />}
+        {tab==="inv"      && <InvTab     {...{inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,isMobile,distributors,saveDistributors,canEdit:canEditInventory(profile)}} />}
         {tab==="analisis" && <AnalisisTab {...{inventory,sales:filteredSales,orders,purchases,rate,isMobile,expenses,fixedExpenses}} />}
         {tab==="compras"  && <ComprasTab {...{purchases,savePurchases,rate,isMobile}} />}
         {tab==="history"  && <HistTab    {...{byDate,sortedDates,setDD,storeFilter,sales,clearSales,isOwner:profile.id==="owner",orders,rate}} />}
@@ -3398,7 +3398,7 @@ function WeekTab({byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles}
 }
 
 // ── Inv Tab ───────────────────────────────────────────────────────────────────
-function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,distributors=[],saveDistributors}) {
+function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,distributors=[],saveDistributors,canEdit=true}) {
   const [filter,setFilter]=useState("Todos");
   const [search,setSearch]=useState("");
   const [copied,setCopied]=useState(false);
@@ -3451,12 +3451,13 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Inventario</h1>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}>
-          <button className="btn-g" onClick={()=>setShowConteo(true)} style={{background:"#1e1608",borderColor:"#4a3510",color:"#fbbf24"}}>📋 Conteo físico</button>
-          <button className="btn-g" onClick={()=>setShowBulk(true)} style={{background:"#0a2018",borderColor:"#14402a",color:"#34d399"}}>💲 Precios de venta</button>
-          <button className="btn-g" onClick={()=>setShowDist(true)} style={{background:"#0a1830",borderColor:"#1a2a4a",color:"#7aa0e0"}}>🏢 Distribuidores</button>
-          <button className="btn-g" onClick={()=>setInvModal("scan")} style={{background:"linear-gradient(135deg,#3a2c08,#6b5010)",borderColor:"#4a3510",color:"#fbbf24"}}>📸 Escanear recibo</button>
-          <button className="btn-p" onClick={()=>setInvModal("new")}><IPlus/>Agregar</button>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"flex-end",alignItems:"center"}}>
+          {!canEdit && <span style={{fontSize:11,color:"#6b8c95"}}>👁️ Solo lectura</span>}
+          {canEdit && <button className="btn-g" onClick={()=>setShowConteo(true)} style={{background:"#1e1608",borderColor:"#4a3510",color:"#fbbf24"}}>📋 Conteo físico</button>}
+          {canEdit && <button className="btn-g" onClick={()=>setShowBulk(true)} style={{background:"#0a2018",borderColor:"#14402a",color:"#34d399"}}>💲 Precios de venta</button>}
+          {canEdit && <button className="btn-g" onClick={()=>setShowDist(true)} style={{background:"#0a1830",borderColor:"#1a2a4a",color:"#7aa0e0"}}>🏢 Distribuidores</button>}
+          {canEdit && <button className="btn-g" onClick={()=>setInvModal("scan")} style={{background:"linear-gradient(135deg,#3a2c08,#6b5010)",borderColor:"#4a3510",color:"#fbbf24"}}>📸 Escanear recibo</button>}
+          {canEdit && <button className="btn-p" onClick={()=>setInvModal("new")}><IPlus/>Agregar</button>}
         </div>
       </div>
 
@@ -3486,7 +3487,7 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
             {porAgotarse.map(p=>(
               <div key={p.id} style={{background:"#1e1608",border:"1px solid #3a2a0c",borderRadius:9,padding:"8px 11px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                 <div style={{flex:1,minWidth:140}}>
-                  <div style={{fontSize:12.5,color:"#fbbf24",fontWeight:600,cursor:"pointer"}} onClick={()=>setInvModal(p)} title="Editar producto">{p.name}</div>
+                  <div style={{fontSize:12.5,color:"#fbbf24",fontWeight:600,cursor:canEdit?"pointer":"default"}} onClick={()=>canEdit&&setInvModal(p)} title={canEdit?"Editar producto":""}>{p.name}</div>
                   <div style={{fontSize:10.5,color:"#a08020"}}>
                     {getStock(p)===0?"AGOTADO":`quedan ${getStock(p)} pz`}{Number(p.cost)>0?` · costo ${fmtUSD(Number(p.cost))}`:""}
                   </div>
@@ -3598,8 +3599,10 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
                         </> : <span style={{color:"#6b7e9b"}}>-</span>}
                       </td>
                       <td><div style={{display:"flex",gap:5,justifyContent:"flex-end"}}>
-                        <button className="btn-g" style={{padding:"5px 9px"}} onClick={()=>setInvModal(p)}><IEdit/></button>
-                        <button className="btn-d" style={{padding:"5px 9px"}} onClick={()=>del(p.id)}><ITrash/></button>
+                        {canEdit ? <>
+                          <button className="btn-g" style={{padding:"5px 9px"}} onClick={()=>setInvModal(p)}><IEdit/></button>
+                          <button className="btn-d" style={{padding:"5px 9px"}} onClick={()=>del(p.id)}><ITrash/></button>
+                        </> : <span style={{color:"#6b8c95",fontSize:11}}>—</span>}
                       </div></td>
                     </tr>
                   );
