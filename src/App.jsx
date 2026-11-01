@@ -1724,7 +1724,13 @@ function CameraModal({ onClose, onDetect }) {
 
 // ── Admin View ────────────────────────────────────────────────────────────────
 function AdminView({ profile, inventory, sales, rate, deposits, expenses, investments, purchases = [], orders, recovery = [], payments, profilesData, dynProfiles, fixedExpenses = DEFAULT_FIXED, distributors = DEFAULT_DISTRIBUTORS, storeFilter, setStoreFilter, saveInv, saveSal, clearSales, saveRate, saveDeposits, savePayments, savePD, saveExpenses, saveInvestments, savePurchases, saveOrders, saveDynProfiles, saveFixedExpenses, saveDistributors, setViewAs, switchTo, refreshData, onLogout }) {
-  const [tab,       setTab]      = useState("dash");
+  // La contadora solo ve "números": Finanzas, Estadísticas, Esta semana,
+  // Análisis, Cierre y su perfil. No registra ventas, caja, inventario, etc.
+  const navAllowed = id => isAccountant(profile)
+    ? ["finanzas","stats","week","analisis","cierre","miperfil"].includes(id)
+    : true;
+  const [tab,       setTab]      = useState(isAccountant(profile) ? "finanzas" : "dash");
+  useEffect(() => { if (!navAllowed(tab)) setTab(isAccountant(profile) ? "finanzas" : "dash"); }, [tab]);
   const [invModal,  setInvModal] = useState(null);
   const [detailDate,setDD]       = useState(null);
   const [editRate,  setEditRate] = useState(false);
@@ -1902,7 +1908,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
             {id:"miperfil",I:IGear,   l:"Mi perfil"},
             {id:"cierre",  I:IChart,  l:"Cierre de caja"},
             ...(profile.id==="owner" ? [{id:"ajustes",I:IUsers,l:"Gestión"}] : []),
-          ].map(({id,I,l})=>(
+          ].filter(({id})=>navAllowed(id)).map(({id,I,l})=>(
             <button key={id} className={`nav-btn ${tab===id?"active":""}`} onClick={()=>setTab(id)}><I/>{l}</button>
           ))}
         </nav>
@@ -1971,7 +1977,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
       {/* ── MOBILE BOTTOM NAV ── */}
       {isMobile && (
         <nav className="mob-nav">
-          {NAV_ITEMS.map(({id,I,l})=>(
+          {NAV_ITEMS.filter(({id})=>navAllowed(id)).map(({id,I,l})=>(
             <button key={id} className={`mob-nav-btn ${tab===id?"active":""}`} onClick={()=>setTab(id)}>
               <I/><span>{l}</span>
             </button>
@@ -1985,7 +1991,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
           {/* Sub-menu "Más" */}
           {["week","miperfil","ajustes","cierre"].includes(tab) && (
             <div style={{position:"fixed",bottom:60,right:0,left:0,background:"#050f12",borderTop:"1px solid #0a2028",padding:"8px 0",display:"flex",gap:0,zIndex:51}}>
-              {[...SIDE_EXTRA].map(({id,I,l})=>(
+              {SIDE_EXTRA.filter(({id})=>navAllowed(id)).map(({id,I,l})=>(
                 <button key={id} className={`mob-nav-btn ${tab===id?"active":""}`} onClick={()=>setTab(id)} style={{flex:1}}>
                   <I/><span>{l}</span>
                 </button>
