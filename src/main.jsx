@@ -35,4 +35,9 @@ if ("serviceWorker" in navigator) {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") checkForUpdate();
   });
+  // Al reenfocar la ventana (volver de otra app) también revisa.
+  window.addEventListener("focus", checkForUpdate);
+  // Chequeo periódico: una app que queda abierta todo el día igual toma la
+  // versión nueva sola (cada 2 minutos), sin depender de cerrarla/reabrirla.
+  setInterval(() => { if (document.visibilityState === "visible") checkForUpdate(); }, 120000);
 }
