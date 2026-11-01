@@ -338,12 +338,12 @@ input,select{outline:none}button{cursor:pointer}
 .btn-d{background:#2a1010;border:1px solid #4a1a1a;color:#f87171;border-radius:8px;padding:7px 11px;font-family:'Outfit',sans-serif;font-size:13px;cursor:pointer}
 .btn-d:hover{background:#3a1414}
 .field{display:flex;flex-direction:column;gap:6px}
-.field label{font-size:11px;color:#2a5060;font-weight:600;text-transform:uppercase;letter-spacing:.07em}
+.field label{font-size:11px;color:#78939f;font-weight:600;text-transform:uppercase;letter-spacing:.07em}
 .field input,.field select{background:#050e10;border:1px solid #0d2a30;border-radius:8px;padding:10px 13px;color:#e2e8f4;font-family:'Outfit',sans-serif;font-size:14px;transition:border .2s}
 .field input:focus,.field select:focus{border-color:#0e7a8c}
 .field select option{background:#071418}
 table{width:100%;border-collapse:collapse}
-th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#1a4a50;font-weight:600;padding:10px 14px;text-align:left;border-bottom:1px solid #081820}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#6b8c95;font-weight:600;padding:10px 14px;text-align:left;border-bottom:1px solid #081820}
 td{padding:11px 14px;border-bottom:1px solid #071015;font-size:14px}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:#061215}
@@ -363,7 +363,7 @@ tr:hover td{background:#061215}
 .fadein{animation:fadein .22s ease forwards}
 .profile-card{background:#071418;border:1px solid #0d2a30;border-radius:20px;padding:32px 28px;cursor:pointer;transition:all .25s;display:flex;flex-direction:column;align-items:center;gap:14px;min-width:180px}
 .profile-card:hover{transform:translateY(-6px);border-color:#1a5060;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-.period-btn{background:transparent;border:1px solid #0d2a30;border-radius:20px;padding:5px 16px;font-family:'Outfit',sans-serif;font-size:12px;color:#2a5060;cursor:pointer;transition:all .2s}
+.period-btn{background:transparent;border:1px solid #0d2a30;border-radius:20px;padding:5px 16px;font-family:'Outfit',sans-serif;font-size:12px;color:#78939f;cursor:pointer;transition:all .2s}
 .period-btn.active{background:#0c2e35;border-color:#1a5060;color:#2dcfe8}
 /* Responsive grids */
 .rg2{display:grid;grid-template-columns:1fr 1fr;gap:13px}
@@ -382,7 +382,7 @@ tr:hover td{background:#061215}
   .desk-sidebar{display:none!important}
   .mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#050f12;border-top:1px solid #0a2028;z-index:50;padding:4px 0 max(4px,env(safe-area-inset-bottom))}
   .mob-header{display:flex;align-items:center;justify-content:space-between;background:#050f12;border-bottom:1px solid #0a2028;padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 10px;position:sticky;top:0;z-index:40}
-  .mob-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border:none;background:transparent;color:#2a5060;font-family:'Outfit',sans-serif;font-size:10px;cursor:pointer;transition:color .2s}
+  .mob-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border:none;background:transparent;color:#78939f;font-family:'Outfit',sans-serif;font-size:10px;cursor:pointer;transition:color .2s}
   .mob-nav-btn.active{color:#2dcfe8}
   .mob-nav-btn svg{width:22px;height:22px}
   .mob-main{padding:14px 12px 80px!important}
@@ -536,7 +536,7 @@ const isSocio = p => p?.id === "owner" || p?.id === "rene";
 // Logo components — SVG inline (no depende de archivos externos)
 const LOGO_B64 = "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";
 // Logo de la FRANQUICIA OptiLatina (circular dorado/azul) — identidad principal de la app
-const Logo = ({s=34}) => <img src="/icon-192.png?v=8" alt="OptiLatina" style={{width:s,height:s,borderRadius:"50%",objectFit:"cover"}}/>;
+const Logo = ({s=34}) => <img src="/icon-192.png?v=9" alt="OptiLatina" style={{width:s,height:s,borderRadius:"50%",objectFit:"cover"}}/>;
 // Logo de la DISTRIBUIDORA (lentes) — marca secundaria, acompaña a la franquicia
 const LogoDist = ({s=26}) => <img src={`data:image/jpeg;base64,${LOGO_B64}`} alt="Distribuidora" style={{width:s,height:s,borderRadius:s*.22,objectFit:"cover"}}/>;
 const LOGO2_B64 = "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";
@@ -842,7 +842,7 @@ export default function App() {
   }, []);
 
   if (loading) return (
-    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#040d10",fontFamily:"'Outfit',sans-serif",color:"#1a4a50",fontSize:16}}>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#040d10",fontFamily:"'Outfit',sans-serif",color:"#6b8c95",fontSize:16}}>
       <style>{CSS}</style>
       <div style={{textAlign:"center",maxWidth:460,padding:24}}>
         <div style={{marginBottom:12}}><Logo s={60}/></div>
@@ -857,7 +857,7 @@ export default function App() {
                 <div>3. Configuración → Apps Web → Registrar app</div>
                 <div>4. Copia <code style={{color:"#f87171"}}>firebaseConfig</code> en las primeras líneas del código</div>
               </div>
-              <div style={{marginTop:10,color:"#1a4a50",fontSize:11}}>Funciona con datos demo hasta que configures Firebase</div>
+              <div style={{marginTop:10,color:"#6b8c95",fontSize:11}}>Funciona con datos demo hasta que configures Firebase</div>
             </>)
         }
       </div>
@@ -1103,7 +1103,7 @@ function LoginScreen({ onSelect, dynProfiles }) {
           Recordar mi sesión en este dispositivo
         </label>
 
-        <div style={{textAlign:"center",fontSize:12,color:"#1a4a50",lineHeight:1.6}}>
+        <div style={{textAlign:"center",fontSize:12,color:"#6b8c95",lineHeight:1.6}}>
           ¿Necesitas una cuenta? Pídesela al administrador —<br/>el acceso es únicamente por invitación.
         </div>
 
@@ -1371,9 +1371,9 @@ function StoreView({ profile, inventory, sales, rate, payments, orders, saveOrde
           <div className="modal" style={{maxWidth:400}}>
             <div style={{fontSize:17,fontWeight:700,color:"#fff",marginBottom:4,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               🛒 Registrar gasto de tienda
-              <button style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:20}} onClick={()=>setShowGasto(false)}>×</button>
+              <button style={{background:"transparent",border:"none",color:"#6f82a0",cursor:"pointer",fontSize:20}} onClick={()=>setShowGasto(false)}>×</button>
             </div>
-            <div style={{fontSize:12,color:"#1a4a50",marginBottom:16}}>Compras/pagos sueltos de la tienda (bolsas, limpieza, transporte, etc.).</div>
+            <div style={{fontSize:12,color:"#6b8c95",marginBottom:16}}>Compras/pagos sueltos de la tienda (bolsas, limpieza, transporte, etc.).</div>
             {gastoOk ? (
               <div style={{background:"#0f2820",border:"1px solid #1a4a30",borderRadius:10,padding:"18px",fontSize:14,color:"#34d399",textAlign:"center"}}>✓ Gasto registrado</div>
             ) : (<>
@@ -1440,7 +1440,7 @@ function StoreView({ profile, inventory, sales, rate, payments, orders, saveOrde
           <div className="card" style={{maxWidth:480,width:"100%",textAlign:"center",padding:isMobile?"26px 18px":"40px 32px",alignSelf:"flex-start"}}>
             <div style={{fontSize:48,marginBottom:12}}>🧾📸</div>
             <div style={{fontSize:20,fontWeight:800,color:"#fff",marginBottom:8}}>Subir factura de venta</div>
-            <div style={{fontSize:13,color:"#4a8090",lineHeight:1.6,marginBottom:22}}>
+            <div style={{fontSize:13,color:"#7aa9b8",lineHeight:1.6,marginBottom:22}}>
               Toma foto de la factura que ya llenaste en papel.<br/>El sistema la lee y te la muestra para que confirmes antes de guardar.
             </div>
             <input ref={saleCamRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={scanSaleTicket}/>
@@ -1463,7 +1463,7 @@ function StoreView({ profile, inventory, sales, rate, payments, orders, saveOrde
         ) : (
           <div className="card" style={{maxWidth:560,width:"100%",alignSelf:"flex-start"}}>
             <div style={{fontSize:16,fontWeight:700,color:"#fff",marginBottom:4}}>{saleDraft.monturaRaw ? "🧾 Confirma la factura" : "✍️ Escribe la factura"}</div>
-            <div style={{fontSize:12,color:"#4a8090",marginBottom:16}}>{saleDraft.monturaRaw ? "Revisa que coincida con el papel — corrige lo que haga falta y guarda." : "Llena los datos de la venta y guarda."}</div>
+            <div style={{fontSize:12,color:"#7aa9b8",marginBottom:16}}>{saleDraft.monturaRaw ? "Revisa que coincida con el papel — corrige lo que haga falta y guarda." : "Llena los datos de la venta y guarda."}</div>
 
             {/* Cliente */}
             <div className="rg2" style={{gap:10,marginBottom:12}}>
@@ -1503,18 +1503,18 @@ function StoreView({ profile, inventory, sales, rate, payments, orders, saveOrde
             {dTotal>0 && <div style={{fontSize:11,color:"#7a94a8",marginBottom:12,fontFamily:"'JetBrains Mono',monospace"}}>{esApartado ? <>Saldo pendiente: <span style={{color:"#fbbf24",fontWeight:700}}>{fmtUSD(dSaldo)}</span> · se guardará como <span style={{color:"#e8c96a"}}>apartado</span></> : <span style={{color:"#34d399"}}>Pago completo (contado) ✓</span>}</div>}
 
             {/* Método de pago */}
-            <div style={{fontSize:10,color:"#1a4a50",marginBottom:6,letterSpacing:".07em"}}>MÉTODO DE PAGO</div>
+            <div style={{fontSize:10,color:"#6b8c95",marginBottom:6,letterSpacing:".07em"}}>MÉTODO DE PAGO</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:5,marginBottom:16}}>
               {METHODS.map(m=>(
                 <button key={m.id} onClick={()=>setDraft("method",m.id)} style={{background:saleDraft.method===m.id?"#0c2e35":"#071418",border:`1px solid ${saleDraft.method===m.id?"#0e7a8c":"#0d2a30"}`,borderRadius:8,padding:"7px 2px",cursor:"pointer",textAlign:"center"}}>
                   <div style={{fontSize:15}}>{m.icon}</div>
-                  <div style={{fontSize:10,color:saleDraft.method===m.id?"#2dcfe8":"#1a4a50",marginTop:2}}>{m.label}</div>
+                  <div style={{fontSize:10,color:saleDraft.method===m.id?"#2dcfe8":"#6b8c95",marginTop:2}}>{m.label}</div>
                 </button>
               ))}
             </div>
 
             <div style={{borderTop:"1px solid #0a2028",paddingTop:14,marginBottom:14}}>
-              <div style={{fontSize:10,color:"#1a4a50"}}>{esApartado ? "TOTAL DE LA VENTA" : "TOTAL A COBRAR"}</div>
+              <div style={{fontSize:10,color:"#6b8c95"}}>{esApartado ? "TOTAL DE LA VENTA" : "TOTAL A COBRAR"}</div>
               <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:26,fontWeight:700,color:"#fff"}}>{fmtUSD(dTotal)}</div>
               <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,color:"#fbbf24",marginTop:2}}>{fmtBs(dTotal,rate)}</div>
             </div>
@@ -1636,14 +1636,14 @@ function CameraModal({ onClose, onDetect }) {
       <div className="modal" style={{maxWidth:420}}>
         <div style={{fontSize:17,fontWeight:700,color:"#fff",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           📷 Escanear código
-          <button style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:20}} onClick={handleClose}>×</button>
+          <button style={{background:"transparent",border:"none",color:"#6f82a0",cursor:"pointer",fontSize:20}} onClick={handleClose}>×</button>
         </div>
 
         {/* Mode switcher */}
         <div style={{display:"flex",gap:6,marginBottom:14}}>
           {[["cam","🎥 Cámara"],["file","🖼️ Galería"],["manual","⌨️ Manual"]].map(([m,l])=>(
             <button key={m} onClick={()=>setMode(m)}
-              style={{flex:1,background:mode===m?"#0c2e35":"transparent",border:`1px solid ${mode===m?"#0e7a8c":"#0a2028"}`,borderRadius:8,padding:"7px 4px",fontSize:11,color:mode===m?"#2dcfe8":"#2a4060",cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
+              style={{flex:1,background:mode===m?"#0c2e35":"transparent",border:`1px solid ${mode===m?"#0e7a8c":"#0a2028"}`,borderRadius:8,padding:"7px 4px",fontSize:11,color:mode===m?"#2dcfe8":"#6f82a0",cursor:"pointer",fontFamily:"'Outfit',sans-serif"}}>
               {l}
             </button>
           ))}
@@ -1680,7 +1680,7 @@ function CameraModal({ onClose, onDetect }) {
         {mode === "file" && (
           <div style={{marginBottom:14,textAlign:"center",padding:"20px 0"}}>
             <div style={{fontSize:36,marginBottom:8}}>🖼️</div>
-            <div style={{fontSize:13,color:"#4a8090",marginBottom:14,lineHeight:1.5}}>Elige una foto del código de barras o QR de tu galería (o toma una nueva).</div>
+            <div style={{fontSize:13,color:"#7aa9b8",marginBottom:14,lineHeight:1.5}}>Elige una foto del código de barras o QR de tu galería (o toma una nueva).</div>
             <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleFileCapture}/>
             <button className="btn-p" style={{fontSize:14,padding:"12px 24px"}} onClick={()=>fileRef.current?.click()}>
               🖼️ Elegir foto
@@ -1689,7 +1689,7 @@ function CameraModal({ onClose, onDetect }) {
         )}
 
         {(mode === "manual" || error) && (
-          <div style={{fontSize:12,color:"#1a4a50",marginBottom:8}}>Ingresa el código manualmente:</div>
+          <div style={{fontSize:12,color:"#6b8c95",marginBottom:8}}>Ingresa el código manualmente:</div>
         )}
         <div style={{display:"flex",gap:8}}>
           <input value={manual} onChange={e=>setManual(e.target.value)}
@@ -1845,8 +1845,8 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
                   <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24"}}>Bs {rate.toLocaleString("es-VE",{maximumFractionDigits:1})}</div>
                 </button>
             }
-            <RefreshBtn refreshData={refreshData} label={false} style={{padding:"6px 10px",borderColor:"#0a2028",color:"#2a5060"}}/>
-            <button onClick={onLogout} style={{background:"transparent",border:"1px solid #0a2028",borderRadius:8,padding:"6px 10px",color:"#2a5060",cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",gap:4}}><ILogout/>Salir</button>
+            <RefreshBtn refreshData={refreshData} label={false} style={{padding:"6px 10px",borderColor:"#0a2028",color:"#78939f"}}/>
+            <button onClick={onLogout} style={{background:"transparent",border:"1px solid #0a2028",borderRadius:8,padding:"6px 10px",color:"#78939f",cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",gap:4}}><ILogout/>Salir</button>
           </div>
         </div>
       )}
@@ -1895,11 +1895,11 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
         <div style={{padding:"14px 6px 0",borderTop:"1px solid #0f1825",flexShrink:0}}>
           {/* Tasa del día */}
           <div style={{background:"#07111e",border:"1px solid #141e30",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
-            <div style={{fontSize:10,color:"#1e3050",marginBottom:4}}>TASA DEL DÍA</div>
+            <div style={{fontSize:10,color:"#6b7e9b",marginBottom:4}}>TASA DEL DÍA</div>
             {editRate ? (
               <div style={{display:"flex",gap:5,alignItems:"center"}}>
                 <input value={rateInput} onChange={e=>setRateInput(e.target.value)} type="number" min="0"
-                  style={{background:"#0a1420",border:"1px solid #2a4060",borderRadius:6,padding:"4px 8px",color:"#fbbf24",fontFamily:"'JetBrains Mono',monospace",fontSize:13,width:"100%"}}
+                  style={{background:"#0a1420",border:"1px solid #6f82a0",borderRadius:6,padding:"4px 8px",color:"#fbbf24",fontFamily:"'JetBrains Mono',monospace",fontSize:13,width:"100%"}}
                   onKeyDown={e=>e.key==="Enter"&&handleRateSave()}
                   autoFocus
                 />
@@ -1910,20 +1910,20 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>{setEditRate(true);setRateInput(String(rate));}}>
                 <div>
                   <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:15,fontWeight:700,color:"#fbbf24"}}>Bs {rate.toLocaleString("es-VE",{maximumFractionDigits:2})}</div>
-                  <div style={{fontSize:10,color:"#1e3050",marginTop:1}}>BCV · por 1 USD · se actualiza sola</div>
+                  <div style={{fontSize:10,color:"#6b7e9b",marginTop:1}}>BCV · por 1 USD · se actualiza sola</div>
                 </div>
-                <span style={{fontSize:11,color:"#1e3050"}}>✎</span>
+                <span style={{fontSize:11,color:"#6b7e9b"}}>✎</span>
               </div>
             )}
           </div>
-          <div style={{fontSize:10,color:"#1e3050",marginBottom:3}}>INVERTIDO (USD)</div>
+          <div style={{fontSize:10,color:"#6b7e9b",marginBottom:3}}>INVERTIDO (USD)</div>
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,fontWeight:600,color:"#60a5fa"}}>{fmtUSD(totalInvested)}</div>
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:1}}>{fmtBs(totalInvested,rate)}</div>
           {/* Actualizar + Logout — siempre visibles */}
-          <RefreshBtn refreshData={refreshData} style={{marginTop:12,width:"100%",padding:"9px 10px",borderColor:"#1a3040",color:"#4a8090"}}/>
+          <RefreshBtn refreshData={refreshData} style={{marginTop:12,width:"100%",padding:"9px 10px",borderColor:"#1a3040",color:"#7aa9b8"}}/>
           <button
             className="btn-g"
-            style={{marginTop:8,width:"100%",fontSize:12,padding:"9px 10px",display:"flex",alignItems:"center",gap:6,justifyContent:"center",borderColor:"#1a3040",color:"#4a8090"}}
+            style={{marginTop:8,width:"100%",fontSize:12,padding:"9px 10px",display:"flex",alignItems:"center",gap:6,justifyContent:"center",borderColor:"#1a3040",color:"#7aa9b8"}}
             onClick={onLogout}
           >
             <ILogout/>Cambiar perfil
@@ -2161,13 +2161,13 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
 
   const Card = ({l,usd,txt,c,sub}) => (
     <div className="card-sm" style={{borderLeft:`3px solid ${c}50`}}>
-      <div style={{fontSize:10,color:"#1a4a50",marginBottom:4,textTransform:"uppercase",letterSpacing:".06em"}}>{l}</div>
+      <div style={{fontSize:10,color:"#6b8c95",marginBottom:4,textTransform:"uppercase",letterSpacing:".06em"}}>{l}</div>
       {usd!==undefined
         ? <><div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:700,color:c}}>{fmtUSD(usd)}</div>
             <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:1}}>{fmtBs(usd,rate)}</div></>
         : <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:700,color:c}}>{txt}</div>
       }
-      {sub && <div style={{fontSize:11,color:"#1a4a50",marginTop:3}}>{sub}</div>}
+      {sub && <div style={{fontSize:11,color:"#6b8c95",marginTop:3}}>{sub}</div>}
     </div>
   );
 
@@ -2176,7 +2176,7 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <div>
           <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Finanzas</h1>
-          <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Gastos fijos{isSocio(profile) ? " · Distribución de ganancias" : ""}</div>
+          <div style={{color:"#6b8c95",fontSize:13,marginTop:2}}>Gastos fijos{isSocio(profile) ? " · Distribución de ganancias" : ""}</div>
         </div>
         <select value={viewMonth} onChange={e=>setViewMonth(e.target.value)}
           style={{background:"#071418",border:"1px solid #0d2a30",borderRadius:8,padding:"8px 14px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:13}}>
@@ -2204,42 +2204,42 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
         <div style={{background:"#040d10",border:"1px solid #0a2028",borderRadius:12,padding:"14px",marginBottom:16}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:6,marginBottom:12}}>
             <div style={{fontSize:11,fontWeight:700,color:"#8aa0b8",textTransform:"uppercase",letterSpacing:".07em"}}>📐 Márgenes del mes</div>
-            <div style={{fontSize:10,color:"#2a4060",display:"flex",alignItems:"center",gap:4}}>🔒 Solo socios</div>
+            <div style={{fontSize:10,color:"#6f82a0",display:"flex",alignItems:"center",gap:4}}>🔒 Solo socios</div>
           </div>
 
           {/* Precio del producto: del costo del distribuidor al retail */}
-          <div style={{fontSize:10,color:"#1a4a50",textTransform:"uppercase",letterSpacing:".05em",marginBottom:7}}>Precio del producto</div>
+          <div style={{fontSize:10,color:"#6b8c95",textTransform:"uppercase",letterSpacing:".05em",marginBottom:7}}>Precio del producto</div>
           <div className="rg2" style={{marginBottom:6}}>
             {[
               {l:"Costo distribuidor", pct:costoPct,     c:"#fbbf24", hint:"Lo que le pagas al distribuidor (% de la venta)", amt:fmtUSD(costoDistrib)},
               {l:"Margen a retail",    pct:markupRetail, c:"#2dcfe8", hint:"Cuánto marcas sobre el costo · markup (ganancia ÷ costo)", amt:null},
             ].map(m=>(
               <div key={m.l} style={{background:"#071418",border:`1px solid ${m.c}25`,borderRadius:10,padding:"12px"}}>
-                <div style={{fontSize:10,color:"#1a4a50",textTransform:"uppercase",letterSpacing:".05em",marginBottom:5}}>{m.l}</div>
+                <div style={{fontSize:10,color:"#6b8c95",textTransform:"uppercase",letterSpacing:".05em",marginBottom:5}}>{m.l}</div>
                 <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:22,fontWeight:800,color:m.c}}>{hayMerc ? `${m.pct.toFixed(1)}%` : "—"}</div>
                 {m.amt && hayMerc && <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:1}}>{m.amt}</div>}
-                <div style={{fontSize:10,color:"#1a4a50",marginTop:5,lineHeight:1.4}}>{m.hint}</div>
+                <div style={{fontSize:10,color:"#6b8c95",marginTop:5,lineHeight:1.4}}>{m.hint}</div>
               </div>
             ))}
           </div>
 
           {/* Rentabilidad del mes: antes y después de los gastos fijos */}
-          <div style={{fontSize:10,color:"#1a4a50",textTransform:"uppercase",letterSpacing:".05em",margin:"12px 0 7px"}}>Rentabilidad del mes</div>
+          <div style={{fontSize:10,color:"#6b8c95",textTransform:"uppercase",letterSpacing:".05em",margin:"12px 0 7px"}}>Rentabilidad del mes</div>
           <div className="rg2">
             {[
               {l:"Margen bruto", pct:margenBruto, c:"#34d399", hint:"Ganancia antes de gastos fijos (= margen de utilidad)"},
               {l:"Margen neto",  pct:margenNeto,  c:margenNeto>=0?"#a78bfa":"#f87171", hint:"Lo que queda después de los gastos fijos"},
             ].map(m=>(
               <div key={m.l} style={{background:"#071418",border:`1px solid ${m.c}25`,borderRadius:10,padding:"12px"}}>
-                <div style={{fontSize:10,color:"#1a4a50",textTransform:"uppercase",letterSpacing:".05em",marginBottom:5}}>{m.l}</div>
+                <div style={{fontSize:10,color:"#6b8c95",textTransform:"uppercase",letterSpacing:".05em",marginBottom:5}}>{m.l}</div>
                 <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:22,fontWeight:800,color:m.c}}>{mRevenue>0 ? `${m.pct.toFixed(1)}%` : "—"}</div>
-                <div style={{fontSize:10,color:"#1a4a50",marginTop:5,lineHeight:1.4}}>{m.hint}</div>
+                <div style={{fontSize:10,color:"#6b8c95",marginTop:5,lineHeight:1.4}}>{m.hint}</div>
               </div>
             ))}
           </div>
 
           {hayMerc && (
-            <div style={{fontSize:10,color:"#1a4050",fontFamily:"'JetBrains Mono',monospace",marginTop:10,textAlign:"right"}}>
+            <div style={{fontSize:10,color:"#6b8c95",fontFamily:"'JetBrains Mono',monospace",marginTop:10,textAlign:"right"}}>
               {fmtUSD(ventaRetail)} retail − {fmtUSD(costoDistrib)} costo = <span style={{color:"#34d399"}}>{fmtUSD(utilidadMerc)}</span> de ganancia en producto
             </div>
           )}
@@ -2249,7 +2249,7 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
         {/* Split 55/45 — solo lo ven los socios (owner / René) */}
         {isSocio(profile) && mNet > 0 && (
           <div style={{background:"#040d10",border:"1px solid #0a2028",borderRadius:12,padding:"16px"}}>
-            <div style={{fontSize:11,color:"#1a4a50",marginBottom:12,textTransform:"uppercase",letterSpacing:".07em"}}>Distribución de ganancia neta</div>
+            <div style={{fontSize:11,color:"#6b8c95",marginBottom:12,textTransform:"uppercase",letterSpacing:".07em"}}>Distribución de ganancia neta</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               {[
                 {id:"owner",pct:PROFIT_SPLIT.owner,label:"Mi parte",color:"#0e7a8c"},
@@ -2279,16 +2279,16 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
         <div style={{fontSize:11,color:mEfectivoNeto>=0?"#3a9a70":"#f87171",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>💵 Control de efectivo — {viewMonth}</div>
         <div className="rg3">
           <div className="card-sm" style={{background:"#040d10"}}>
-            <div style={{fontSize:10,color:"#1a4a50",marginBottom:4,textTransform:"uppercase"}}>Cobrado total</div>
+            <div style={{fontSize:10,color:"#6b8c95",marginBottom:4,textTransform:"uppercase"}}>Cobrado total</div>
             <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:18,fontWeight:700,color:"#2dcfe8"}}>{fmtUSD(mCobradoTotal)}</div>
-            <div style={{fontSize:10,color:"#1a4a50",marginTop:3}}>Ventas + abonos de apartados</div>
+            <div style={{fontSize:10,color:"#6b8c95",marginTop:3}}>Ventas + abonos de apartados</div>
           </div>
           <div className="card-sm" style={{background:"#040d10"}}>
-            <div style={{fontSize:10,color:"#1a4a50",marginBottom:4,textTransform:"uppercase"}}>Todos los gastos</div>
+            <div style={{fontSize:10,color:"#6b8c95",marginBottom:4,textTransform:"uppercase"}}>Todos los gastos</div>
             <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:18,fontWeight:700,color:"#f87171"}}>−{fmtUSD(mExpenses)}</div>
           </div>
           <div className="card-sm" style={{background:"#040d10"}}>
-            <div style={{fontSize:10,color:"#1a4a50",marginBottom:4,textTransform:"uppercase"}}>Efectivo neto</div>
+            <div style={{fontSize:10,color:"#6b8c95",marginBottom:4,textTransform:"uppercase"}}>Efectivo neto</div>
             <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:18,fontWeight:700,color:mEfectivoNeto>=0?"#34d399":"#f87171"}}>{fmtUSD(mEfectivoNeto)}</div>
           </div>
         </div>
@@ -2299,7 +2299,7 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14,flexWrap:"wrap",gap:10}}>
           <div>
             <div style={{fontSize:14,fontWeight:800,color:"#e2e8f4"}}>💸 Gastos del mes — {viewMonth}</div>
-            <div style={{fontSize:11,color:"#1a4a50",marginTop:2,lineHeight:1.5}}>🔒 <b style={{color:"#8aa0b8"}}>Fijos</b> se repiten cada mes · 🛒 <b style={{color:"#8aa0b8"}}>De tienda</b> son compras/pagos sueltos</div>
+            <div style={{fontSize:11,color:"#6b8c95",marginTop:2,lineHeight:1.5}}>🔒 <b style={{color:"#8aa0b8"}}>Fijos</b> se repiten cada mes · 🛒 <b style={{color:"#8aa0b8"}}>De tienda</b> son compras/pagos sueltos</div>
           </div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             <button className="btn-g" style={{fontSize:12,padding:"7px 12px"}} onClick={toggleFixEditor}>{showFixEditor?"✓ Listo":"⚙️ Editar fijos"}</button>
@@ -2312,7 +2312,7 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
         {showFixEditor && (
           <div style={{background:"#071418",border:"1px solid #12303a",borderRadius:12,padding:isMobile?"12px":"14px",marginBottom:16}}>
             <div style={{fontSize:11,fontWeight:700,color:"#2dcfe8",textTransform:"uppercase",letterSpacing:".07em",marginBottom:4}}>Tus gastos fijos</div>
-            <div style={{fontSize:11,color:"#1a4a50",marginBottom:12}}>Cambia el título, el monto esperado y del día __ al __ que vence. Se repiten cada mes. Toca <b style={{color:"#34d399"}}>✓ Listo</b> para guardar.</div>
+            <div style={{fontSize:11,color:"#6b8c95",marginBottom:12}}>Cambia el título, el monto esperado y del día __ al __ que vence. Se repiten cada mes. Toca <b style={{color:"#34d399"}}>✓ Listo</b> para guardar.</div>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               {fixList.map(f=>(
                 <div key={f.id} style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center",background:"#040d10",border:"1px solid #0d2a30",borderRadius:10,padding:"10px"}}>
@@ -2352,7 +2352,7 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
             <div style={{height:9,background:"#0a1820",borderRadius:5,overflow:"hidden",marginBottom:6}}>
               <div style={{height:"100%",width:`${pctFijos}%`,background:allFijosPaid?"#34d399":"linear-gradient(90deg,#f87171,#fbbf24)",borderRadius:5,transition:"width .5s"}}/>
             </div>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#1a4050",fontFamily:"'JetBrains Mono',monospace"}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#6b8c95",fontFamily:"'JetBrains Mono',monospace"}}>
               <span>Pagado <span style={{color:"#34d399"}}>{fmtUSD(paidFijos)}</span></span>
               <span>Meta <span style={{color:"#9abac8"}}>{fmtUSD(targetFijos)}</span></span>
             </div>
@@ -2384,7 +2384,7 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
                       <span style={{fontSize:9,fontWeight:700,color:"#2dcfe8",background:"#07222b",border:"1px solid #123a44",borderRadius:20,padding:"1px 7px",letterSpacing:".03em"}}>🔒 FIJO</span>
                       <span style={{fontSize:13.5,color:stColor,fontWeight:600}}>{f.title}</span>
                     </div>
-                    <div style={{fontSize:11,color:"#1a4a50",marginTop:2}}>
+                    <div style={{fontSize:11,color:"#6b8c95",marginTop:2}}>
                       {dueLabel(f)}{exp>0 ? ` · meta ${fmtUSD(exp)}` : ""}
                     </div>
                   </div>
@@ -2429,7 +2429,7 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
                     <span style={{fontSize:9,fontWeight:700,color:"#e0a63a",background:"#241a06",border:"1px solid #4a3510",borderRadius:20,padding:"1px 7px",letterSpacing:".03em"}}>🛒 TIENDA</span>
                     <span style={{fontSize:13.5,color:"#e2e8f4",fontWeight:600}}>{recTitle(e)}</span>
                   </div>
-                  <div style={{fontSize:11,color:"#1a4a50",marginTop:2}}>
+                  <div style={{fontSize:11,color:"#6b8c95",marginTop:2}}>
                     {e.date||e.month||"—"}{e.note ? ` · ${e.note}` : ""}
                   </div>
                 </div>
@@ -2472,7 +2472,7 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
                   style={{flex:1,padding:"8px",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'Outfit',sans-serif",
                     border:`1px solid ${ef.type===t.id?(t.id==="fijo"?"#1a5060":"#4a3510"):"#0d2a30"}`,
                     background:ef.type===t.id?(t.id==="fijo"?"#0c2e35":"#241a06"):"transparent",
-                    color:ef.type===t.id?(t.id==="fijo"?"#2dcfe8":"#e0a63a"):"#2a5060"}}>{t.l}</button>
+                    color:ef.type===t.id?(t.id==="fijo"?"#2dcfe8":"#e0a63a"):"#78939f"}}>{t.l}</button>
               ))}
             </div>
             {ef.type==="fijo"
@@ -2693,7 +2693,7 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile, fixe
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10}}>
         <div>
           <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Estadísticas</h1>
-          <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Cobrado vs. Por cobrar · Ganancias{isSocio(profile) ? " · Tu parte" : ""}</div>
+          <div style={{color:"#6b8c95",fontSize:13,marginTop:2}}>Cobrado vs. Por cobrar · Ganancias{isSocio(profile) ? " · Tu parte" : ""}</div>
         </div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           {PERIODS.map(p=>(
@@ -2711,7 +2711,7 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile, fixe
           {l:"Artículos",   txt:`${totalItems} pz`, c:"#fbbf24"},
         ].map(({l,usd,txt,c})=>(
           <div key={l} className="card" style={{borderTop:`2px solid ${c}30`}}>
-            <div style={{fontSize:10,color:"#1a4a50",textTransform:"uppercase",letterSpacing:".07em",marginBottom:6}}>{l}</div>
+            <div style={{fontSize:10,color:"#6b8c95",textTransform:"uppercase",letterSpacing:".07em",marginBottom:6}}>{l}</div>
             {usd!==undefined
               ? <><div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:18,fontWeight:700,color:c}}>{fmtUSD(usd)}</div>
                   <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:2}}>{fmtBs(usd,rate)}</div></>
@@ -2745,7 +2745,7 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile, fixe
                 style={{display:"flex",alignItems:"center",gap:isMobile?5:7,
                   padding:isMobile?"5px 11px":"5px 16px", fontSize:isMobile?11:12,
                   borderColor: on ? s.c+"80" : "#0d2a30",
-                  color:       on ? s.c      : "#2a5060",
+                  color:       on ? s.c      : "#78939f",
                   background:  on ? s.c+"18" : "transparent",
                   opacity: on ? 1 : .6}}
                 onClick={()=>toggleSeries(s.id)}>
@@ -2760,20 +2760,20 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile, fixe
         <div style={{display:"flex",flexWrap:"wrap",gap:isMobile?"10px 16px":18,marginBottom:isMobile?12:16,paddingRight:4}}>
           {activeSeries.map(s=>(
             <div key={s.id} style={{minWidth:isMobile?"42%":"auto"}}>
-              <div style={{fontSize:isMobile?9:10,color:"#1a4a50",textTransform:"uppercase",letterSpacing:".06em",marginBottom:2,whiteSpace:"nowrap"}}>{s.l}</div>
+              <div style={{fontSize:isMobile?9:10,color:"#6b8c95",textTransform:"uppercase",letterSpacing:".06em",marginBottom:2,whiteSpace:"nowrap"}}>{s.l}</div>
               <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:isMobile?14:17,fontWeight:800,color:s.c,whiteSpace:"nowrap"}}>
                 {fmtUSD(s.id==="acumulado" ? (s.vals[s.vals.length-1]||0) : s.vals.reduce((a,v)=>a+v,0))}
               </div>
             </div>
           ))}
-          {activeSeries.length===0 && <div style={{fontSize:12,color:"#1a4a50"}}>Activa al menos una linea para verla</div>}
+          {activeSeries.length===0 && <div style={{fontSize:12,color:"#6b8c95"}}>Activa al menos una linea para verla</div>}
         </div>
 
         <div style={{position:"relative"}}>
         {/* Tooltip — flota sobre el grafico, no sobre los chips/totales de arriba */}
         {hover!==null && data[hover] && activeSeries.length>0 && (
           <div style={{position:"absolute",top:4,left:"50%",transform:"translateX(-50%)",maxWidth:"94%",background:"#071c22",border:"1px solid #0e7a8c",borderRadius:10,padding:isMobile?"6px 10px":"7px 16px",fontSize:isMobile?10.5:12,zIndex:10,pointerEvents:"none",display:"flex",gap:isMobile?8:16,flexWrap:"wrap",justifyContent:"center",whiteSpace:isMobile?"normal":"nowrap"}}>
-            <span style={{color:"#1a4a50",width:isMobile?"100%":"auto",textAlign:"center"}}>{data[hover].lbl}</span>
+            <span style={{color:"#6b8c95",width:isMobile?"100%":"auto",textAlign:"center"}}>{data[hover].lbl}</span>
             {activeSeries.map(s=>(
               <span key={s.id} style={{color:s.c,fontFamily:"'JetBrains Mono',monospace",fontWeight:700}}>{fmtUSD(s.vals[hover])}</span>
             ))}
@@ -2792,7 +2792,7 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile, fixe
               {chartYTicks.map(({y,label},i)=>(
                 <g key={i}>
                   <line x1={padL} x2={chartW-padR} y1={y} y2={y} stroke={i===0?"#0e2530":"#081820"} strokeWidth={i===0?1:.7} strokeDasharray={i===0?"0":"4,5"}/>
-                  <text x={chartW-padR+8} y={y+4} fontSize="9" fill="#1a4055" fontFamily="'JetBrains Mono',monospace" textAnchor="start">{label}</text>
+                  <text x={chartW-padR+8} y={y+4} fontSize="9" fill="#6b8c95" fontFamily="'JetBrains Mono',monospace" textAnchor="start">{label}</text>
                 </g>
               ))}
 
@@ -2811,7 +2811,7 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile, fixe
               {/* Crosshair + punto por serie activa en hover */}
               {hover!==null && data[hover] && (
                 <g>
-                  <line x1={xOf(hover,data.length)} x2={xOf(hover,data.length)} y1={padT} y2={padT+innerH} stroke="#2a5060" strokeWidth="1" strokeDasharray="3,4" opacity=".5"/>
+                  <line x1={xOf(hover,data.length)} x2={xOf(hover,data.length)} y1={padT} y2={padT+innerH} stroke="#78939f" strokeWidth="1" strokeDasharray="3,4" opacity=".5"/>
                   {activeSeries.map(s=>(
                     <circle key={s.id} cx={xOf(hover,data.length)} cy={yOf(s.vals[hover],maxAll)} r="4" fill={s.c} stroke="#030b0e" strokeWidth="2"/>
                   ))}
@@ -2830,9 +2830,9 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile, fixe
                     {parts.length===3
                       ? <>
                           <text x={x} y={chartH-14} textAnchor="middle" fontSize="9" fill={hover===i?"#3addf5":"#2dcfe8"} fontFamily="'JetBrains Mono',monospace" fontWeight="700">{parts[0]}</text>
-                          <text x={x} y={chartH-4}  textAnchor="middle" fontSize="8.5" fill="#1a4055" fontFamily="'JetBrains Mono',monospace">{parts[1]} {parts[2]}</text>
+                          <text x={x} y={chartH-4}  textAnchor="middle" fontSize="8.5" fill="#6b8c95" fontFamily="'JetBrains Mono',monospace">{parts[1]} {parts[2]}</text>
                         </>
-                      : <text x={x} y={chartH-6} textAnchor="middle" fontSize="9" fill={hover===i?"#3addf5":"#1a4055"} fontFamily="'JetBrains Mono',monospace">{d.lbl}</text>
+                      : <text x={x} y={chartH-6} textAnchor="middle" fontSize="9" fill={hover===i?"#3addf5":"#6b8c95"} fontFamily="'JetBrains Mono',monospace">{d.lbl}</text>
                     }
                   </g>
                 ) : null;
@@ -2876,7 +2876,7 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile, fixe
           <div style={{height:6,background:"#0a1820",borderRadius:4,overflow:"hidden",marginBottom:8}}>
             <div style={{height:"100%",width:`${expCoverage}%`,background:expCoverage>=100?"#34d399":"linear-gradient(90deg,#f87171,#fbbf24)",borderRadius:4,transition:"width .6s"}}/>
           </div>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#1a4050"}}>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#6b8c95"}}>
             <div>Total pagado: <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#f87171"}}>{fmtUSD(expPaidTotal)}</span>
               <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#fbbf24",marginLeft:5}}>{fmtBs(expPaidTotal,rate)}</span>
             </div>
@@ -2892,7 +2892,7 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile, fixe
             {l:"= Ganancia NETA",v:netProfit,   c:"#34d399", bold:true},
           ].map(({l,v,c,bold})=>(
             <div key={l} style={{flex:1,minWidth:110,background:"#071418",border:`1px solid ${bold?"#1a3a20":"#0a2028"}`,borderRadius:10,padding:"10px 12px"}}>
-              <div style={{fontSize:9,color:"#1a4050",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>{l}</div>
+              <div style={{fontSize:9,color:"#6b8c95",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>{l}</div>
               <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:bold?15:13,fontWeight:bold?700:400,color:c}}>
                 {v<0?"-":""}{fmtUSD(Math.abs(v))}
               </div>
@@ -2935,7 +2935,7 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile, fixe
                 <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:18,color:"#fbbf24",marginTop:6,fontWeight:700}}>
                   {fmtBs(p.cut,rate)}
                 </div>
-                <div style={{fontSize:11,color:"#1a4a50",marginTop:10,lineHeight:1.5}}>
+                <div style={{fontSize:11,color:"#6b8c95",marginTop:10,lineHeight:1.5}}>
                   Libre · ganancia neta después de gastos · {PERIODS.find(x=>x.id===period)?.l.toLowerCase()}
                 </div>
               </div>
@@ -2965,7 +2965,7 @@ function StatsTab({ sales, orders=[], expenses=[], rate, profile, isMobile, fixe
                     <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24"}}>{fmtBs(d.rev,rate)}</td>
                     <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#34d399"}}>{fmtUSD(d.profit)}</td>
                     <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:d.rev>0&&(d.profit/d.rev)>=.3?"#34d399":"#fbbf24"}}>{d.rev>0?`${((d.profit/d.rev)*100).toFixed(1)}%`:"—"}</td>
-                    <td style={{textAlign:"right",color:"#1a4a50",fontSize:11}}>{d.items}</td>
+                    <td style={{textAlign:"right",color:"#6b8c95",fontSize:11}}>{d.items}</td>
                   </tr>
                 ))
             }
@@ -3002,7 +3002,7 @@ function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos=0,w
     const up = pct >= 0;
     return (
       <span style={{fontSize:11,fontWeight:600,color:up?"#34d399":"#f87171",fontFamily:"'JetBrains Mono',monospace"}}>
-        {up?"↑":"↓"} {Math.abs(pct).toFixed(1)}% <span style={{color:"#2a4060",fontWeight:400,fontFamily:"'Outfit',sans-serif"}}>{vs}</span>
+        {up?"↑":"↓"} {Math.abs(pct).toFixed(1)}% <span style={{color:"#6f82a0",fontWeight:400,fontFamily:"'Outfit',sans-serif"}}>{vs}</span>
       </span>
     );
   };
@@ -3011,7 +3011,7 @@ function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos=0,w
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <div>
           <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Inicio</h1>
-          <div style={{color:"#2a4060",fontSize:13,marginTop:2}}>{new Date().toLocaleDateString("es-MX",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
+          <div style={{color:"#6f82a0",fontSize:13,marginTop:2}}>{new Date().toLocaleDateString("es-MX",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
         </div>
         <div style={{background:"#071c22",border:"1px solid #0e3040",borderRadius:10,padding:"6px 14px",fontSize:12,color:"#2dcfe8"}}>
           🏪 {storeLabel}
@@ -3025,10 +3025,10 @@ function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos=0,w
           {l:"Gan. semana",   usd:weekProf+weekApartProf,  s:weekApartProf>0?"incluye apartados pagados":(weekRev>0?`Margen ${((weekProf/weekRev)*100).toFixed(0)}%`:"Sin ventas"),   c:"#fbbf24", d:deltas?.weekProf, vs:"vs sem. pasada"},
         ].map(({l,usd,s,c,d,vs})=>(
           <div key={l} className="card" style={{borderTop:`2px solid ${c}22`}}>
-            <div style={{fontSize:10,color:"#2a4060",textTransform:"uppercase",letterSpacing:".07em",marginBottom:6}}>{l}</div>
+            <div style={{fontSize:10,color:"#6f82a0",textTransform:"uppercase",letterSpacing:".07em",marginBottom:6}}>{l}</div>
             <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:20,fontWeight:700,color:c}}>{fmtUSD(usd)}</div>
             <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#fbbf24",marginTop:2}}>{fmtBs(usd,rate)}</div>
-            <div style={{fontSize:11,color:"#2a4060",marginTop:4,display:"flex",justifyContent:"space-between",gap:6,flexWrap:"wrap"}}>
+            <div style={{fontSize:11,color:"#6f82a0",marginTop:4,display:"flex",justifyContent:"space-between",gap:6,flexWrap:"wrap"}}>
               <span>{s}</span><Delta pair={d} vs={vs}/>
             </div>
           </div>
@@ -3075,14 +3075,14 @@ function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos=0,w
       <div className="rg2">
         <div className="card" style={{background:"#030b0e",borderColor:"#0a2028"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-            <div style={{fontSize:11,fontWeight:600,color:"#1e3050",textTransform:"uppercase",letterSpacing:".08em"}}>Últimos 7 días</div>
+            <div style={{fontSize:11,fontWeight:600,color:"#6b7e9b",textTransform:"uppercase",letterSpacing:".08em"}}>Últimos 7 días</div>
             <div style={{display:"flex",gap:12,fontSize:10}}>
               <span style={{color:"#2dcfe8"}}>— Ingresos</span>
               <span style={{color:"#34d399"}}>— Ganancia</span>
             </div>
           </div>
           {last7.length===0
-            ? <div style={{color:"#141e2e",fontSize:13,textAlign:"center",padding:"30px 0"}}>Sin ventas aún</div>
+            ? <div style={{color:"#66778d",fontSize:13,textAlign:"center",padding:"30px 0"}}>Sin ventas aún</div>
             : (() => {
                 const DAYS_ES = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
                 const pts = last7.map((d,i)=>({
@@ -3140,7 +3140,7 @@ function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos=0,w
                           {/* Day name bold */}
                           <text x={x} y={H-12} textAnchor="middle" fontSize="8.5" fill="#2dcfe8" fontFamily="monospace" fontWeight="700">{p.lbl}</text>
                           {/* Date number */}
-                          <text x={x} y={H-3}  textAnchor="middle" fontSize="7.5" fill="#1a4055" fontFamily="monospace">{dateNum}</text>
+                          <text x={x} y={H-3}  textAnchor="middle" fontSize="7.5" fill="#6b8c95" fontFamily="monospace">{dateNum}</text>
                           {/* Revenue above point */}
                           <text x={x} y={Math.max(pT+2,ry-7)} textAnchor="middle" fontSize="7" fill="#2dcfe8" fontFamily="monospace" opacity=".75">
                             ${p.rev>=1000?`${(p.rev/1000).toFixed(1)}k`:p.rev.toFixed(0)}
@@ -3154,15 +3154,15 @@ function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos=0,w
           }
         </div>
         <div className="card">
-          <div style={{fontSize:11,fontWeight:600,color:"#1e3050",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#6b7e9b",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>
             Stock bajo {lowStock.length>0&&<span className="badge br" style={{marginLeft:8}}>{lowStock.length}</span>}
           </div>
-          {lowStock.length===0 ? <div style={{color:"#141e2e",fontSize:13,textAlign:"center",padding:"30px 0"}}>Todo en orden ✓</div>
+          {lowStock.length===0 ? <div style={{color:"#66778d",fontSize:13,textAlign:"center",padding:"30px 0"}}>Todo en orden ✓</div>
             : lowStock.map(p=>(
                 <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                   <div>
                     <div style={{fontSize:13,color:"#b0c0d8"}}>{p.name}</div>
-                    <div style={{fontSize:11,color:"#1e3050"}}>{p.cat}</div>
+                    <div style={{fontSize:11,color:"#6b7e9b"}}>{p.cat}</div>
                   </div>
                   <span className={`badge ${getStock(p)===0?"br":"ba"}`}>{getStock(p)===0?"Agotado":`${getStock(p)} pz`}</span>
                 </div>
@@ -3171,7 +3171,7 @@ function DashTab({todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos=0,w
         </div>
       </div>
       <div className="card">
-        <div style={{fontSize:11,fontWeight:600,color:"#1e3050",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>Inversión por categoría</div>
+        <div style={{fontSize:11,fontWeight:600,color:"#6b7e9b",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>Inversión por categoría</div>
         <div style={{display:"flex",flexDirection:"column",gap:11}}>
           {CATS.map(cat=>{
             const items=inventory.filter(p=>p.cat===cat&&!p.isService);
@@ -3220,12 +3220,12 @@ function WeekTab({byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles}
     <div style={{display:"flex",flexDirection:"column",gap:20}}>
       <div>
         <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Esta semana</h1>
-        <div style={{color:"#2a4060",fontSize:13,marginTop:2}}>{weekDates.length} días con ventas registradas</div>
+        <div style={{color:"#6f82a0",fontSize:13,marginTop:2}}>{weekDates.length} días con ventas registradas</div>
       </div>
       <div className="rg3">
         {[{l:"Ingresos semana",usd:weekRev,c:"#60a5fa"},{l:"Ganancia semana",usd:weekProf,c:"#34d399"},{l:"Artículos vendidos",usd:null,extra:`${weekItems} pz`,c:"#a78bfa"}].map(({l,usd,extra,c})=>(
           <div key={l} className="card" style={{textAlign:"center",borderTop:`2px solid ${c}22`}}>
-            <div style={{fontSize:10,color:"#2a4060",textTransform:"uppercase",letterSpacing:".07em",marginBottom:8}}>{l}</div>
+            <div style={{fontSize:10,color:"#6f82a0",textTransform:"uppercase",letterSpacing:".07em",marginBottom:8}}>{l}</div>
             {usd!==null ? <>
               <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:20,fontWeight:700,color:c}}>{fmtUSD(usd)}</div>
               <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#fbbf24",marginTop:2}}>{fmtBs(usd,rate)}</div>
@@ -3235,15 +3235,15 @@ function WeekTab({byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles}
       </div>
       <div className="rg2">
         <div className="card">
-          <div style={{fontSize:11,fontWeight:600,color:"#1e3050",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>Días de la semana</div>
-          {weekDates.length===0 ? <div style={{color:"#141e2e",fontSize:13,textAlign:"center",padding:"20px 0"}}>Sin ventas esta semana</div>
+          <div style={{fontSize:11,fontWeight:600,color:"#6b7e9b",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>Días de la semana</div>
+          {weekDates.length===0 ? <div style={{color:"#66778d",fontSize:13,textAlign:"center",padding:"20px 0"}}>Sin ventas esta semana</div>
             : weekDates.map(d=>{
                 const rev=byDate[d].reduce((s,v)=>s+v.total,0),prof=byDate[d].reduce((s,v)=>s+v.profit,0),items=byDate[d].reduce((s,v)=>s+v.qty,0);
                 return (
                   <div key={d} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:"1px solid #0a1018",cursor:"pointer"}} onClick={()=>setDD(d)}>
                     <div>
                       <div style={{fontSize:13,color:"#b0c0d8"}}>{new Date(d+"T12:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"short"})}</div>
-                      <div style={{fontSize:11,color:"#1e3050"}}>{items} artículos</div>
+                      <div style={{fontSize:11,color:"#6b7e9b"}}>{items} artículos</div>
                     </div>
                     <div style={{textAlign:"right"}}>
                       <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#60a5fa"}}>{fmtUSD(rev)}</div>
@@ -3256,13 +3256,13 @@ function WeekTab({byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles}
           }
         </div>
         <div className="card">
-          <div style={{fontSize:11,fontWeight:600,color:"#1e3050",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>Top productos</div>
-          {topProds.length===0 ? <div style={{color:"#141e2e",fontSize:13,textAlign:"center",padding:"20px 0"}}>Sin ventas</div>
+          <div style={{fontSize:11,fontWeight:600,color:"#6b7e9b",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>Top productos</div>
+          {topProds.length===0 ? <div style={{color:"#66778d",fontSize:13,textAlign:"center",padding:"20px 0"}}>Sin ventas</div>
             : topProds.map(([name,d],i)=>(
                 <div key={name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:i<topProds.length-1?"1px solid #0a1018":"none"}}>
                   <div>
                     <div style={{fontSize:13,color:"#b0c0d8",maxWidth:175}}>{name}</div>
-                    <div style={{fontSize:11,color:"#1e3050"}}>{d.qty} pz</div>
+                    <div style={{fontSize:11,color:"#6b7e9b"}}>{d.qty} pz</div>
                   </div>
                   <div style={{textAlign:"right"}}>
                     <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#60a5fa"}}>{fmtUSD(d.rev)}</div>
@@ -3275,7 +3275,7 @@ function WeekTab({byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles}
         </div>
       </div>
       <div className="card">
-        <div style={{fontSize:11,fontWeight:600,color:"#1e3050",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>Ventas por perfil</div>
+        <div style={{fontSize:11,fontWeight:600,color:"#6b7e9b",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>Ventas por perfil</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:12}}>
           {allProfs.filter(p=>byProf[p.id]?.count>0||(byProf[p.id]?.rev>0)).map(p=>{
             const d=byProf[p.id]||{rev:0,profit:0,count:0};
@@ -3288,10 +3288,10 @@ function WeekTab({byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles}
                     {p.address&&<div style={{fontSize:10,color:`${p.color}80`}}>{p.address}</div>}
                   </div>
                 </div>
-                <div style={{fontSize:10,color:"#1e3050",marginBottom:2}}>INGRESOS</div>
+                <div style={{fontSize:10,color:"#6b7e9b",marginBottom:2}}>INGRESOS</div>
                 <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:15,color:p.color,fontWeight:600}}>{fmtUSD(d.rev)}</div>
                 <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:1}}>{fmtBs(d.rev,rate)}</div>
-                <div style={{fontSize:11,color:"#1e3050",marginTop:3}}>{d.count} arts · {fmtUSD(d.profit)} gan.</div>
+                <div style={{fontSize:11,color:"#6b7e9b",marginTop:3}}>{d.count} arts · {fmtUSD(d.profit)} gan.</div>
               </div>
             );
           })}
@@ -3420,7 +3420,7 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
       )}
       <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:11}}>
         <div className="card-sm" style={{textAlign:"center"}}>
-          <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>PRODUCTOS</div>
+          <div style={{fontSize:10,color:"#6f82a0",marginBottom:4}}>PRODUCTOS</div>
           <div style={{fontSize:22,fontWeight:700,color:"#60a5fa",fontFamily:"'Outfit',sans-serif"}}>{inventory.length}</div>
         </div>
         <div className="card-sm" style={{textAlign:"center",borderColor:"#2a1e4a"}}>
@@ -3429,23 +3429,23 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:1}}>{fmtBs(totalRetail-totalInvested,rate)}</div>
         </div>
         <div className="card-sm" style={{textAlign:"center"}}>
-          <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>INVERTIDO</div>
+          <div style={{fontSize:10,color:"#6f82a0",marginBottom:4}}>INVERTIDO</div>
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,fontWeight:700,color:"#60a5fa"}}>{fmtUSD(totalInvested)}</div>
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:1}}>{fmtBs(totalInvested,rate)}</div>
         </div>
         <div className="card-sm" style={{textAlign:"center"}}>
-          <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>VALOR VENTA</div>
+          <div style={{fontSize:10,color:"#6f82a0",marginBottom:4}}>VALOR VENTA</div>
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,fontWeight:700,color:"#34d399"}}>{fmtUSD(totalRetail)}</div>
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:1}}>{fmtBs(totalRetail,rate)}</div>
         </div>
       </div>
-      <div style={{fontSize:10.5,color:"#1a4a50",textAlign:"center",lineHeight:1.6,background:"#050f12",border:"1px solid #0a2028",borderRadius:8,padding:"8px 12px"}}>
+      <div style={{fontSize:10.5,color:"#6b8c95",textAlign:"center",lineHeight:1.6,background:"#050f12",border:"1px solid #0a2028",borderRadius:8,padding:"8px 12px"}}>
         💡 <strong style={{color:"#60a5fa"}}>Invertido</strong> = lo que pagaste; se recupera y se reinvierte, <u>no es tuyo</u>. &nbsp;<strong style={{color:"#a78bfa"}}>Ganancia</strong> = lo que ganas encima ({fmtUSD(totalRetail)} − {fmtUSD(totalInvested)} = <strong style={{color:"#a78bfa"}}>{fmtUSD(totalRetail-totalInvested)}</strong>).
       </div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
         <input placeholder="Buscar..." value={search} onChange={e=>setSearch(e.target.value)} style={{background:"#0c1220",border:"1px solid #141e30",borderRadius:8,padding:"8px 12px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:13,width:190}}/>
         {["Todos",...CATS].map(c=>(
-          <button key={c} onClick={()=>setFilter(c)} style={{background:filter===c?"#0f1e35":"transparent",border:`1px solid ${filter===c?"#1e3a60":"#141e30"}`,color:filter===c?"#60a5fa":"#1e3050",borderRadius:20,padding:"4px 12px",fontSize:12,fontFamily:"'Outfit',sans-serif",cursor:"pointer"}}>{c}</button>
+          <button key={c} onClick={()=>setFilter(c)} style={{background:filter===c?"#0f1e35":"transparent",border:`1px solid ${filter===c?"#1e3a60":"#141e30"}`,color:filter===c?"#60a5fa":"#6b7e9b",borderRadius:20,padding:"4px 12px",fontSize:12,fontFamily:"'Outfit',sans-serif",cursor:"pointer"}}>{c}</button>
         ))}
         <select value={orden} onChange={e=>setOrden(e.target.value)} title="Ordenar la lista"
           style={{background:"#0c1220",border:"1px solid #141e30",borderRadius:8,padding:"6px 10px",color:"#8aa0c8",fontFamily:"'Outfit',sans-serif",fontSize:12,outline:"none",marginLeft:"auto"}}>
@@ -3476,7 +3476,7 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
             <th></th>
           </tr></thead>
           <tbody>
-            {filtered.length===0 ? <tr><td colSpan={9} style={{textAlign:"center",color:"#1e3050",padding:"28px 0"}}>Sin resultados</td></tr>
+            {filtered.length===0 ? <tr><td colSpan={9} style={{textAlign:"center",color:"#6b7e9b",padding:"28px 0"}}>Sin resultados</td></tr>
               : filtered.map(p=>{
                   const mg=p.price>0?((p.price-p.cost)/p.price*100).toFixed(0):0;
                   const u=getStock(p);
@@ -3488,7 +3488,7 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
                           ? <span className="badge bb">Servicio</span>
                           : u===0
                             ? <span className="badge br">Agotado</span>
-                            : <span style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,fontSize:15,color:u<3?"#fbbf24":"#34d399"}}>{u}<span style={{fontSize:10,color:"#1a4a50",fontWeight:400}}> u</span></span>}
+                            : <span style={{fontFamily:"'JetBrains Mono',monospace",fontWeight:700,fontSize:15,color:u<3?"#fbbf24":"#34d399"}}>{u}<span style={{fontSize:10,color:"#6b8c95",fontWeight:400}}> u</span></span>}
                       </td>
                       <td><span className={`badge bb`}>{p.cat}</span></td>
                       <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#3a5070"}}>{fmtUSD(p.cost)}</td>
@@ -3499,7 +3499,7 @@ function InvTab({inventory,saveInv,totalInvested,totalRetail,setInvModal,rate,di
                         {!p.isService ? <>
                           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#60a5fa"}}>{fmtUSD(p.cost*getStock(p))}</div>
                           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:"#fbbf24"}}>{fmtBs(p.cost*getStock(p),rate)}</div>
-                        </> : <span style={{color:"#1e3050"}}>-</span>}
+                        </> : <span style={{color:"#6b7e9b"}}>-</span>}
                       </td>
                       <td><div style={{display:"flex",gap:5,justifyContent:"flex-end"}}>
                         <button className="btn-g" style={{padding:"5px 9px"}} onClick={()=>setInvModal(p)}><IEdit/></button>
@@ -3560,7 +3560,7 @@ function ConteoModal({ inventory, saveInv, onClose, rate }) {
       <div className="modal" style={{maxWidth:640}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
           <div style={{fontSize:17,fontWeight:700,color:"#fff"}}>📋 Conteo físico</div>
-          <button style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:22}} onClick={onClose}>×</button>
+          <button style={{background:"transparent",border:"none",color:"#6f82a0",cursor:"pointer",fontSize:22}} onClick={onClose}>×</button>
         </div>
         {done ? (
           <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:10,padding:"16px",fontSize:14,color:"#34d399",textAlign:"center"}}>
@@ -3568,7 +3568,7 @@ function ConteoModal({ inventory, saveInv, onClose, rate }) {
             <div style={{fontSize:12,color:"#2a7a55",marginTop:6}}>{done.faltan?`−${done.faltan} unidad(es)`:""}{done.faltan&&done.sobran?" · ":""}{done.sobran?`+${done.sobran} unidad(es)`:""}</div>
           </div>
         ) : (<>
-          <div style={{fontSize:11.5,color:"#1a4a50",marginBottom:12,lineHeight:1.5}}>
+          <div style={{fontSize:11.5,color:"#6b8c95",marginBottom:12,lineHeight:1.5}}>
             Cuenta lo que <strong>de verdad</strong> tienes en la tienda y escríbelo aquí. El sistema ajusta solo.
             Deja en blanco lo que no cuentes ahora — no se toca.
           </div>
@@ -3582,12 +3582,12 @@ function ConteoModal({ inventory, saveInv, onClose, rate }) {
                 <div key={p.id} style={{background:"#050f12",border:`1px solid ${dif?(dif<0?"#4a2510":"#14402a"):"#0a2028"}`,borderRadius:10,padding:"9px 11px",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
                   <div style={{flex:1,minWidth:150}}>
                     <div style={{fontSize:12.5,color:"#b0c0d8"}}>{p.name}</div>
-                    <div style={{fontSize:10.5,color:"#2a5060"}}>sistema dice <strong style={{color:"#60a5fa"}}>{sis} pz</strong>{Number(p.cost)>0?` · costo ${fmtUSD(Number(p.cost))}`:""}</div>
+                    <div style={{fontSize:10.5,color:"#78939f"}}>sistema dice <strong style={{color:"#60a5fa"}}>{sis} pz</strong>{Number(p.cost)>0?` · costo ${fmtUSD(Number(p.cost))}`:""}</div>
                   </div>
                   <input type="number" min="0" step="1" placeholder="contar" value={v??""} onChange={e=>set(p.id,e.target.value)}
                     style={{width:82,background:"#050e10",border:`1px solid ${dif?(dif<0?"#5a3510":"#14503a"):"#0d2a30"}`,borderRadius:6,padding:"7px 9px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:13,outline:"none",textAlign:"center"}}/>
                   <div style={{width:96,textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:11.5,whiteSpace:"nowrap",
-                    color: dif===null?"#1e3050" : dif===0?"#34d399" : dif<0?"#fbbf24":"#2dcfe8"}}>
+                    color: dif===null?"#6b7e9b" : dif===0?"#34d399" : dif<0?"#fbbf24":"#2dcfe8"}}>
                     {dif===null ? "—" : dif===0 ? "✓ cuadra" : dif<0 ? `faltan ${Math.abs(dif)}` : `sobran ${dif}`}
                   </div>
                 </div>
@@ -3602,7 +3602,7 @@ function ConteoModal({ inventory, saveInv, onClose, rate }) {
             </div>
           )}
           <div style={{display:"flex",justifyContent:"space-between",marginTop:12,alignItems:"center",gap:8,flexWrap:"wrap"}}>
-            <div style={{fontSize:11,color:"#1a4a50"}}>{contados.length} de {items.length} contados</div>
+            <div style={{fontSize:11,color:"#6b8c95"}}>{contados.length} de {items.length} contados</div>
             <div style={{display:"flex",gap:8}}>
               <button className="btn-g" onClick={onClose}>Cancelar</button>
               <button className="btn-p" onClick={aplicar} disabled={saving||!difs.length} style={{minWidth:150}}>
@@ -3648,9 +3648,9 @@ function BulkPriceModal({ inventory, saveInv, onClose }) {
       <div className="modal" style={{maxWidth:520}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
           <div style={{fontSize:17,fontWeight:700,color:"#fff"}}>💲 Precio de venta masivo</div>
-          <button style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:22}} onClick={onClose}>×</button>
+          <button style={{background:"transparent",border:"none",color:"#6f82a0",cursor:"pointer",fontSize:22}} onClick={onClose}>×</button>
         </div>
-        <div style={{fontSize:11,color:"#1a4a50",marginBottom:14,lineHeight:1.5}}>Pon el precio de venta de muchos productos de un golpe, a partir del costo. Luego ajustas a mano los que sean distintos.</div>
+        <div style={{fontSize:11,color:"#6b8c95",marginBottom:14,lineHeight:1.5}}>Pon el precio de venta de muchos productos de un golpe, a partir del costo. Luego ajustas a mano los que sean distintos.</div>
         {done>0 ? (
           <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:10,padding:"16px",fontSize:14,color:"#34d399",textAlign:"center"}}>✓ Listo — {done} precio(s) de venta actualizados</div>
         ) : (<>
@@ -3664,7 +3664,7 @@ function BulkPriceModal({ inventory, saveInv, onClose }) {
               </select>
               <input type="number" min="0" step="0.1" value={val} onChange={e=>setVal(e.target.value)} style={{width:80,background:"#050e10",border:"1px solid #0d2a30",borderRadius:6,padding:"6px 9px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:13,outline:"none"}}/>
             </div>
-            <div style={{fontSize:10,color:"#1a4a50",marginTop:8}}>Ejemplo: costo $17 → precio {fmtUSD(priceFor(17))}</div>
+            <div style={{fontSize:10,color:"#6b8c95",marginTop:8}}>Ejemplo: costo $17 → precio {fmtUSD(priceFor(17))}</div>
           </div>
           <div style={{display:"flex",gap:10,alignItems:"flex-end",flexWrap:"wrap",marginBottom:12}}>
             <div className="field" style={{flex:1,minWidth:140}}><label>Categoría</label>
@@ -3684,7 +3684,7 @@ function BulkPriceModal({ inventory, saveInv, onClose }) {
                 <span style={{whiteSpace:"nowrap"}}>{fmtUSD(Number(p.cost))} → <strong style={{color:"#34d399"}}>{fmtUSD(priceFor(Number(p.cost)))}</strong></span>
               </div>
             ))}
-            {affected.length>sample.length && <div style={{fontSize:10,color:"#1a4a50",marginTop:4}}>…y {affected.length-sample.length} más</div>}
+            {affected.length>sample.length && <div style={{fontSize:10,color:"#6b8c95",marginTop:4}}>…y {affected.length-sample.length} más</div>}
           </div>
           <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
             <button className="btn-g" onClick={onClose}>Cancelar</button>
@@ -3715,11 +3715,11 @@ function DistributorsModal({ distributors=[], saveDistributors, onClose }) {
       <div className="modal" style={{maxWidth:560}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
           <div style={{fontSize:17,fontWeight:700,color:"#fff"}}>🏢 Distribuidores</div>
-          <button style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:22}} onClick={onClose}>×</button>
+          <button style={{background:"transparent",border:"none",color:"#6f82a0",cursor:"pointer",fontSize:22}} onClick={onClose}>×</button>
         </div>
-        <div style={{fontSize:11,color:"#1a4a50",marginBottom:12,lineHeight:1.5}}>Guarda el WhatsApp y correo de cada distribuidor. Al pedir reposición eliges a quién enviar y sale ya dirigido. <span style={{color:"#fbbf24"}}>Revisa los contactos que sembré de tus recibos.</span></div>
+        <div style={{fontSize:11,color:"#6b8c95",marginBottom:12,lineHeight:1.5}}>Guarda el WhatsApp y correo de cada distribuidor. Al pedir reposición eliges a quién enviar y sale ya dirigido. <span style={{color:"#fbbf24"}}>Revisa los contactos que sembré de tus recibos.</span></div>
         <div style={{display:"flex",flexDirection:"column",gap:10,maxHeight:"55vh",overflowY:"auto",paddingRight:2}}>
-          {list.length===0 && <div style={{fontSize:12,color:"#1a4a50",textAlign:"center",padding:"20px 0"}}>Sin distribuidores todavía. Agrega uno abajo.</div>}
+          {list.length===0 && <div style={{fontSize:12,color:"#6b8c95",textAlign:"center",padding:"20px 0"}}>Sin distribuidores todavía. Agrega uno abajo.</div>}
           {list.map(d=>(
             <div key={d.id} style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:12,padding:"12px"}}>
               <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
@@ -3737,7 +3737,7 @@ function DistributorsModal({ distributors=[], saveDistributors, onClose }) {
                       <input type="email" placeholder="correo@ejemplo.com" value={d.email} onChange={e=>upd(d.id,"email",e.target.value)} style={{padding:"6px 9px",fontSize:12}}/></div>
                   </div>
                 </div>
-                <button onClick={()=>remove(d.id)} title="Borrar" style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:18,padding:"2px 4px",flexShrink:0}}>×</button>
+                <button onClick={()=>remove(d.id)} title="Borrar" style={{background:"transparent",border:"none",color:"#6f82a0",cursor:"pointer",fontSize:18,padding:"2px 4px",flexShrink:0}}>×</button>
               </div>
             </div>
           ))}
@@ -3800,7 +3800,7 @@ function CajaTab({ sales, deposits, saveDeposits, rate, payments, orders = [] })
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <div>
           <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Caja</h1>
-          <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Control de efectivo y métodos de cobro</div>
+          <div style={{color:"#6b8c95",fontSize:13,marginTop:2}}>Control de efectivo y métodos de cobro</div>
         </div>
         <button className="btn-p" onClick={()=>setShowDeposit(true)}><IDeposit/>Registrar depósito</button>
       </div>
@@ -3824,7 +3824,7 @@ function CajaTab({ sales, deposits, saveDeposits, rate, payments, orders = [] })
           <div className="card-sm" style={{textAlign:"center",borderColor:"#0e3040"}}>
             <div style={{fontSize:10,color:"#2a6070",marginBottom:4}}>DÓLARES (USD)</div>
             <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:700,color:"#34d399"}}>{fmtUSD(flow.totUSD)}</div>
-            <div style={{fontSize:9,color:"#1a4a50",marginTop:2}}>Efectivo + Zelle</div>
+            <div style={{fontSize:9,color:"#6b8c95",marginTop:2}}>Efectivo + Zelle</div>
           </div>
           <div className="card-sm" style={{textAlign:"center",borderColor:"#1e1440"}}>
             <div style={{fontSize:10,color:"#5a4a90",marginBottom:4}}>USDT</div>
@@ -3841,14 +3841,14 @@ function CajaTab({ sales, deposits, saveDeposits, rate, payments, orders = [] })
                   <div style={{fontSize:13,color:"#b0c0d8"}}>{info.icon} {info.label} <span style={{fontSize:10,color:info.cur==="Bs"?"#fbbf24":info.cur==="USDT"?"#a78bfa":"#34d399"}}>({info.cur})</span></div>
                   <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,textAlign:"right"}}>
                     {info.cur==="Bs"
-                      ? <><span style={{color:"#fbbf24"}}>Bs {(v.bs||v.usd*rate).toLocaleString("es-VE",{maximumFractionDigits:0})}</span><span style={{color:"#2a4060",fontSize:11}}> · {fmtUSD(v.usd)}</span></>
+                      ? <><span style={{color:"#fbbf24"}}>Bs {(v.bs||v.usd*rate).toLocaleString("es-VE",{maximumFractionDigits:0})}</span><span style={{color:"#6f82a0",fontSize:11}}> · {fmtUSD(v.usd)}</span></>
                       : <span style={{color:info.cur==="USDT"?"#a78bfa":"#34d399"}}>{fmtUSD(v.usd)}</span>}
                   </div>
                 </div>
               );
             })}
           </div>
-        ) : <div style={{textAlign:"center",color:"#1e3050",fontSize:12,padding:"10px 0"}}>Sin entradas en este período</div>}
+        ) : <div style={{textAlign:"center",color:"#6b7e9b",fontSize:12,padding:"10px 0"}}>Sin entradas en este período</div>}
         {porCobrar>0 && (
           <div style={{marginTop:12,background:"#2a1e08",border:"1px solid #4a3510",borderRadius:10,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{fontSize:12,color:"#fbbf24"}}>⚠️ Pendiente por cobrar (apartados)</div>
@@ -3883,7 +3883,7 @@ function CajaTab({ sales, deposits, saveDeposits, rate, payments, orders = [] })
           {l:"Saldo en caja",     usd:saldoCaja,  c:saldoCaja>=0?"#2dcfe8":"#f87171"},
         ].map(({l,usd,c})=>(
           <div key={l} className="card" style={{borderTop:`2px solid ${c}30`}}>
-            <div style={{fontSize:10,color:"#1a4a50",textTransform:"uppercase",letterSpacing:".07em",marginBottom:6}}>{l}</div>
+            <div style={{fontSize:10,color:"#6b8c95",textTransform:"uppercase",letterSpacing:".07em",marginBottom:6}}>{l}</div>
             <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:18,fontWeight:700,color:c}}>{fmtUSD(usd)}</div>
             <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:2}}>{fmtBs(usd,rate)}</div>
           </div>
@@ -3893,7 +3893,7 @@ function CajaTab({ sales, deposits, saveDeposits, rate, payments, orders = [] })
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
         {/* Ventas por método */}
         <div className="card">
-          <div style={{fontSize:11,fontWeight:600,color:"#1a4a50",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>Ventas por método de pago</div>
+          <div style={{fontSize:11,fontWeight:600,color:"#6b8c95",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>Ventas por método de pago</div>
           {byMethod.length===0
             ? <div style={{color:"#0d2a30",textAlign:"center",padding:"20px 0",fontSize:13}}>Sin ventas</div>
             : byMethod.map(m=>(
@@ -3902,7 +3902,7 @@ function CajaTab({ sales, deposits, saveDeposits, rate, payments, orders = [] })
                     <span style={{fontSize:18}}>{m.icon}</span>
                     <div>
                       <div style={{fontSize:13,color:"#a0c8d0"}}>{m.label}</div>
-                      <div style={{fontSize:11,color:"#1a4a50"}}>{m.count} artículos</div>
+                      <div style={{fontSize:11,color:"#6b8c95"}}>{m.count} artículos</div>
                     </div>
                   </div>
                   <div style={{textAlign:"right"}}>
@@ -3916,7 +3916,7 @@ function CajaTab({ sales, deposits, saveDeposits, rate, payments, orders = [] })
 
         {/* Métodos de pago configurados */}
         <div className="card">
-          <div style={{fontSize:11,fontWeight:600,color:"#1a4a50",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>Nuestros datos de cobro</div>
+          <div style={{fontSize:11,fontWeight:600,color:"#6b8c95",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>Nuestros datos de cobro</div>
           {payments?.usdt?.address && (
             <div style={{marginBottom:14}}>
               <div style={{fontSize:12,color:"#2dcfe8",fontWeight:600,marginBottom:4}}>🔐 USDT — {payments.usdt.network}</div>
@@ -3946,7 +3946,7 @@ function CajaTab({ sales, deposits, saveDeposits, rate, payments, orders = [] })
 
       {/* Depósitos */}
       <div className="card" style={{padding:0,overflow:"hidden"}}>
-        <div style={{padding:"16px 20px",fontSize:11,fontWeight:600,color:"#1a4a50",textTransform:"uppercase",letterSpacing:".08em",borderBottom:"1px solid #081820"}}>
+        <div style={{padding:"16px 20px",fontSize:11,fontWeight:600,color:"#6b8c95",textTransform:"uppercase",letterSpacing:".08em",borderBottom:"1px solid #081820"}}>
           Historial de depósitos
         </div>
         {deposits.length===0
@@ -3959,7 +3959,7 @@ function CajaTab({ sales, deposits, saveDeposits, rate, payments, orders = [] })
                     <td style={{color:"#a0c8d0"}}>{d.date}</td>
                     <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:13,color:"#34d399"}}>{fmtUSD(d.amount)}</td>
                     <td style={{textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#fbbf24"}}>{fmtBs(d.amount,rate)}</td>
-                    <td style={{color:"#1a4a50",fontSize:12}}>{d.note||"—"}</td>
+                    <td style={{color:"#6b8c95",fontSize:12}}>{d.note||"—"}</td>
                     <td><button className="btn-d" style={{padding:"3px 8px",fontSize:11}} onClick={async()=>await saveDeposits(deposits.filter(x=>x.id!==d.id))}>✕</button></td>
                   </tr>
                 ))}
@@ -4061,7 +4061,7 @@ function ProfileSettingsTab({ profile, dynProfiles, saveDynProfiles }) {
       )}
       <div>
         <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>{isStore ? `Tienda — ${live.address||live.name}` : "Mi perfil"}</h1>
-        <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Configura tu información {isStore?"de la tienda":"personal"}</div>
+        <div style={{color:"#6b8c95",fontSize:13,marginTop:2}}>Configura tu información {isStore?"de la tienda":"personal"}</div>
       </div>
 
       <div className="card" style={{display:"flex",flexDirection:"column",gap:18}}>
@@ -4098,7 +4098,7 @@ function ProfileSettingsTab({ profile, dynProfiles, saveDynProfiles }) {
             <input ref={storeLogoRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleStoreLogo}/>
             <div>
               <div style={{fontSize:12,fontWeight:600,color:"#2dcfe8",marginBottom:4}}>Logo de la tienda en pantalla de login</div>
-              <div style={{fontSize:11,color:"#1a4a50",marginBottom:8}}>Aparece en la tarjeta de selección de perfil</div>
+              <div style={{fontSize:11,color:"#6b8c95",marginBottom:8}}>Aparece en la tarjeta de selección de perfil</div>
               <button onClick={()=>storeLogoRef.current?.click()} style={{fontSize:11,color:"#fbbf24",background:"transparent",border:"1px solid #2a2010",borderRadius:6,padding:"4px 12px",cursor:"pointer"}}>
                 📷 Cambiar logo de tienda
               </button>
@@ -4120,7 +4120,7 @@ function ProfileSettingsTab({ profile, dynProfiles, saveDynProfiles }) {
         {/* Contraseña */}
         <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:12,padding:"14px"}}>
           <div style={{fontSize:11,fontWeight:600,color:"#2dcfe8",marginBottom:4}}>🔑 Contraseña de acceso — dejar vacío para no modificar</div>
-          <div style={{fontSize:10,color:"#1a4a50",marginBottom:10}}>{live.password ? "Tienes contraseña activa: al entrar se te pedirá la contraseña en vez del PIN." : "Sin contraseña: entras con PIN. Si creas una contraseña, reemplaza al PIN en el login."}</div>
+          <div style={{fontSize:10,color:"#6b8c95",marginBottom:10}}>{live.password ? "Tienes contraseña activa: al entrar se te pedirá la contraseña en vez del PIN." : "Sin contraseña: entras con PIN. Si creas una contraseña, reemplaza al PIN en el login."}</div>
           <div className="rg2" style={{gap:12}}>
             <div className="field"><label>Nueva contraseña (mín. 6)</label><input type="password" value={f.pw} onChange={e=>sf("pw",e.target.value)} placeholder="••••••••"/></div>
             <div className="field"><label>Confirmar contraseña</label><input type="password" value={f.pwConfirm} onChange={e=>sf("pwConfirm",e.target.value)} placeholder="••••••••"/></div>
@@ -4346,7 +4346,7 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum, inventory
   return (
     <div className="card" style={{borderColor:"#14402a"}}>
       <div style={{fontSize:13,fontWeight:700,color:"#34d399",marginBottom:4}}>⚡ Registro rápido — escanea la factura o escribe la venta</div>
-      <div style={{fontSize:11,color:"#1a4a50",marginBottom:10}}>Toma foto de la factura y el sistema la lee, o escríbela: "Lentes Nike azul, fotocromático. Se vendió a 200$. Abonó 100 en efectivo. Cliente María Pérez 0414 1234567"</div>
+      <div style={{fontSize:11,color:"#6b8c95",marginBottom:10}}>Toma foto de la factura y el sistema la lee, o escríbela: "Lentes Nike azul, fotocromático. Se vendió a 200$. Abonó 100 en efectivo. Cliente María Pérez 0414 1234567"</div>
       {done && <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#34d399",marginBottom:10}}>{done==="venta" ? "✓ Venta registrada — ya cuenta en ganancias" : "✓ Apartado guardado — se cierra al completar el pago"}</div>}
       {!draft ? (
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -4364,7 +4364,7 @@ function QuickEntry({ orders, saveOrders, rate, profile, nextOrderNum, inventory
           )}
           <div style={{display:"flex",alignItems:"center",gap:10,margin:"2px 0"}}>
             <div style={{flex:1,height:1,background:"#0d2a30"}}/>
-            <span style={{fontSize:10,color:"#1a4a50"}}>o escríbela a mano</span>
+            <span style={{fontSize:10,color:"#6b8c95"}}>o escríbela a mano</span>
             <div style={{flex:1,height:1,background:"#0d2a30"}}/>
           </div>
           <textarea value={txt} onChange={e=>setTxt(e.target.value)} rows={3}
@@ -4572,7 +4572,7 @@ function ApartadosTab({ orders, saveOrders, rate, profile, isMobile, inventory=[
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
           <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Apartados</h1>
-          <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Clientes que pagan por partes — se entrega al completar el pago</div>
+          <div style={{color:"#6b8c95",fontSize:13,marginTop:2}}>Clientes que pagan por partes — se entrega al completar el pago</div>
         </div>
         <button className="btn-p" onClick={()=>{setShowNew(true);setErr("");}}><IPlus/>Nuevo apartado</button>
       </div>
@@ -4592,16 +4592,16 @@ function ApartadosTab({ orders, saveOrders, rate, profile, isMobile, inventory=[
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11}}>
         <div className="card-sm" style={{textAlign:"center"}}>
-          <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>POR COBRAR</div>
+          <div style={{fontSize:10,color:"#6f82a0",marginBottom:4}}>POR COBRAR</div>
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:700,color:"#fbbf24"}}>{fmtUSD(totalPendiente)}</div>
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:"#7a6420"}}>{fmtBs(totalPendiente,rate)}</div>
         </div>
         <div className="card-sm" style={{textAlign:"center"}}>
-          <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>APARTADOS ACTIVOS</div>
+          <div style={{fontSize:10,color:"#6f82a0",marginBottom:4}}>APARTADOS ACTIVOS</div>
           <div style={{fontSize:22,fontWeight:700,color:"#60a5fa",fontFamily:"'Outfit',sans-serif"}}>{activos}</div>
         </div>
         <div className="card-sm" style={{textAlign:"center"}}>
-          <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>LISTOS PARA ENTREGAR</div>
+          <div style={{fontSize:10,color:"#6f82a0",marginBottom:4}}>LISTOS PARA ENTREGAR</div>
           <div style={{fontSize:22,fontWeight:700,color:"#34d399",fontFamily:"'Outfit',sans-serif"}}>{listos}</div>
         </div>
       </div>
@@ -4610,12 +4610,12 @@ function ApartadosTab({ orders, saveOrders, rate, profile, isMobile, inventory=[
         <input placeholder="Buscar cliente o # de orden…" value={search} onChange={e=>setSearch(e.target.value)}
           style={{background:"#0c1220",border:"1px solid #141e30",borderRadius:8,padding:"8px 12px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:13,width:210}}/>
         {[["activos","Con deuda"],["pagados","Listos"],["entregados","Entregados"],["todos","Todos"]].map(([id,l])=>(
-          <button key={id} onClick={()=>setFilter(id)} style={{background:filter===id?"#0f1e35":"transparent",border:`1px solid ${filter===id?"#1e3a60":"#141e30"}`,color:filter===id?"#60a5fa":"#1e3050",borderRadius:20,padding:"4px 12px",fontSize:12,fontFamily:"'Outfit',sans-serif",cursor:"pointer"}}>{l}</button>
+          <button key={id} onClick={()=>setFilter(id)} style={{background:filter===id?"#0f1e35":"transparent",border:`1px solid ${filter===id?"#1e3a60":"#141e30"}`,color:filter===id?"#60a5fa":"#6b7e9b",borderRadius:20,padding:"4px 12px",fontSize:12,fontFamily:"'Outfit',sans-serif",cursor:"pointer"}}>{l}</button>
         ))}
       </div>
 
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        {visible.length===0 && <div className="card" style={{textAlign:"center",color:"#1e3050",padding:"30px"}}>Sin apartados en esta vista</div>}
+        {visible.length===0 && <div className="card" style={{textAlign:"center",color:"#6b7e9b",padding:"30px"}}>Sin apartados en esta vista</div>}
         {visible.map(o=>{
           const paid = orderPaid(o), bal = orderBalance(o), pct = o.total>0 ? Math.min(100, paid/o.total*100) : 0;
           return (
@@ -4632,7 +4632,7 @@ function ApartadosTab({ orders, saveOrders, rate, profile, isMobile, inventory=[
                 <div style={{textAlign:"right"}}>
                   <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13}}>
                     <span style={{color:"#34d399"}}>{fmtUSD(paid)}</span>
-                    <span style={{color:"#1e3050"}}> / </span>
+                    <span style={{color:"#6b7e9b"}}> / </span>
                     <span style={{color:"#60a5fa"}}>{fmtUSD(o.total)}</span>
                   </div>
                   {bal>0 && <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:2}}>faltan {fmtUSD(bal)} · {fmtBs(bal,rate)}</div>}
@@ -4768,12 +4768,12 @@ function CostosModal({ orders, saveOrders, onClose }) {
       <div className="modal" style={{maxWidth:720}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
           <div style={{fontSize:17,fontWeight:700,color:"#fff"}}>💰 Completar costos</div>
-          <button style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:22}} onClick={onClose}>×</button>
+          <button style={{background:"transparent",border:"none",color:"#6f82a0",cursor:"pointer",fontSize:22}} onClick={onClose}>×</button>
         </div>
         {done>0 ? (
           <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:10,padding:"16px",fontSize:14,color:"#34d399",textAlign:"center"}}>✓ Listo — {done} costo(s) guardados. Ahora sí calculan ganancia.</div>
         ) : (<>
-          <div style={{fontSize:11.5,color:"#1a4a50",marginBottom:12,lineHeight:1.5}}>Escribe lo que te costó a ti cada trabajo (lente + montura + laboratorio). Los que dejes vacíos quedan igual. <strong style={{color:"#fbbf24"}}>Ganancia = precio − costo.</strong></div>
+          <div style={{fontSize:11.5,color:"#6b8c95",marginBottom:12,lineHeight:1.5}}>Escribe lo que te costó a ti cada trabajo (lente + montura + laboratorio). Los que dejes vacíos quedan igual. <strong style={{color:"#fbbf24"}}>Ganancia = precio − costo.</strong></div>
           <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:10,padding:"10px 12px",marginBottom:12,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
             <span style={{fontSize:11,color:"#2dcfe8",fontWeight:600}}>Atajo para los vacíos:</span>
             <input type="number" min="0" step="0.01" value={bulk} onChange={e=>setBulk(e.target.value)} placeholder="0"
@@ -4788,12 +4788,12 @@ function CostosModal({ orders, saveOrders, onClose }) {
                 <div key={o.id} style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:10,padding:"9px 11px",display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
                   <div style={{flex:1,minWidth:180}}>
                     <div style={{fontSize:12,color:"#b0c0d8"}}>#{o.orderNumber} · {o.customer}</div>
-                    <div style={{fontSize:10.5,color:"#2a5060",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:400}}>{o.product}</div>
+                    <div style={{fontSize:10.5,color:"#78939f",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:400}}>{o.product}</div>
                   </div>
                   <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:12,color:"#60a5fa",whiteSpace:"nowrap"}}>vende {fmtUSD(t)}</div>
                   <input type="number" min="0" step="0.01" placeholder="costo" value={vals[o.id]} onChange={e=>set(o.id,e.target.value)}
                     style={{width:95,background:"#050e10",border:`1px solid ${c>0?"#14503a":"#0d2a30"}`,borderRadius:6,padding:"6px 9px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:12,outline:"none"}}/>
-                  <div style={{width:96,textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:11.5,color:c>0?(t-c>=0?"#34d399":"#f87171"):"#1e3050",whiteSpace:"nowrap"}}>
+                  <div style={{width:96,textAlign:"right",fontFamily:"'JetBrains Mono',monospace",fontSize:11.5,color:c>0?(t-c>=0?"#34d399":"#f87171"):"#6b7e9b",whiteSpace:"nowrap"}}>
                     {c>0 ? `gana ${fmtUSD(t-c)}` : "—"}
                   </div>
                 </div>
@@ -4801,7 +4801,7 @@ function CostosModal({ orders, saveOrders, onClose }) {
             })}
           </div>
           <div style={{display:"flex",justifyContent:"space-between",marginTop:12,alignItems:"center",gap:8,flexWrap:"wrap"}}>
-            <div style={{fontSize:11.5,color:llenos?"#34d399":"#1a4a50"}}>{llenos} de {faltantes.length} con costo</div>
+            <div style={{fontSize:11.5,color:llenos?"#34d399":"#6b8c95"}}>{llenos} de {faltantes.length} con costo</div>
             <div style={{display:"flex",gap:8}}>
               <button className="btn-g" onClick={onClose}>Cancelar</button>
               <button className="btn-p" onClick={save} disabled={saving||!llenos} style={{minWidth:140}}><ICheck/>{saving?"Guardando…":`Guardar ${llenos}`}</button>
@@ -4932,9 +4932,9 @@ function CierreTab({ sales, expenses, orders, rate, dynProfiles, profile }) {
 
   const Metric = ({label, value, sub, color="#2dcfe8"}) => (
     <div className="card-sm" style={{textAlign:"center"}}>
-      <div style={{fontSize:10,color:"#2a4060",marginBottom:4,textTransform:"uppercase",letterSpacing:".08em"}}>{label}</div>
+      <div style={{fontSize:10,color:"#6f82a0",marginBottom:4,textTransform:"uppercase",letterSpacing:".08em"}}>{label}</div>
       <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:18,fontWeight:700,color}}>{value}</div>
-      {sub&&<div style={{fontSize:10,color:"#1a4a50",marginTop:3}}>{sub}</div>}
+      {sub&&<div style={{fontSize:10,color:"#6b8c95",marginTop:3}}>{sub}</div>}
     </div>
   );
 
@@ -4943,7 +4943,7 @@ function CierreTab({ sales, expenses, orders, rate, dynProfiles, profile }) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:10}}>
         <div>
           <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Cierre de caja</h1>
-          <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Resumen mensual — ábrelo con "Ver" o descárgalo como registro</div>
+          <div style={{color:"#6b8c95",fontSize:13,marginTop:2}}>Resumen mensual — ábrelo con "Ver" o descárgalo como registro</div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
           <div className="field"><label>Mes</label><input type="month" value={month} onChange={e=>setMonth(e.target.value)}/></div>
@@ -4982,10 +4982,10 @@ function CierreTab({ sales, expenses, orders, rate, dynProfiles, profile }) {
 
       <div className="card">
         <div style={{fontSize:13,fontWeight:700,color:"#f87171",marginBottom:10}}>🏢 Gastos del mes — {fmtUSD(gastosTotal)}</div>
-        {byCat.length===0 ? <div style={{color:"#1e3050",fontSize:12}}>Sin gastos registrados este mes</div>
+        {byCat.length===0 ? <div style={{color:"#6b7e9b",fontSize:12}}>Sin gastos registrados este mes</div>
           : byCat.map(c=>(
             <div key={c.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #081820",fontSize:13}}>
-              <span style={{color:"#b0c0d8"}}>{c.icon} {c.label} <span style={{color:"#1e3050",fontSize:11}}>({c.items.length})</span></span>
+              <span style={{color:"#b0c0d8"}}>{c.icon} {c.label} <span style={{color:"#6b7e9b",fontSize:11}}>({c.items.length})</span></span>
               <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#f87171"}}>{fmtUSD(c.total)}</span>
             </div>
           ))}
@@ -5118,7 +5118,7 @@ Marca "Recordar mi sesión" para no volver a escribirla.`) : "";
       )}
       <div>
         <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Gestión</h1>
-        <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Perfiles, tiendas, gastos fijos y métodos de cobro</div>
+        <div style={{color:"#6b8c95",fontSize:13,marginTop:2}}>Perfiles, tiendas, gastos fijos y métodos de cobro</div>
       </div>
 
       {/* Gastos fijos: título + monto + vencimiento. Se repiten cada mes. */}
@@ -5127,7 +5127,7 @@ Marca "Recordar mi sesión" para no volver a escribirla.`) : "";
           <div style={{fontSize:13,fontWeight:700,color:"#7aa0e0"}}>🔒 Gastos fijos del mes</div>
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:15,fontWeight:700,color:"#7aa0e0"}}>{fmtUSD(fxTotal)}{rate?<span style={{fontSize:11,color:"#fbbf24",marginLeft:8}}>{fmtBs(fxTotal,rate)}</span>:null}</div>
         </div>
-        <div style={{fontSize:11,color:"#1a4a50",marginBottom:12}}>Escribe el título y el monto de cada gasto que se repite cada mes (alquiler, nómina, wifi…). Opcional: del día __ al __ que vence.</div>
+        <div style={{fontSize:11,color:"#6b8c95",marginBottom:12}}>Escribe el título y el monto de cada gasto que se repite cada mes (alquiler, nómina, wifi…). Opcional: del día __ al __ que vence.</div>
         {fxSaved && <div style={{background:"#06231a",border:"1px solid #14503a",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#34d399",marginBottom:10}}>✓ Gastos fijos guardados</div>}
         <div style={{display:"flex",flexDirection:"column",gap:9}}>
           {fxList.map(f=>(
@@ -5239,7 +5239,7 @@ Marca "Recordar mi sesión" para no volver a escribirla.`) : "";
               </div>
               <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:10,padding:"12px 14px",fontSize:12,color:"#b0c0d8",whiteSpace:"pre-wrap",lineHeight:1.6,marginBottom:8}}>{inviteMsg}</div>
               <div style={{textAlign:"center",marginBottom:14}}>
-                <span style={{fontSize:11,color:"#1a4a50"}}>Contraseña temporal: </span>
+                <span style={{fontSize:11,color:"#6b8c95"}}>Contraseña temporal: </span>
                 <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:700,color:"#34d399",letterSpacing:".08em"}}>{invite.pw}</span>
               </div>
               <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
@@ -5249,7 +5249,7 @@ Marca "Recordar mi sesión" para no volver a escribirla.`) : "";
                   className="btn-g" style={{textDecoration:"none",fontSize:13,display:"inline-flex",alignItems:"center"}}>✉️ Correo</a>}
                 <button className="btn-g" style={{fontSize:13}} onClick={copyInvite}>{inviteCopied?"✓ Copiado":"📋 Copiar"}</button>
               </div>
-              <div style={{fontSize:10,color:"#1a4a50",textAlign:"center",marginTop:12}}>Si vuelves a tocar "Invitar" se genera una contraseña nueva (sirve también para restablecer el acceso).</div>
+              <div style={{fontSize:10,color:"#6b8c95",textAlign:"center",marginTop:12}}>Si vuelves a tocar "Invitar" se genera una contraseña nueva (sirve también para restablecer el acceso).</div>
               <div style={{display:"flex",justifyContent:"center",marginTop:12}}>
                 <button className="btn-g" onClick={()=>setInvite(null)}>Cerrar</button>
               </div>
@@ -5261,7 +5261,7 @@ Marca "Recordar mi sesión" para no volver a escribirla.`) : "";
           <div className="ov" onClick={e=>{if(e.target===e.currentTarget)setEditProf(null);}}>
             <div className="modal" style={{maxWidth:400}}>
               <div style={{fontSize:17,fontWeight:700,color:"#fff",marginBottom:18,display:"flex",justifyContent:"space-between"}}>
-                Editar perfil <button style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer"}} onClick={()=>setEditProf(null)}><IClose/></button>
+                Editar perfil <button style={{background:"transparent",border:"none",color:"#6f82a0",cursor:"pointer"}} onClick={()=>setEditProf(null)}><IClose/></button>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:12}}>
                 <div className="field"><label>Nombre</label><input value={pf.name||""} onChange={e=>setPf(p=>({...p,name:e.target.value}))}/></div>
@@ -5276,7 +5276,7 @@ Marca "Recordar mi sesión" para no volver a escribirla.`) : "";
                     <input style={{flex:1,minWidth:0}} value={pf.password||""} onChange={e=>setPf(p=>({...p,password:e.target.value}))} placeholder="Vacío = entra con PIN"/>
                     {pf.password&&<button className="btn-d" style={{padding:"5px 10px",fontSize:11}} title="Quitar contraseña (vuelve al PIN)" onClick={()=>setPf(p=>({...p,password:""}))}>✕</button>}
                   </div>
-                  <div style={{fontSize:10,color:"#1a4a50",marginTop:3}}>Si el usuario olvidó su acceso, escribe aquí una contraseña nueva y compártesela.</div>
+                  <div style={{fontSize:10,color:"#6b8c95",marginTop:3}}>Si el usuario olvidó su acceso, escribe aquí una contraseña nueva y compártesela.</div>
                 </div>
                 <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
                   <button className="btn-g" onClick={()=>setEditProf(null)} disabled={profSaving}>Cancelar</button>
@@ -5297,7 +5297,7 @@ Marca "Recordar mi sesión" para no volver a escribirla.`) : "";
                   : <div style={{width:40,height:40,borderRadius:p.role==="store"?9:"50%",overflow:p.role==="store"?"hidden":"visible",background:`${p.color}15`,border:`2px solid ${p.color}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>{p.role==="store"?<Logo2 s={40}/>:p.name.slice(0,2)}</div>}
                 <div>
                   <div style={{fontSize:14,fontWeight:600,color:"#e2e8f4"}}>{p.name} {p.address&&<span style={{color:p.color,fontWeight:400}}>— {p.address}</span>}</div>
-                  <div style={{fontSize:11,color:"#1a4a50",marginTop:2}}>{p.role==="store"?"Tienda":"Admin"} · {p.email||p.phone||"Sin datos de contacto"}</div>
+                  <div style={{fontSize:11,color:"#6b8c95",marginTop:2}}>{p.role==="store"?"Tienda":"Admin"} · {p.email||p.phone||"Sin datos de contacto"}</div>
                 </div>
               </div>
               <div style={{display:"flex",gap:7}}>
@@ -5395,9 +5395,9 @@ function AnalisisTab({ inventory=[], sales=[], orders=[], purchases=[], rate, is
 
   const Card = ({l,v,sub,c}) => (
     <div className="card-sm" style={{borderLeft:`3px solid ${c}55`}}>
-      <div style={{fontSize:10,color:"#2a4060",textTransform:"uppercase",letterSpacing:".07em",marginBottom:4}}>{l}</div>
+      <div style={{fontSize:10,color:"#6f82a0",textTransform:"uppercase",letterSpacing:".07em",marginBottom:4}}>{l}</div>
       <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:700,color:c}}>{v}</div>
-      {sub && <div style={{fontSize:10,color:"#1a4a50",marginTop:3}}>{sub}</div>}
+      {sub && <div style={{fontSize:10,color:"#6b8c95",marginTop:3}}>{sub}</div>}
     </div>
   );
 
@@ -5405,7 +5405,7 @@ function AnalisisTab({ inventory=[], sales=[], orders=[], purchases=[], rate, is
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
       <div>
         <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Análisis</h1>
-        <div style={{color:"#1a4a50",fontSize:13,marginTop:2}}>Resumen del negocio · márgenes · qué deja más · clientes</div>
+        <div style={{color:"#6b8c95",fontSize:13,marginTop:2}}>Resumen del negocio · márgenes · qué deja más · clientes</div>
       </div>
 
       {/* Resumen general */}
@@ -5431,10 +5431,10 @@ function AnalisisTab({ inventory=[], sales=[], orders=[], purchases=[], rate, is
 
       {/* GRÁFICA: margen por producto */}
       <div className="card">
-        <div style={{fontSize:11,fontWeight:600,color:"#1e3050",textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}}>Margen por producto</div>
-        <div style={{fontSize:11,color:"#1a4a50",marginBottom:14}}>Qué porcentaje de cada venta te queda como ganancia. Barra más larga = deja más.</div>
+        <div style={{fontSize:11,fontWeight:600,color:"#6b7e9b",textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}}>Margen por producto</div>
+        <div style={{fontSize:11,color:"#6b8c95",marginBottom:14}}>Qué porcentaje de cada venta te queda como ganancia. Barra más larga = deja más.</div>
         {top.length===0
-          ? <div style={{color:"#141e2e",fontSize:13,textAlign:"center",padding:"30px 0"}}>Pon precios de venta para ver los márgenes</div>
+          ? <div style={{color:"#66778d",fontSize:13,textAlign:"center",padding:"30px 0"}}>Pon precios de venta para ver los márgenes</div>
           : <div style={{display:"flex",flexDirection:"column",gap:9}}>
               {top.map(p=>{
                 const m = margenDe(p), gan = (Number(p.price)||0)-(Number(p.cost)||0);
@@ -5448,7 +5448,7 @@ function AnalisisTab({ inventory=[], sales=[], orders=[], purchases=[], rate, is
                     <div style={{height:9,background:"#050f12",borderRadius:5,overflow:"hidden",border:"1px solid #0a2028"}}>
                       <div style={{width:`${Math.max(2,Math.min(100,m))}%`,height:"100%",background:`linear-gradient(90deg,${col}66,${col})`,borderRadius:5}}/>
                     </div>
-                    <div style={{fontSize:9.5,color:"#1a4a50",marginTop:2}}>cuesta {fmtUSD(Number(p.cost)||0)} · vendes {fmtUSD(Number(p.price)||0)} · {getStock(p)} pz</div>
+                    <div style={{fontSize:9.5,color:"#6b8c95",marginTop:2}}>cuesta {fmtUSD(Number(p.cost)||0)} · vendes {fmtUSD(Number(p.price)||0)} · {getStock(p)} pz</div>
                   </div>
                 );
               })}
@@ -5459,7 +5459,7 @@ function AnalisisTab({ inventory=[], sales=[], orders=[], purchases=[], rate, is
       {/* GRÁFICA: inversión por categoría */}
       {porCat.length>0 && (
         <div className="card">
-          <div style={{fontSize:11,fontWeight:600,color:"#1e3050",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>Dónde está tu dinero invertido</div>
+          <div style={{fontSize:11,fontWeight:600,color:"#6b7e9b",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>Dónde está tu dinero invertido</div>
           {porCat.map(([cat,monto])=>{
             const pct = invertido>0 ? (monto/invertido)*100 : 0;
             return (
@@ -5479,10 +5479,10 @@ function AnalisisTab({ inventory=[], sales=[], orders=[], purchases=[], rate, is
 
       {/* Qué producto deja más plata (ventas reales) */}
       <div className="card">
-        <div style={{fontSize:11,fontWeight:600,color:"#1e3050",textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}}>Lo que más te ha dejado</div>
-        <div style={{fontSize:11,color:"#1a4a50",marginBottom:14}}>Según las ventas ya cerradas. Ojo: margen alto no siempre es lo que más plata deja — también cuenta cuánto rota.</div>
+        <div style={{fontSize:11,fontWeight:600,color:"#6b7e9b",textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}}>Lo que más te ha dejado</div>
+        <div style={{fontSize:11,color:"#6b8c95",marginBottom:14}}>Según las ventas ya cerradas. Ojo: margen alto no siempre es lo que más plata deja — también cuenta cuánto rota.</div>
         {porProd.length===0
-          ? <div style={{color:"#141e2e",fontSize:13,textAlign:"center",padding:"26px 0"}}>Sin ventas cerradas todavía</div>
+          ? <div style={{color:"#66778d",fontSize:13,textAlign:"center",padding:"26px 0"}}>Sin ventas cerradas todavía</div>
           : porProd.slice(0,8).map(p=>{
               const max = porProd[0].profit || 1;
               return (
@@ -5494,7 +5494,7 @@ function AnalisisTab({ inventory=[], sales=[], orders=[], purchases=[], rate, is
                   <div style={{height:8,background:"#050f12",borderRadius:4,overflow:"hidden"}}>
                     <div style={{width:`${Math.max(2,(p.profit/max)*100)}%`,height:"100%",background:"linear-gradient(90deg,#0d7a50,#34d399)",borderRadius:4}}/>
                   </div>
-                  <div style={{fontSize:9.5,color:"#1a4a50",marginTop:2}}>{p.qty} vendido(s) · {fmtUSD(p.total)} facturado</div>
+                  <div style={{fontSize:9.5,color:"#6b8c95",marginTop:2}}>{p.qty} vendido(s) · {fmtUSD(p.total)} facturado</div>
                 </div>
               );
             })
@@ -5503,9 +5503,9 @@ function AnalisisTab({ inventory=[], sales=[], orders=[], purchases=[], rate, is
 
       {/* Clientes que más compran */}
       <div className="card">
-        <div style={{fontSize:11,fontWeight:600,color:"#1e3050",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>Clientes que más compran</div>
+        <div style={{fontSize:11,fontWeight:600,color:"#6b7e9b",textTransform:"uppercase",letterSpacing:".08em",marginBottom:14}}>Clientes que más compran</div>
         {porCliente.length===0
-          ? <div style={{color:"#141e2e",fontSize:13,textAlign:"center",padding:"26px 0"}}>Sin clientes registrados</div>
+          ? <div style={{color:"#66778d",fontSize:13,textAlign:"center",padding:"26px 0"}}>Sin clientes registrados</div>
           : porCliente.map(c=>{
               const max = porCliente[0].total || 1;
               return (
@@ -5541,39 +5541,39 @@ function ComprasTab({purchases=[], savePurchases, rate}) {
   return (
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
       <h1 style={{fontSize:26,fontWeight:800,color:"#fff",letterSpacing:"-.02em"}}>Compras</h1>
-      <div style={{fontSize:11.5,color:"#1a4a50",marginTop:-8,lineHeight:1.5}}>Cada recibo que cargas al inventario queda aquí. Esto es <strong style={{color:"#60a5fa"}}>capital invertido</strong> que se recupera con las ventas y se reinvierte — <u>no es ganancia</u>.</div>
+      <div style={{fontSize:11.5,color:"#6b8c95",marginTop:-8,lineHeight:1.5}}>Cada recibo que cargas al inventario queda aquí. Esto es <strong style={{color:"#60a5fa"}}>capital invertido</strong> que se recupera con las ventas y se reinvierte — <u>no es ganancia</u>.</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11}}>
         <div className="card-sm" style={{textAlign:"center"}}>
-          <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>INVERTIDO ESTE MES</div>
+          <div style={{fontSize:10,color:"#6f82a0",marginBottom:4}}>INVERTIDO ESTE MES</div>
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,fontWeight:700,color:"#60a5fa"}}>{fmtUSD(totalMes)}</div>
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:1}}>{fmtBs(totalMes,rate)}</div>
         </div>
         <div className="card-sm" style={{textAlign:"center"}}>
-          <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>INVERTIDO TOTAL</div>
+          <div style={{fontSize:10,color:"#6f82a0",marginBottom:4}}>INVERTIDO TOTAL</div>
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,fontWeight:700,color:"#60a5fa"}}>{fmtUSD(totalHist)}</div>
           <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:1}}>{fmtBs(totalHist,rate)}</div>
         </div>
         <div className="card-sm" style={{textAlign:"center"}}>
-          <div style={{fontSize:10,color:"#2a4060",marginBottom:4}}>UNIDADES</div>
+          <div style={{fontSize:10,color:"#6f82a0",marginBottom:4}}>UNIDADES</div>
           <div style={{fontSize:22,fontWeight:700,color:"#34d399",fontFamily:"'Outfit',sans-serif"}}>{totalUnits}</div>
         </div>
       </div>
       {list.length===0
-        ? <div className="card" style={{textAlign:"center",color:"#141e2e",padding:"56px 0"}}>Sin compras registradas todavía.<div style={{fontSize:12,marginTop:6}}>Carga un recibo desde <strong>Inventario → 📸 Escanear recibo</strong> y aparecerá aquí.</div></div>
+        ? <div className="card" style={{textAlign:"center",color:"#66778d",padding:"56px 0"}}>Sin compras registradas todavía.<div style={{fontSize:12,marginTop:6}}>Carga un recibo desde <strong>Inventario → 📸 Escanear recibo</strong> y aparecerá aquí.</div></div>
         : list.map(p=>(
             <div key={p.id} className="card">
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:15,fontWeight:600,color:"#b0c0d8"}}>{p.distributor||"Distribuidor sin nombre"}{p.receiptNumber?` · Nota ${p.receiptNumber}`:""}</div>
-                  <div style={{fontSize:12,color:"#1e3050",marginTop:2}}>{new Date((p.date||today())+"T12:00").toLocaleDateString("es-MX",{year:"numeric",month:"long",day:"numeric"})} · {srcLabel(p.source)} · {p.itemsCount||0} producto(s) · {p.unitsCount||0} unidad(es)</div>
+                  <div style={{fontSize:12,color:"#6b7e9b",marginTop:2}}>{new Date((p.date||today())+"T12:00").toLocaleDateString("es-MX",{year:"numeric",month:"long",day:"numeric"})} · {srcLabel(p.source)} · {p.itemsCount||0} producto(s) · {p.unitsCount||0} unidad(es)</div>
                 </div>
                 <div style={{display:"flex",gap:16,alignItems:"center"}}>
                   <div style={{textAlign:"right"}}>
-                    <div style={{fontSize:10,color:"#1e3050"}}>INVERTIDO</div>
+                    <div style={{fontSize:10,color:"#6b7e9b"}}>INVERTIDO</div>
                     <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,color:"#60a5fa"}}>{fmtUSD(p.totalInvested||0)}</div>
                     <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:"#fbbf24"}}>{fmtBs(p.totalInvested||0,rate)}</div>
                   </div>
-                  <button onClick={()=>del(p.id)} title="Borrar registro" style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer"}}><ITrash/></button>
+                  <button onClick={()=>del(p.id)} title="Borrar registro" style={{background:"transparent",border:"none",color:"#6f82a0",cursor:"pointer"}}><ITrash/></button>
                 </div>
               </div>
             </div>
@@ -5622,17 +5622,17 @@ function HistTab({byDate,sortedDates,setDD,sales=[],clearSales,isOwner=false,ord
       <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
         {[["dias","📅 Por día"],["clientes",`👥 Clientes (${clientes.length})`]].map(([id,l])=>(
           <button key={id} onClick={()=>setView(id)}
-            style={{background:view===id?"#0c2e35":"transparent",border:`1px solid ${view===id?"#0e7a8c":"#141e30"}`,color:view===id?"#2dcfe8":"#2a4060",borderRadius:20,padding:"6px 16px",fontSize:13,fontFamily:"'Outfit',sans-serif",cursor:"pointer"}}>{l}</button>
+            style={{background:view===id?"#0c2e35":"transparent",border:`1px solid ${view===id?"#0e7a8c":"#141e30"}`,color:view===id?"#2dcfe8":"#6f82a0",borderRadius:20,padding:"6px 16px",fontSize:13,fontFamily:"'Outfit',sans-serif",cursor:"pointer"}}>{l}</button>
         ))}
       </div>
 
       {view==="clientes" ? (
         <>
-          <div style={{fontSize:11.5,color:"#1a4a50",lineHeight:1.5}}>Cada cliente que ya compró, cuánto ha gastado y cuándo fue su última compra. {recurrentes>0 && <strong style={{color:"#34d399"}}>{recurrentes} cliente(s) ya volvieron a comprar.</strong>}</div>
+          <div style={{fontSize:11.5,color:"#6b8c95",lineHeight:1.5}}>Cada cliente que ya compró, cuánto ha gastado y cuándo fue su última compra. {recurrentes>0 && <strong style={{color:"#34d399"}}>{recurrentes} cliente(s) ya volvieron a comprar.</strong>}</div>
           <input placeholder="Buscar cliente o teléfono…" value={q} onChange={e=>setQ(e.target.value)}
             style={{background:"#0c1220",border:"1px solid #141e30",borderRadius:8,padding:"9px 13px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:13,maxWidth:320}}/>
           {filtrados.length===0
-            ? <div className="card" style={{textAlign:"center",color:"#141e2e",padding:"50px 0"}}>Sin clientes registrados todavía</div>
+            ? <div className="card" style={{textAlign:"center",color:"#66778d",padding:"50px 0"}}>Sin clientes registrados todavía</div>
             : filtrados.map(c=>(
                 <div key={c.nombre} className="card">
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
@@ -5642,17 +5642,17 @@ function HistTab({byDate,sortedDates,setDD,sales=[],clearSales,isOwner=false,ord
                         {c.compras>1 && <span style={{background:"#0c2e35",border:"1px solid #0e7a8c",borderRadius:20,padding:"1px 9px",fontSize:10,color:"#2dcfe8"}}>🔁 {c.compras} compras</span>}
                         {c.pendiente>0.01 && <span style={{background:"#2a1e08",border:"1px solid #4a3510",borderRadius:20,padding:"1px 9px",fontSize:10,color:"#fbbf24"}}>debe {fmtUSD(c.pendiente)}</span>}
                       </div>
-                      <div style={{fontSize:12,color:"#1e3050",marginTop:2}}>
+                      <div style={{fontSize:12,color:"#6b7e9b",marginTop:2}}>
                         Última compra: {c.ultima ? new Date(c.ultima+"T12:00").toLocaleDateString("es-MX",{year:"numeric",month:"long",day:"numeric"}) : "—"}
                         {c.tel?` · ${c.tel}`:""}
                       </div>
                       {c.productos.slice(0,3).map((p,i)=>(
-                        <div key={i} style={{fontSize:11,color:"#2a5060",marginTop:3}}>• {p.prod} — {fmtUSD(p.monto)}</div>
+                        <div key={i} style={{fontSize:11,color:"#78939f",marginTop:3}}>• {p.prod} — {fmtUSD(p.monto)}</div>
                       ))}
                     </div>
                     <div style={{textAlign:"right",display:"flex",alignItems:"center",gap:10}}>
                       <div>
-                        <div style={{fontSize:10,color:"#1e3050"}}>TOTAL COMPRADO</div>
+                        <div style={{fontSize:10,color:"#6b7e9b"}}>TOTAL COMPRADO</div>
                         <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,color:"#34d399"}}>{fmtUSD(c.total)}</div>
                       </div>
                       {phoneDigits(c.tel) && <a href={`https://wa.me/${phoneDigits(c.tel).startsWith("58")?phoneDigits(c.tel):phoneDigits(c.tel).replace(/^0/,"58")}`} target="_blank" rel="noreferrer" className="btn-g" style={{textDecoration:"none",fontSize:12,padding:"6px 11px"}}>📱</a>}
@@ -5663,7 +5663,7 @@ function HistTab({byDate,sortedDates,setDD,sales=[],clearSales,isOwner=false,ord
           }
         </>
       ) : (<>
-      {sortedDates.length===0 ? <div className="card" style={{textAlign:"center",color:"#141e2e",padding:"60px 0"}}>Sin ventas registradas</div>
+      {sortedDates.length===0 ? <div className="card" style={{textAlign:"center",color:"#66778d",padding:"60px 0"}}>Sin ventas registradas</div>
         : sortedDates.map(date=>{
             const ds=byDate[date],rev=ds.reduce((s,v)=>s+v.total,0),prof=ds.reduce((s,v)=>s+v.profit,0),items=ds.reduce((s,v)=>s+v.qty,0);
             return (
@@ -5671,18 +5671,18 @@ function HistTab({byDate,sortedDates,setDD,sales=[],clearSales,isOwner=false,ord
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div>
                     <div style={{fontSize:15,fontWeight:600,color:"#b0c0d8"}}>{new Date(date+"T12:00").toLocaleDateString("es-MX",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
-                    <div style={{fontSize:12,color:"#1e3050",marginTop:2}}>{items} artículo(s)</div>
+                    <div style={{fontSize:12,color:"#6b7e9b",marginTop:2}}>{items} artículo(s)</div>
                   </div>
                   <div style={{display:"flex",gap:22,alignItems:"center"}}>
                     <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:10,color:"#1e3050"}}>INGRESOS</div>
+                      <div style={{fontSize:10,color:"#6b7e9b"}}>INGRESOS</div>
                       <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,color:"#60a5fa"}}>{fmt(rev)}</div>
                     </div>
                     <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:10,color:"#1e3050"}}>GANANCIA</div>
+                      <div style={{fontSize:10,color:"#6b7e9b"}}>GANANCIA</div>
                       <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,color:"#34d399"}}>{fmt(prof)}</div>
                     </div>
-                    <span style={{color:"#1e3050",fontSize:20}}>›</span>
+                    <span style={{color:"#6b7e9b",fontSize:20}}>›</span>
                   </div>
                 </div>
               </div>
@@ -5695,7 +5695,7 @@ function HistTab({byDate,sortedDates,setDD,sales=[],clearSales,isOwner=false,ord
             style={{background:"#1a0808",border:"1px solid #5a1a1a",color:"#f87171",borderRadius:9,padding:"9px 14px",fontSize:12,fontFamily:"'Outfit',sans-serif",cursor:"pointer"}}>
             🗑️ Borrar todo el historial de ventas de prueba
           </button>
-          <div style={{fontSize:10,color:"#1a4a50",marginTop:6}}>Solo tú (dueño) ves esto. Borra las ventas registradas; no toca inventario ni compras.</div>
+          <div style={{fontSize:10,color:"#6b8c95",marginTop:6}}>Solo tú (dueño) ves esto. Borra las ventas registradas; no toca inventario ni compras.</div>
         </div>
       )}
       </>)}
@@ -5888,14 +5888,14 @@ function InvModal({item,inventory,saveInv,purchases=[],savePurchases,storeId=nul
       <div className="modal" style={{maxWidth:600}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
           <div style={{fontSize:17,fontWeight:700,color:"#fff"}}>{item?"Editar producto":"Agregar inventario"}</div>
-          <button style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:22}} onClick={onClose}>×</button>
+          <button style={{background:"transparent",border:"none",color:"#6f82a0",cursor:"pointer",fontSize:22}} onClick={onClose}>×</button>
         </div>
 
         {!item && (
           <div style={{display:"flex",gap:6,marginBottom:14}}>
             {[["normal","📦 Un producto"],["fast","⚡ Carga rápida (varios)"]].map(([m,l])=>(
               <button key={m} onClick={()=>setMode(m)}
-                style={{flex:1,background:mode===m?"#0c2e35":"#071418",border:`1px solid ${mode===m?"#0e7a8c":"#0a2028"}`,borderRadius:9,padding:"8px",fontSize:12,color:mode===m?"#2dcfe8":"#2a4060",cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontWeight:mode===m?600:400}}>
+                style={{flex:1,background:mode===m?"#0c2e35":"#071418",border:`1px solid ${mode===m?"#0e7a8c":"#0a2028"}`,borderRadius:9,padding:"8px",fontSize:12,color:mode===m?"#2dcfe8":"#6f82a0",cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontWeight:mode===m?600:400}}>
                 {l}
               </button>
             ))}
@@ -5908,11 +5908,11 @@ function InvModal({item,inventory,saveInv,purchases=[],savePurchases,storeId=nul
               <div onClick={()=>photoRef.current?.click()}
                 style={{width:90,height:90,borderRadius:12,background:"#050f12",border:`2px dashed ${f.photo?"#0e7a8c":"#0a2028"}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",position:"relative"}}>
                 {f.photo?<img src={f.photo} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
-                  :<div style={{textAlign:"center"}}><div style={{fontSize:28}}>📷</div><div style={{fontSize:9,color:"#1a4a50",marginTop:2}}>Foto del producto</div></div>}
+                  :<div style={{textAlign:"center"}}><div style={{fontSize:28}}>📷</div><div style={{fontSize:9,color:"#6b8c95",marginTop:2}}>Foto del producto</div></div>}
                 {f.photo&&<button onClick={e=>{e.stopPropagation();sf("photo",null);}} style={{position:"absolute",top:3,right:3,width:18,height:18,borderRadius:"50%",background:"#2a0c0c",border:"none",color:"#f87171",fontSize:10,cursor:"pointer"}}>✕</button>}
               </div>
               <input ref={photoRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={e=>handlePhoto(e,"main")}/>
-              <div style={{fontSize:9,color:"#1a4a50",textAlign:"center",marginTop:3}}>📷 Toca para foto</div>
+              <div style={{fontSize:9,color:"#6b8c95",textAlign:"center",marginTop:3}}>📷 Toca para foto</div>
             </div>
             <div style={{flex:1,display:"flex",flexDirection:"column",gap:9}}>
               <div className="field"><label>Nombre del producto</label>
@@ -5923,7 +5923,7 @@ function InvModal({item,inventory,saveInv,purchases=[],savePurchases,storeId=nul
                 <div className="field" style={{flex:1}}><label>Categoría</label>
                   <select value={f.cat} onChange={e=>sf("cat",e.target.value)}>{CATS.map(c=><option key={c}>{c}</option>)}</select>
                 </div>
-                <label style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:"#2a4060",marginBottom:3,cursor:"pointer",whiteSpace:"nowrap"}}>
+                <label style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:"#6f82a0",marginBottom:3,cursor:"pointer",whiteSpace:"nowrap"}}>
                   <input type="checkbox" checked={f.isService} onChange={e=>sf("isService",e.target.checked)}/> Servicio
                 </label>
               </div>
@@ -5941,10 +5941,10 @@ function InvModal({item,inventory,saveInv,purchases=[],savePurchases,storeId=nul
 
           {f.cost!==""&&f.price!==""&&(
             <div style={{background:"#040d10",border:"1px solid #0a2028",borderRadius:10,padding:"9px 14px",display:"flex",gap:14,flexWrap:"wrap",marginBottom:12}}>
-              <div><div style={{fontSize:9,color:"#1e3050"}}>BS</div><div style={{fontFamily:"'JetBrains Mono',monospace",color:"#fbbf24",fontSize:12}}>{fmtBs(Number(f.price),rate)}</div></div>
-              <div><div style={{fontSize:9,color:"#1e3050"}}>GANANCIA</div><div style={{fontFamily:"'JetBrains Mono',monospace",color:"#34d399",fontSize:12}}>{fmtUSD(g)}</div></div>
-              <div><div style={{fontSize:9,color:"#1e3050"}}>MARGEN</div><div style={{fontFamily:"'JetBrains Mono',monospace",color:"#a78bfa",fontSize:12}}>{f.price>0?(((f.price-f.cost)/f.price)*100).toFixed(1):0}%</div></div>
-              {!f.isService&&allSerials.length>0&&<div><div style={{fontSize:9,color:"#1e3050"}}>INV. TOTAL</div><div style={{fontFamily:"'JetBrains Mono',monospace",color:"#2dcfe8",fontSize:12}}>{fmtUSD(f.cost*allSerials.length)}</div></div>}
+              <div><div style={{fontSize:9,color:"#6b7e9b"}}>BS</div><div style={{fontFamily:"'JetBrains Mono',monospace",color:"#fbbf24",fontSize:12}}>{fmtBs(Number(f.price),rate)}</div></div>
+              <div><div style={{fontSize:9,color:"#6b7e9b"}}>GANANCIA</div><div style={{fontFamily:"'JetBrains Mono',monospace",color:"#34d399",fontSize:12}}>{fmtUSD(g)}</div></div>
+              <div><div style={{fontSize:9,color:"#6b7e9b"}}>MARGEN</div><div style={{fontFamily:"'JetBrains Mono',monospace",color:"#a78bfa",fontSize:12}}>{f.price>0?(((f.price-f.cost)/f.price)*100).toFixed(1):0}%</div></div>
+              {!f.isService&&allSerials.length>0&&<div><div style={{fontSize:9,color:"#6b7e9b"}}>INV. TOTAL</div><div style={{fontFamily:"'JetBrains Mono',monospace",color:"#2dcfe8",fontSize:12}}>{fmtUSD(f.cost*allSerials.length)}</div></div>}
             </div>
           )}
 
@@ -5960,7 +5960,7 @@ function InvModal({item,inventory,saveInv,purchases=[],savePurchases,storeId=nul
                 <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>
                   {realSerials.map(ser=>(
                     <span key={ser} style={{background:"#071c22",border:"1px solid #0e3040",borderRadius:6,padding:"2px 8px",fontSize:10,color:"#4a9ab0",fontFamily:"'JetBrains Mono',monospace",display:"flex",alignItems:"center",gap:4}}>
-                      {ser}{item&&<button onClick={()=>removeSer(ser)} style={{background:"transparent",border:"none",color:"#2a5060",cursor:"pointer",padding:0,fontSize:10}}>✕</button>}
+                      {ser}{item&&<button onClick={()=>removeSer(ser)} style={{background:"transparent",border:"none",color:"#78939f",cursor:"pointer",padding:0,fontSize:10}}>✕</button>}
                     </span>
                   ))}
                   {autoCount>0&&(
@@ -5992,9 +5992,9 @@ function InvModal({item,inventory,saveInv,purchases=[],savePurchases,storeId=nul
                 <span style={{fontSize:10,color:"#fbbf24"}}>⚠ Avisar reposición cuando queden</span>
                 <input type="number" min="0" step="1" value={f.minStock} onChange={e=>sf("minStock",e.target.value)}
                   style={{width:60,background:"#050e10",border:"1px solid #0d2a30",borderRadius:6,padding:"4px 8px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:12,outline:"none"}}/>
-                <span style={{fontSize:10,color:"#1a4a50"}}>unidades o menos</span>
+                <span style={{fontSize:10,color:"#6b8c95"}}>unidades o menos</span>
               </div>
-              <div style={{fontSize:10,color:"#1a4a50",marginTop:6}}>Usa códigos para monturas con serial; usa cantidad para lentes de contacto, accesorios, etc.</div>
+              <div style={{fontSize:10,color:"#6b8c95",marginTop:6}}>Usa códigos para monturas con serial; usa cantidad para lentes de contacto, accesorios, etc.</div>
             </div>
           )}
           {err&&<div style={{background:"#2a0c0c",border:"1px solid #5a1a1a",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#f87171",marginBottom:10}}>⚠️ {err}</div>}
@@ -6007,7 +6007,7 @@ function InvModal({item,inventory,saveInv,purchases=[],savePurchases,storeId=nul
         </>)}
 
         {mode==="fast"&&!item&&(<>
-          <div style={{fontSize:11,color:"#1a4a50",marginBottom:12,lineHeight:1.5}}>Toma foto del recibo del distribuidor y el sistema carga la mercancía, o agrégala a mano.</div>
+          <div style={{fontSize:11,color:"#6b8c95",marginBottom:12,lineHeight:1.5}}>Toma foto del recibo del distribuidor y el sistema carga la mercancía, o agrégala a mano.</div>
 
           {/* Escanear recibo del distribuidor — cámara o galería */}
           <input ref={scanRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={scanReceipt}/>
@@ -6022,7 +6022,7 @@ function InvModal({item,inventory,saveInv,purchases=[],savePurchases,storeId=nul
                 style={{flex:1,justifyContent:"center",background:"linear-gradient(135deg,#0a5a6a,#0e7a8c)"}}>🖼️ Galería</button>
             </div>
           )}
-          <div style={{fontSize:10,color:"#1a4a50",textAlign:"center",marginBottom:12}}>La cámara toma 1 foto; con <strong>Galería</strong> puedes elegir varias páginas a la vez. O agrégalo a mano abajo.</div>
+          <div style={{fontSize:10,color:"#6b8c95",textAlign:"center",marginBottom:12}}>La cámara toma 1 foto; con <strong>Galería</strong> puedes elegir varias páginas a la vez. O agrégalo a mano abajo.</div>
 
           {/* Importar lista pegada */}
           <button className="btn-g" onClick={()=>setShowImport(v=>!v)} style={{width:"100%",justifyContent:"center",fontSize:12,marginBottom:showImport?8:12}}>
@@ -6030,7 +6030,7 @@ function InvModal({item,inventory,saveInv,purchases=[],savePurchases,storeId=nul
           </button>
           {showImport && (
             <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:10,padding:"10px 12px",marginBottom:12}}>
-              <div style={{fontSize:10,color:"#1a4a50",marginBottom:6,lineHeight:1.5}}>Una línea por producto, con este formato:<br/><span style={{fontFamily:"'JetBrains Mono',monospace",color:"#4a9ab0"}}>nombre | costo | cantidad | precio</span><br/>El precio es opcional (lo puedes poner después con "precio rápido").</div>
+              <div style={{fontSize:10,color:"#6b8c95",marginBottom:6,lineHeight:1.5}}>Una línea por producto, con este formato:<br/><span style={{fontFamily:"'JetBrains Mono',monospace",color:"#4a9ab0"}}>nombre | costo | cantidad | precio</span><br/>El precio es opcional (lo puedes poner después con "precio rápido").</div>
               <textarea value={importTxt} onChange={e=>setImportTxt(e.target.value)} rows={6}
                 placeholder={"SEEY6703C2 54-18 | 30 | 1\nMontura Acetato | 22 | 44\nZIBA variadas | 20 | 59"}
                 style={{background:"#050e10",border:"1px solid #0d2a30",borderRadius:8,padding:"9px 12px",color:"#e2e8f4",fontFamily:"'JetBrains Mono',monospace",fontSize:11,resize:"vertical",outline:"none",width:"100%"}}/>
@@ -6051,7 +6051,7 @@ function InvModal({item,inventory,saveInv,purchases=[],savePurchases,storeId=nul
           {/* Precio rápido: fija el precio de venta de todas las filas desde el costo */}
           <div style={{background:"#050f12",border:"1px solid #0a2028",borderRadius:10,padding:"9px 12px",marginBottom:12,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
             <span style={{fontSize:11,color:"#2dcfe8",fontWeight:600}}>💲 Precio de venta rápido:</span>
-            <span style={{fontSize:11,color:"#1a4a50"}}>costo</span>
+            <span style={{fontSize:11,color:"#6b8c95"}}>costo</span>
             <select value={pmMode} onChange={e=>setPmMode(e.target.value)}
               style={{background:"#050e10",border:"1px solid #0d2a30",borderRadius:6,padding:"4px 6px",color:"#e2e8f4",fontFamily:"'Outfit',sans-serif",fontSize:12,outline:"none"}}>
               <option value="x">× (multiplicar)</option>
@@ -6094,7 +6094,7 @@ function InvModal({item,inventory,saveInv,purchases=[],savePurchases,storeId=nul
                       <input type="number" min="0" step="1" placeholder="0" value={it.qty} onChange={e=>sfi(it.id,"qty",e.target.value)} style={{padding:"6px 9px",fontSize:12}}/>
                       {units>0&&<span style={{fontSize:9,color:"#34d399"}}>{units} pz en total</span>}</div>
                   </div>
-                  <button onClick={()=>setFastItems(items=>items.filter(x=>x.id!==it.id))} style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer",fontSize:18,padding:"2px 4px",flexShrink:0}}>×</button>
+                  <button onClick={()=>setFastItems(items=>items.filter(x=>x.id!==it.id))} style={{background:"transparent",border:"none",color:"#6f82a0",cursor:"pointer",fontSize:18,padding:"2px 4px",flexShrink:0}}>×</button>
                 </div>
               </div>
             );})}
@@ -6110,11 +6110,11 @@ function InvModal({item,inventory,saveInv,purchases=[],savePurchases,storeId=nul
             return (
               <div style={{background:"#040d10",border:"1px solid #0a2028",borderRadius:10,padding:"10px 14px",marginTop:10}}>
                 <div style={{display:"flex",gap:12,flexWrap:"wrap",justifyContent:"space-around"}}>
-                  <div style={{textAlign:"center"}}><div style={{fontSize:9,color:"#1e3050"}}>INVERTIDO (a recuperar)</div><div style={{fontFamily:"'JetBrains Mono',monospace",color:"#60a5fa",fontSize:14,fontWeight:700}}>{fmtUSD(t.cost)}</div></div>
-                  <div style={{textAlign:"center"}}><div style={{fontSize:9,color:"#1e3050"}}>SI VENDES TODO</div><div style={{fontFamily:"'JetBrains Mono',monospace",color:"#34d399",fontSize:14,fontWeight:700}}>{fmtUSD(t.retail)}</div></div>
+                  <div style={{textAlign:"center"}}><div style={{fontSize:9,color:"#6b7e9b"}}>INVERTIDO (a recuperar)</div><div style={{fontFamily:"'JetBrains Mono',monospace",color:"#60a5fa",fontSize:14,fontWeight:700}}>{fmtUSD(t.cost)}</div></div>
+                  <div style={{textAlign:"center"}}><div style={{fontSize:9,color:"#6b7e9b"}}>SI VENDES TODO</div><div style={{fontFamily:"'JetBrains Mono',monospace",color:"#34d399",fontSize:14,fontWeight:700}}>{fmtUSD(t.retail)}</div></div>
                   <div style={{textAlign:"center"}}><div style={{fontSize:9,color:"#a78bfa"}}>GANANCIA</div><div style={{fontFamily:"'JetBrains Mono',monospace",color:"#a78bfa",fontSize:14,fontWeight:700}}>{fmtUSD(t.retail-t.cost)}</div></div>
                 </div>
-                <div style={{fontSize:10,color:"#1a4a50",marginTop:6,textAlign:"center"}}>{t.u} unidad(es) · los {fmtUSD(t.cost)} invertidos se reinvierten; la ganancia es lo tuyo.</div>
+                <div style={{fontSize:10,color:"#6b8c95",marginTop:6,textAlign:"center"}}>{t.u} unidad(es) · los {fmtUSD(t.cost)} invertidos se reinvierten; la ganancia es lo tuyo.</div>
               </div>
             );
           })()}
@@ -6140,21 +6140,21 @@ function DayModal({date,sales,onClose,rate}) {
       <div className="modal" style={{maxWidth:580}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
           <div style={{fontSize:17,fontWeight:700,color:"#fff"}}>{new Date(date+"T12:00").toLocaleDateString("es-MX",{weekday:"long",day:"numeric",month:"long"})}</div>
-          <button style={{background:"transparent",border:"none",color:"#2a4060",cursor:"pointer"}} onClick={onClose}><IClose/></button>
+          <button style={{background:"transparent",border:"none",color:"#6f82a0",cursor:"pointer"}} onClick={onClose}><IClose/></button>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:16}}>
           <div className="card-sm" style={{textAlign:"center"}}>
-            <div style={{fontSize:10,color:"#1e3050",marginBottom:3}}>INGRESOS</div>
+            <div style={{fontSize:10,color:"#6b7e9b",marginBottom:3}}>INGRESOS</div>
             <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,color:"#60a5fa",fontWeight:600}}>{fmtUSD(rev)}</div>
             <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:1}}>{fmtBs(rev,rate)}</div>
           </div>
           <div className="card-sm" style={{textAlign:"center"}}>
-            <div style={{fontSize:10,color:"#1e3050",marginBottom:3}}>GANANCIA</div>
+            <div style={{fontSize:10,color:"#6b7e9b",marginBottom:3}}>GANANCIA</div>
             <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:14,color:"#34d399",fontWeight:600}}>{fmtUSD(prof)}</div>
             <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:"#fbbf24",marginTop:1}}>{fmtBs(prof,rate)}</div>
           </div>
           <div className="card-sm" style={{textAlign:"center"}}>
-            <div style={{fontSize:10,color:"#1e3050",marginBottom:3}}>ARTÍCULOS</div>
+            <div style={{fontSize:10,color:"#6b7e9b",marginBottom:3}}>ARTÍCULOS</div>
             <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,color:"#a78bfa",fontWeight:600}}>{items}</div>
           </div>
         </div>
@@ -6165,9 +6165,9 @@ function DayModal({date,sales,onClose,rate}) {
               const who=PROFILES.find(p=>p.id===s.registeredBy);
               return (
                 <tr key={s.id}>
-                  <td><div style={{color:"#b0c0d8",fontSize:13}}>{s.productName}</div>{s.note&&<div style={{fontSize:11,color:"#1e3050"}}>{s.note}</div>}</td>
+                  <td><div style={{color:"#b0c0d8",fontSize:13}}>{s.productName}</div>{s.note&&<div style={{fontSize:11,color:"#6b7e9b"}}>{s.note}</div>}</td>
                   <td style={{textAlign:"center",color:"#3a5070"}}>{s.qty}</td>
-                  <td style={{fontSize:10,fontFamily:"'JetBrains Mono',monospace",color:"#2a5060"}}>
+                  <td style={{fontSize:10,fontFamily:"'JetBrains Mono',monospace",color:"#78939f"}}>
                     {fmtSerials(s.serials)}
                   </td>
                   <td style={{textAlign:"center"}}>{who?<span style={{fontSize:11,color:who.color,background:`${who.color}15`,padding:"2px 8px",borderRadius:20}}>{who.name}</span>:"-"}</td>
