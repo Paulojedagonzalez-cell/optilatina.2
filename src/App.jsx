@@ -542,6 +542,8 @@ const canSeeFinance   = p => isSocio(p) || isAccountant(p);
 const canEditFinance  = p => isOwner(p) || isAccountant(p);
 // Edita inventario: precios y subir mercancía. Dueño y René. La contadora NO.
 const canEditInventory= p => isOwner(p) || p?.id === "rene";
+// Edita el % de comisión de los trabajadores: René y la contadora (y el dueño).
+const canEditCommission= p => isSocio(p) || isAccountant(p);
 
 // Logo components — SVG inline (no depende de archivos externos)
 const LOGO_B64 = "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";
@@ -1952,7 +1954,7 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
         {tab==="dash"     && <DashTab    {...{todayRev,todayProf,todayItems,weekRev,weekProf,todayAbonos,weekAbonos,todayApartProf,weekApartProf,totalInvested,totalRetail,inventory,byDate,sortedDates,lowStock,setDD,rate,storeFilter,storeProfiles,isMobile,deltas,orders,fixedExpenses,expenses,saveOrders,saveInv,sales,saveSal,profile}} />}
         {tab==="stats"    && <StatsTab   {...{sales:filteredSales,orders,expenses,rate,isMobile,profile,fixedExpenses}} />}
         {tab==="week"     && <WeekTab    {...{byDate,sortedDates,weekRev,weekProf,ws,setDD,rate,dynProfiles,isMobile}} />}
-        {tab==="finanzas" && <FinanzasTab {...{sales:filteredSales,orders,expenses,investments,inventory,rate,saveExpenses,saveInvestments,profile,isMobile,fixedExpenses,saveFixedExpenses}} />}
+        {tab==="finanzas" && <FinanzasTab {...{sales:filteredSales,allSales:sales,orders,expenses,investments,inventory,rate,saveExpenses,saveInvestments,profile,isMobile,fixedExpenses,saveFixedExpenses,dynProfiles,saveDynProfiles}} />}
         {tab==="apart"    && <ApartadosTab {...{orders,saveOrders,rate,profile,isMobile,inventory,saveInv,sales,saveSal}} />}
         {tab==="caja"     && <CajaTab    {...{sales:filteredSales,deposits,saveDeposits,rate,payments,isMobile,orders}} />}
         {tab==="cierre"   && <CierreTab {...{sales,expenses,orders,rate,dynProfiles,profile}} />}
@@ -1998,9 +2000,11 @@ function AdminView({ profile, inventory, sales, rate, deposits, expenses, invest
 }
 
 // ── Finanzas Tab ──────────────────────────────────────────────────────────────
-function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate, saveExpenses, saveInvestments, profile, isMobile, fixedExpenses=DEFAULT_FIXED, saveFixedExpenses }) {
+function FinanzasTab({ sales, allSales, orders=[], expenses, investments, inventory, rate, saveExpenses, saveInvestments, profile, isMobile, fixedExpenses=DEFAULT_FIXED, saveFixedExpenses, dynProfiles=[], saveDynProfiles }) {
   // René ve las finanzas pero NO edita gastos fijos; dueño y contadora SÍ.
   const editable = canEditFinance(profile);
+  const editCom  = canEditCommission(profile);  // René y contadora editan el % de comisión
+  const [comExpand, setComExpand] = useState(null); // id del trabajador con historial abierto
   const [viewMonth, setViewMonth] = useState(today().slice(0,7));
   const [showExpForm, setShowExpForm] = useState(false);
   const [editingExpId, setEditingExpId] = useState(null);
@@ -2067,6 +2071,25 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
   //  · Neto  = lo que queda después de los gastos fijos
   const margenBruto = mRevenue>0 ? (mGross/mRevenue*100) : 0;
   const margenNeto  = mRevenue>0 ? (mNet/mRevenue*100)  : 0;
+
+  // ── Comisiones de los trabajadores (del mes) ──
+  // Cada trabajador (perfil de tienda) tiene su % editable; la comisión acumulada
+  // es sus ventas del mes × su %. Oculto a los trabajadores (lo ven socios/contadora).
+  const comSalesAll = allSales || sales;
+  const workers = (dynProfiles||[]).filter(p=>p.role==="store");
+  const comData = workers.map(w=>{
+    const ws = comSalesAll.filter(s=>(s.registeredBy===w.id||s.storeId===w.id) && (s.date||"").slice(0,7)===viewMonth);
+    const vendido = ws.reduce((s,v)=>s+(v.total||0),0);
+    const pct = w.commissionPct ?? COMMISSION_DEFAULT;
+    return { w, ventas:ws, vendido, pct, comision: vendido*pct/100 };
+  });
+  const comTotal = comData.reduce((s,c)=>s+c.comision,0);
+  const setComPct = async (wid, val) => {
+    if (!saveDynProfiles) return;
+    const pct = Math.max(0, Math.min(100, Number(val)||0));
+    try { await saveDynProfiles(dynProfiles.map(p=>p.id===wid?{...p,commissionPct:pct}:p)); }
+    catch (e) { console.error("Error guardando comisión:", e); alert("No se pudo guardar el %. Revisa tu conexión."); }
+  };
 
   const allMonths = [...new Set([
     ...sales.map(s=>s.date.slice(0,7)),
@@ -2305,6 +2328,64 @@ function FinanzasTab({ sales, orders=[], expenses, investments, inventory, rate,
           </div>
         </div>
       </div>
+
+      {/* ── Comisiones de los trabajadores — socios y contadora (no los trabajadores) ── */}
+      {canSeeFinance(profile) && workers.length>0 && (
+        <div className="card">
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:8,marginBottom:4}}>
+            <div style={{fontSize:14,fontWeight:800,color:"#e2e8f4"}}>🧑‍💼 Comisiones — {viewMonth}</div>
+            <div style={{fontSize:12,fontFamily:"'JetBrains Mono',monospace",color:"#e0a63a"}}>Total: <b>{fmtUSD(comTotal)}</b></div>
+          </div>
+          <div style={{fontSize:11,color:"#6b8c95",marginBottom:14}}>% por venta editable por trabajador (normal 3%, jornada 7%). {editCom ? "Toca el % para cambiarlo." : "Solo lectura."} Los trabajadores no ven esto.</div>
+          <div style={{display:"flex",flexDirection:"column",gap:9}}>
+            {comData.map(({w,ventas,vendido,pct,comision})=>(
+              <div key={w.id} style={{background:"#071418",border:"1px solid #12303a",borderRadius:12,padding:isMobile?"11px":"13px"}}>
+                <div style={{display:"flex",flexWrap:"wrap",gap:10,justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{minWidth:0}}>
+                    <div style={{fontSize:14,fontWeight:700,color:"#e2e8f4"}}>🏪 {w.storeName||w.name||"Trabajador"}{w.address?` · ${w.address}`:""}</div>
+                    <div style={{fontSize:11,color:"#6b8c95",marginTop:2}}>Vendió {fmtUSD(vendido)} · {ventas.length} {ventas.length===1?"venta":"ventas"} este mes</div>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+                    {/* % editable */}
+                    <div style={{textAlign:"center"}}>
+                      <div style={{fontSize:9,color:"#6b8c95",textTransform:"uppercase",letterSpacing:".05em",marginBottom:3}}>% comisión</div>
+                      {editCom
+                        ? <input type="number" min="0" max="100" step="0.5" defaultValue={pct}
+                            onBlur={e=>{ const v=Number(e.target.value); if(v!==pct) setComPct(w.id, v); }}
+                            style={{width:64,background:"#050f12",border:"1px solid #1a5060",borderRadius:8,padding:"6px",color:"#2dcfe8",fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:700,textAlign:"center"}}/>
+                        : <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:16,fontWeight:700,color:"#2dcfe8"}}>{pct}%</div>}
+                    </div>
+                    {/* Comisión acumulada */}
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontSize:9,color:"#6b8c95",textTransform:"uppercase",letterSpacing:".05em",marginBottom:3}}>Le toca</div>
+                      <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:20,fontWeight:800,color:"#34d399"}}>{fmtUSD(comision)}</div>
+                      <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:"#fbbf24"}}>{fmtBs(comision,rate)}</div>
+                    </div>
+                  </div>
+                </div>
+                {/* Historial de ventas (desplegable) */}
+                <button onClick={()=>setComExpand(comExpand===w.id?null:w.id)}
+                  style={{marginTop:10,background:"transparent",border:"1px solid #12303a",borderRadius:8,padding:"6px 10px",color:"#7aa9b8",fontSize:11,cursor:"pointer",fontFamily:"'Outfit',sans-serif",width:"100%",textAlign:"left"}}>
+                  {comExpand===w.id ? "▾ Ocultar" : "▸ Ver"} historial de ventas ({ventas.length})
+                </button>
+                {comExpand===w.id && (
+                  <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:4,maxHeight:240,overflow:"auto"}}>
+                    {ventas.length===0
+                      ? <div style={{fontSize:12,color:"#6b8c95",padding:"6px 0"}}>Sin ventas este mes.</div>
+                      : ventas.slice().sort((a,b)=>(b.date||"").localeCompare(a.date||"")).map(s=>(
+                          <div key={s.id} style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:12,padding:"6px 8px",background:"#040d10",borderRadius:7}}>
+                            <span style={{color:"#9abac8",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.date} · {s.productName||s.note||"Venta"}</span>
+                            <span style={{fontFamily:"'JetBrains Mono',monospace",color:"#2dcfe8",whiteSpace:"nowrap"}}>{fmtUSD(s.total)} <span style={{color:"#34d399"}}>→ {fmtUSD((s.total||0)*pct/100)}</span></span>
+                          </div>
+                        ))
+                    }
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Gastos del mes (fijos + tienda) ── */}
       <div className="card">
