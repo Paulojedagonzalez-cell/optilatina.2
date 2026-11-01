@@ -11,3 +11,5 @@ backup-firestore-*.json
 .claude/
 
 reset-dia1.mjs
+
+seed-contadora.mjs
